@@ -1,9 +1,10 @@
 use std::str;
 use std::convert::From;
+use std::fmt;
 use super::section::Section;
 
 #[repr(u8)]
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum Discipline {
 	Meteorological = 0,
 	Hydrological = 1,
@@ -36,6 +37,20 @@ impl From<u8> for Discipline {
 			10 => Discipline::Oceanographic,
 			_ => Discipline::Missing,
 		}
+	}
+}
+
+impl fmt::Display for Discipline {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let description = match self {
+			Discipline::Meteorological => "meteorological",
+			Discipline::Hydrological => "hydrological",
+			Discipline::LandSurface => "land surface",
+			Discipline::Space => "space",
+			Discipline::Oceanographic => "oceanographic",
+			Discipline::Missing => "missing",
+		};
+		write!(f, "{}", description)
 	}
 }
 
