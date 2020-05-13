@@ -9,13 +9,16 @@ enum Shape {
     Rectangle = 0,
     #[desc = "triangle"]
     Triangle = 1,
-    #[desc = "circle"]
     Circle = 2,
 }
 
 #[test]
 fn display_description() {
-    let r = Shape::Rectangle;
-    let desc = r.to_string();
-    assert_eq!(desc, "test");
+    let rect = Shape::Rectangle;
+    let rect_desc = rect.to_string();
+    assert_eq!(rect_desc, "rectangle");
+
+    let circle = Shape::Circle;
+    let circle_desc = circle.to_string();
+    assert_eq!(circle_desc, "Circle");
 }

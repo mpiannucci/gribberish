@@ -19,7 +19,7 @@ pub fn display_description(input: TokenStream) -> TokenStream {
         // Hand the output tokens back to the compiler
         TokenStream::from(expanded)
     } else {
-        panic!("Only Enums are supported!");
+        panic!("Only Enums are supported for DisplayDescription!");
     }
 }
 
@@ -27,14 +27,22 @@ fn generate_display_impl(enum_data: &ItemEnum) -> TokenStream {
     let name: &syn::Ident = &enum_data.ident;
     let variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma> = &enum_data.variants;
     let variant_iter = variants.into_iter().map(|v| v.ident.clone());
-    
+    let variant_descriptions = variants
+        .into_iter()
+        .map(|v| {
+            let desc_attribute = v.attrs.iter().find(|a| a.path.is_ident("desc"));
+            match desc_attribute {
+                Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
+                _ => v.ident.to_string(),
+            }
+        });
 
     (quote! {
         impl std::fmt::Display for #name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 let description = match self {
                     #(
-                        #name::#variant_iter => "test",
+                        #name::#variant_iter => #variant_descriptions,
                     )*
                 };
                 write!(f, "{}", description)
