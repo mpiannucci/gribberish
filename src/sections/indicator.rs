@@ -1,10 +1,13 @@
+extern crate grib_data_derive;
+
 use std::str;
 use std::convert::From;
 use std::fmt;
+use grib_data_derive::DisplayDescription;
 use super::section::Section;
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription)]
 pub enum Discipline {
 	Meteorological = 0,
 	Hydrological = 1,
@@ -12,19 +15,6 @@ pub enum Discipline {
 	Space = 3,
 	Oceanographic = 10,
 	Missing = 255,
-}
-
-impl Discipline {
-	pub fn description(&self) -> &'static str {
-		match self {
-			Discipline::Meteorological => "meteorological",
-			Discipline::Hydrological => "hydrological",
-			Discipline::LandSurface => "land surface",
-			Discipline::Space => "space",
-			Discipline::Oceanographic => "oceanographic",
-			Discipline::Missing => "missing",
-		}
-	}
 }
 
 impl From<u8> for Discipline {
@@ -37,20 +27,6 @@ impl From<u8> for Discipline {
 			10 => Discipline::Oceanographic,
 			_ => Discipline::Missing,
 		}
-	}
-}
-
-impl fmt::Display for Discipline {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let description = match self {
-			Discipline::Meteorological => "meteorological",
-			Discipline::Hydrological => "hydrological",
-			Discipline::LandSurface => "land surface",
-			Discipline::Space => "space",
-			Discipline::Oceanographic => "oceanographic",
-			Discipline::Missing => "missing",
-		};
-		write!(f, "{}", description)
 	}
 }
 

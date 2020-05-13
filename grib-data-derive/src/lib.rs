@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Item, ItemEnum, DeriveInput};
 
-#[proc_macro_derive(DisplayDescription, attributes(desc))]
+#[proc_macro_derive(DisplayDescription, attributes(description))]
 pub fn display_description(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let input = parse_macro_input!(input as DeriveInput);
@@ -13,8 +13,6 @@ pub fn display_description(input: TokenStream) -> TokenStream {
     if let Item::Enum(e) = item {
         // Build the output, possibly using quasi-quotation
         let expanded = generate_display_impl(&e);
-
-        println!("{}", expanded);
 
         // Hand the output tokens back to the compiler
         TokenStream::from(expanded)
@@ -30,7 +28,7 @@ fn generate_display_impl(enum_data: &ItemEnum) -> TokenStream {
     let variant_descriptions = variants
         .into_iter()
         .map(|v| {
-            let desc_attribute = v.attrs.iter().find(|a| a.path.is_ident("desc"));
+            let desc_attribute = v.attrs.iter().find(|a| a.path.is_ident("description"));
             match desc_attribute {
                 Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
                 _ => v.ident.to_string(),

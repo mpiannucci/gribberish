@@ -5,9 +5,9 @@ use grib_data_derive::DisplayDescription;
 
 #[derive(DisplayDescription)]
 enum Shape {
-    #[desc = "rectangle"]
+    #[description = "rectangle"]
     Rectangle = 0,
-    #[desc = "triangle"]
+    #[description = "triangle"]
     Triangle = 1,
     Circle = 2,
 }

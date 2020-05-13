@@ -1,13 +1,19 @@
-use super::section::{Section, section_length};
+extern crate grib_data_derive;
+
 use std::convert::From;
 use std::fmt;
+use grib_data_derive::DisplayDescription;
+use super::section::{Section, section_length};
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription)]
 pub enum ReferenceDataSignificance {
     Analysis = 0,
+    #[description = "start of forecast"]
     StartOfForecast = 1,
+    #[description = "verifying time of forecast"]
     VerifyingTimeOfForecast = 2, 
+    #[description = "observation time"]
     ObservationTime = 3,
     Missing = 255,
 }
@@ -21,19 +27,6 @@ impl From<u8> for ReferenceDataSignificance {
             3 => ReferenceDataSignificance::ObservationTime,
             _ => ReferenceDataSignificance::Missing,
         }
-    }
-}
-
-impl fmt::Display for ReferenceDataSignificance {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let description = match self {
-            ReferenceDataSignificance::Analysis => "analysis",
-            ReferenceDataSignificance::StartOfForecast => "start of forecast",
-            ReferenceDataSignificance::VerifyingTimeOfForecast => "verifying time of forecast",
-            ReferenceDataSignificance::ObservationTime => "observation time",
-            _ => "missing",
-        };
-        write!(f, "{}", description)
     }
 }
 
