@@ -1,13 +1,11 @@
 extern crate grib_data_derive;
 
 use std::str;
-use std::convert::From;
-use std::fmt;
-use grib_data_derive::DisplayDescription;
+use grib_data_derive::{DisplayDescription, FromValue};
 use super::section::Section;
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum Discipline {
 	Meteorological = 0,
 	Hydrological = 1,
@@ -15,19 +13,6 @@ pub enum Discipline {
 	Space = 3,
 	Oceanographic = 10,
 	Missing = 255,
-}
-
-impl From<u8> for Discipline {
-	fn from(value: u8) -> Self {
-		match value {
-			0 => Discipline::Meteorological,
-			1 => Discipline::Hydrological,
-			2 => Discipline::LandSurface,
-			3 => Discipline::Space,
-			10 => Discipline::Oceanographic,
-			_ => Discipline::Missing,
-		}
-	}
 }
 
 pub struct IndicatorSection<'a>{

@@ -59,8 +59,6 @@ pub fn from_value(input: TokenStream) -> TokenStream {
         // Build the output, possibly using quasi-quotation
         let expanded = generate_from_value_impl(&e);
 
-        println!("{}", expanded);
-
         // Hand the output tokens back to the compiler
         TokenStream::from(expanded)
     } else {

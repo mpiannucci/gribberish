@@ -1,12 +1,10 @@
 extern crate grib_data_derive;
 
-use std::convert::From;
-use std::fmt;
-use grib_data_derive::DisplayDescription;
+use grib_data_derive::{DisplayDescription, FromValue};
 use super::section::{Section, section_length};
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum ReferenceDataSignificance {
     Analysis = 0,
     #[description = "start of forecast"]
@@ -16,18 +14,6 @@ pub enum ReferenceDataSignificance {
     #[description = "observation time"]
     ObservationTime = 3,
     Missing = 255,
-}
-
-impl From<u8> for ReferenceDataSignificance {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => ReferenceDataSignificance::Analysis,
-            1 => ReferenceDataSignificance::StartOfForecast,
-            2 => ReferenceDataSignificance::VerifyingTimeOfForecast,
-            3 => ReferenceDataSignificance::ObservationTime,
-            _ => ReferenceDataSignificance::Missing,
-        }
-    }
 }
 
 pub struct IdentificationSection<'a>{
