@@ -25,6 +25,12 @@ fn shape_display_description() {
 
 #[test]
 fn shape_from_value() {
+    let rectangle: Shape = 0.into();
+    assert_eq!(rectangle, Shape::Rectangle);
+
     let triangle: Shape = 1u8.into();
     assert_eq!(triangle, Shape::Triangle);
+
+    let circle: Shape = 2u8.into();
+    assert_eq!(circle, Shape::Circle);
 }

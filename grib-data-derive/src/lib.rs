@@ -75,17 +75,13 @@ fn generate_from_value_impl(enum_data: &ItemEnum) -> TokenStream {
     let default_variant_name = variant_names.clone().last().clone().unwrap();
     let variant_values = variants.into_iter().map(|v| match &v.discriminant {
         Some((_, expr)) => match expr {
-            syn::Expr::Assign(ass  ) => if let syn::Expr::Lit(value) = &*ass.right {
-                match &value.lit {
-                    syn::Lit::Int(i) => i.base10_parse().unwrap_or(254),
-                    _ => 254u8,
-                }
-            } else{
-                254u8
+            syn::Expr::Lit(value) => match &value.lit {
+                syn::Lit::Int(i) => i.base10_parse().unwrap_or(254u8),
+                _ => 253u8,
             },
-            _ => 254u8
+            _ => 252u8
         },
-        None => 254u8,
+        None => 251u8,
     });
 
     (quote! {
