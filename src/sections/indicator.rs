@@ -2,7 +2,8 @@ extern crate grib_data_derive;
 
 use std::str;
 use grib_data_derive::{DisplayDescription, FromValue};
-use super::section::Section;
+use crate::utils::read_u64_from_bytes;
+use crate::sections::section::Section;
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -49,9 +50,7 @@ impl<'a> IndicatorSection<'a> {
 	}
 
 	pub fn total_length(&self) -> u64{
-		let mut l: [u8; 8] = std::default::Default::default();
-		l.copy_from_slice(&self.data[8..]); 
-		u64::from_be_bytes(l)
+		read_u64_from_bytes(self.data(), 8).unwrap_or(0) as u64
 	}
 }
 
