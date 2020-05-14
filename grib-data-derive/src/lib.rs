@@ -31,7 +31,7 @@ fn generate_display_impl(enum_data: &ItemEnum) -> TokenStream {
             let desc_attribute = v.attrs.iter().find(|a| a.path.is_ident("description"));
             match desc_attribute {
                 Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
-                _ => v.ident.to_string(),
+                _ => v.ident.to_string().to_lowercase(),
             }
         });
 

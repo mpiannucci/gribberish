@@ -16,6 +16,52 @@ pub enum ReferenceDataSignificance {
     Missing = 255,
 }
 
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+pub enum ProductionStatus {
+    Operational = 0,
+    #[description = "operational test"]
+    OperationalTest = 1,
+    Research = 2,
+    ReAnalysis = 3,
+    #[description = "TIGGE"]
+    TIGGE = 4,
+    #[description = "TIGGE test"]
+    TIGGETest = 5,
+    #[description = "s2s operational"]
+    S2SOperational = 6,
+    #[description = "s2s test"]
+    S2STest = 7,
+    #[description = "UERRA"]
+    UERRA = 8,
+    #[description = "UERRA test"]
+    UERRATest = 9,
+    Missing = 255,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+pub enum GribDataType {
+    Analysis = 0,
+    Forecast = 1,
+    #[description = "analysis and forecast"]
+    AnalysisAndForecast = 2,
+    #[description = "control forecast"]
+    ControlForecast = 3,
+    #[description = "perturbed forecast"]
+    PerturbedForecast = 4,
+    #[description = "control and perturbed forecast"]
+    ControlAndPerturbedForecast = 5, 
+    #[description = "processed satellite observations"]
+    ProcessedSatelliteObservations = 6,
+    #[description = "processed radar observations"]
+    ProcessedRadarObservations = 7,
+    #[description = "event probability"]
+    EventProbability = 8,
+    Experimental = 192,
+    Missing = 255,
+}
+
 pub struct IdentificationSection<'a>{
     data: &'a[u8],
 }
@@ -27,7 +73,6 @@ impl Section for IdentificationSection<'_> {
 }
 
 impl<'a> IdentificationSection<'a> {
-
     fn from_data(data: &[u8], offset: usize) -> IdentificationSection {
         let len = section_length(data, offset);
         IdentificationSection {
@@ -37,5 +82,13 @@ impl<'a> IdentificationSection<'a> {
  
     fn reference_date_significance(&self) -> ReferenceDataSignificance {
         self.data[11].into()
+    }
+
+    fn production_status(&self) -> ProductionStatus {
+        self.data[19].into()
+    }
+
+    fn data_type(&self) -> GribDataType {
+        self.data[20].into()
     }
 }
