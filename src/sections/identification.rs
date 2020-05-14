@@ -73,22 +73,22 @@ impl Section for IdentificationSection<'_> {
 }
 
 impl<'a> IdentificationSection<'a> {
-    fn from_data(data: &[u8], offset: usize) -> IdentificationSection {
+    pub fn from_data(data: &[u8], offset: usize) -> IdentificationSection {
         let len = section_length(data, offset);
         IdentificationSection {
             data: &data[offset .. offset+len],
         }
     }
  
-    fn reference_date_significance(&self) -> ReferenceDataSignificance {
+    pub fn reference_date_significance(&self) -> ReferenceDataSignificance {
         self.data[11].into()
     }
 
-    fn production_status(&self) -> ProductionStatus {
+    pub fn production_status(&self) -> ProductionStatus {
         self.data[19].into()
     }
 
-    fn data_type(&self) -> GribDataType {
+    pub fn data_type(&self) -> GribDataType {
         self.data[20].into()
     }
 }

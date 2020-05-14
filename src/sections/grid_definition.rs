@@ -39,30 +39,30 @@ impl Section for GridDefinitionSection<'_> {
 }
 
 impl<'a> GridDefinitionSection<'a> {
-    fn from_data(data: &[u8], offset: usize) -> GridDefinitionSection {
+    pub fn from_data(data: &[u8], offset: usize) -> GridDefinitionSection {
         let len = section_length(data, offset);
         GridDefinitionSection {
             data: &data[offset .. offset+len],
         }
     }
 
-    fn grid_source(&self) -> GridSource {
+    pub fn grid_source(&self) -> GridSource {
         self.data[5].into()
     }
 
-    fn data_point_count(&self) -> usize {
+    pub fn data_point_count(&self) -> usize {
         read_u32_from_bytes(self.data, 6).unwrap_or(0) as usize
     }
 
-    fn optional_defining_number(&self) -> u8 {
+    pub fn optional_defining_number(&self) -> u8 {
         self.data[10]
     }
 
-    fn defining_number_interpretation(&self) -> NumberListInterpretation {
+    pub fn defining_number_interpretation(&self) -> NumberListInterpretation {
         self.data[11].into()
     }
 
-    fn grid_definition_template_number(&self) -> u16 {
+    pub fn grid_definition_template_number(&self) -> u16 {
         read_u16_from_bytes(self.data, 12).unwrap_or(0)
     }
 }

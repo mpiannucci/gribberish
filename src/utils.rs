@@ -1,3 +1,4 @@
+use std::vec::Vec;
 
 pub fn read_u16_from_bytes(data: &[u8], offset: usize) -> Option<u16> {
     if data.len() < offset + 2 {
@@ -29,3 +30,12 @@ pub fn read_u64_from_bytes(data: &[u8], offset: usize) -> Option<u64> {
     Some(u64::from_be_bytes(l))
 }
 
+pub fn bits_from_bytes(data: &[u8]) -> Vec<u8> {
+    data            
+        .iter()
+        .map(|r| format!("{:b}", r))
+        .flat_map(|s| s.chars()
+                                .map(|c| c.to_digit(10).unwrap_or(0) as u8)
+                                .collect::<Vec<u8>>())
+        .collect::<Vec<u8>>()
+}

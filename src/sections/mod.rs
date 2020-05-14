@@ -6,4 +6,5 @@ mod grid_definition;
 mod product_definition;
 mod data_representation;
 mod bitmap;
+mod data;
 mod end;
