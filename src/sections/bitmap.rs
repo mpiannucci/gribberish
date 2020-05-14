@@ -1,8 +1,6 @@
-use str;
-use char;
 use std::vec::Vec;
 use super::section::{Section, section_length};
-use crate::utils::{bits_from_bytes};
+use crate::utils::bits_from_bytes;
 
 pub struct BitmapSection<'a> {
     data: &'a[u8],

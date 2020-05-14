@@ -1,7 +1,7 @@
-extern crate grib_data_derive;
-
 use grib_data_derive::{DisplayDescription, FromValue};
 use super::section::{Section, section_length};
+use crate::utils::read_u16_from_bytes;
+use chrono::prelude::*;
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -82,6 +82,17 @@ impl<'a> IdentificationSection<'a> {
  
     pub fn reference_date_significance(&self) -> ReferenceDataSignificance {
         self.data[11].into()
+    }
+
+    pub fn reference_date(&self) -> DateTime<Utc> {
+        let year = read_u16_from_bytes(self.data, 12 ).unwrap_or(0) as i32;
+        let month = self.data[14] as u32;
+        let day = self.data[15] as u32;
+        let hour = self.data[16] as u32;
+        let minute = self.data[17] as u32;
+        let second = self.data[18] as u32;
+
+        Utc.ymd(year, month, day).and_hms(hour, minute, second)
     }
 
     pub fn production_status(&self) -> ProductionStatus {

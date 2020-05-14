@@ -1,5 +1,5 @@
 use std::str;
-use super::section::{Section, section_length};
+use super::section::Section;
 
 pub struct EndSection<'a> {
     data: &'a[u8],

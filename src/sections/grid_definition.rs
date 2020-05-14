@@ -1,8 +1,7 @@
-extern crate grib_data_derive;
-
 use crate::sections::section::{Section, section_length};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use grib_data_derive::{DisplayDescription, FromValue};
+use crate::templates::grid::{GridDefinitionTemplate, LatitudeLongitudeGridTemplate};
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -64,5 +63,10 @@ impl<'a> GridDefinitionSection<'a> {
 
     pub fn grid_definition_template_number(&self) -> u16 {
         read_u16_from_bytes(self.data, 12).unwrap_or(0)
+    }
+
+    pub fn grid_definition_template(&self) -> GridDefinitionTemplate {
+        let template_number = self.grid_definition_template_number();
+        GridDefinitionTemplate::from_template_number(template_number, &self.data[14..])
     }
 }

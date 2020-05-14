@@ -1,4 +1,3 @@
-use std::default::Default;
 use crate::utils::read_u32_from_bytes;
 
 pub fn section_length(data: &[u8], offset: usize) -> usize {

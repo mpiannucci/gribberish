@@ -1,5 +1,3 @@
-extern crate grib_data_derive;
-
 use std::str;
 use grib_data_derive::{DisplayDescription, FromValue};
 use crate::utils::read_u64_from_bytes;

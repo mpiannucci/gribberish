@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 grib-data-derive = { path = "./grib-data-derive" }
+chrono = "0.4"
