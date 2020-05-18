@@ -1,4 +1,4 @@
-use grib_data_derive::{DisplayDescription, FromValue};
+use grib_data_derive::{DisplayDescription, FromValue, Parameter};
 use super::template::{Template, TemplateType};
 
 #[repr(u8)]
@@ -89,7 +89,7 @@ pub enum TimeUnit {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
 pub enum TemperatureProduct {
 	Temperature = 0,
 	VirtualTemperature = 1,
@@ -105,7 +105,7 @@ pub enum TemperatureProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
 pub enum MoistureProduct {
 	SpecificHumidity = 0,
 	RelativeHUmidity = 1,
@@ -117,23 +117,58 @@ pub enum MoistureProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
 pub enum MomentumProduct {
+	#[description = "wind direction"]
+	#[abbrev = "WDIR"]
+	#[unit = "degrees"]
 	WindDirection = 0,
+	#[description = "wind speed"]
+	#[abbrev = "WIND"]
+	#[unit = "ms-1"]
 	WindSpeed = 1,
+	#[description = "u-component of wind speed"]
+	#[abbrev = "UGRD"]
+	#[unit = "ms-1"]
 	UComponentWindSpeed = 2,
+	#[description = "v-component of wind speed"]
+	#[abbrev = "VGRD"]
+	#[unit = "ms-1"]
 	VComponentWindSpeed = 3,
+	#[description = "Maximum wind speed"]
+	#[abbrev = "MAXGUST"]
+	#[unit = "ms-1"]
 	MaximumWindSpeed = 21,
+	#[description = "wind gust speed"]
+	#[abbrev = "GUST"]
+	#[unit = "ms-1"]
 	WindGust = 22, 
+	#[description = "u-component of wind gust"]
+	#[abbrev = "UGUST"]
+	#[unit = "ms-1"]
 	UComponentWindGust = 23, 
+	#[description = "v-component of wind gust"]
+	#[abbrev = "VGUST"]
+	#[unit = "ms-1"]
 	VComponentWindGust = 24, 
+	#[description = "wind fetch"]
+	#[abbrev = "WINDF"]
+	#[unit = "m"]
 	WindFetch = 33, 
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
 pub enum MassProduct {
+	#[abbrev = "PRES"]
+	#[unit = "pa"]
 	Pressure = 0, 
+	#[description = "pressure reduced to MSL"]
+	#[abbrev = "PRMSL"]
+	#[unit = "pa"]
 	PressureReducedMSL = 1, 
+	#[description = "pressure tendency"]
+	#[abbrev = "PTEND"]
+	#[unit = "pas-1"]
 	PressureTendency = 2,
 }
