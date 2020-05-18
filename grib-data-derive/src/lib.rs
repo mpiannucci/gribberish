@@ -95,3 +95,67 @@ fn generate_from_value_impl(enum_data: &ItemEnum) -> TokenStream {
         }
     }).into()
 }
+
+#[proc_macro_derive(Parameter, attributes(abbrev, unit))]
+pub fn parameter_attributes(input: TokenStream) -> TokenStream {
+    // Parse the input tokens into a syntax tree
+    let input = parse_macro_input!(input as DeriveInput);
+    let item: Item = input.into();
+
+    if let Item::Enum(e) = item {
+        // Build the output, possibly using quasi-quotation
+        let expanded = generate_parameter_attributes(&e);
+
+        println!("{}", expanded);
+
+        // Hand the output tokens back to the compiler
+        TokenStream::from(expanded)
+    } else {
+        panic!("Only Enums are supported for DisplayDescription!");
+    }
+}
+
+fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
+    let name: &syn::Ident = &enum_data.ident;
+    let variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma> = &enum_data.variants;
+    let variant_names_first = variants.into_iter().map(|v| v.ident.clone());
+    let variant_names_second = variants.into_iter().map(|v| v.ident.clone());
+    let variant_abbreviations = variants
+        .into_iter()
+        .map(|v| {
+            let abbrev_attribute = v.attrs.iter().find(|a| a.path.is_ident("abbrev"));
+            match abbrev_attribute {
+                Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
+                _ => v.ident.to_string().to_lowercase(),
+            }
+        });
+    let variant_units = variants
+        .into_iter()
+        .map(|v| {
+            let unit_attribute = v.attrs.iter().find(|a| a.path.is_ident("unit"));
+            match unit_attribute {
+                Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
+                _ => v.ident.to_string().to_lowercase(),
+            }
+        });
+
+    (quote! {
+        impl #name {
+            fn abbrev(&self) -> &str {
+                match self {
+                    #(
+                        #name::#variant_names_first => #variant_abbreviations,
+                    )*
+                }
+            }
+
+            fn unit(&self) -> &str {
+                match self {
+                    #(
+                        #name::#variant_names_second => #variant_units,
+                    )*
+                }
+            }
+        }
+    }).into()
+}
