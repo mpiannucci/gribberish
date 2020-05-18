@@ -10,6 +10,8 @@ While this is fine for most people, it makes it more difficult to use these pars
 
 The limitation is that while python is easy, it is also slow. I want to speed things up and see how fast I can make a rust parser and learn more advanced topics in the language along the way. This will hopefully also make this forecast data easier to retreive for newer, non system admin users. 
 
-## The GRIB 2 Spec
+## References and Spec
 
 https://www.wmo.int/pages/prog/www/WMOCodes/Guides/GRIB/GRIB2_062006.pdf
+
+https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/
