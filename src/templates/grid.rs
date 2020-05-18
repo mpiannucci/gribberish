@@ -32,7 +32,7 @@ pub enum GridDefinitionTemplate<'a> {
 impl<'a> GridDefinitionTemplate<'a> {
     pub fn from_template_number(template_number: u16, data: &'a[u8]) -> Self {
         match template_number {
-            0 => GridDefinitionTemplate::LatitudeLongitude(LatitudeLongitudeGridTemplate{data: data}),
+            0 => GridDefinitionTemplate::LatitudeLongitude(LatitudeLongitudeGridTemplate{data}),
             _ => GridDefinitionTemplate::Missing,
         }
     }
@@ -121,7 +121,6 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
     pub fn earth_radius_scaled_value(&self) -> u32 {
         read_u32_from_bytes(self.data, 16).unwrap_or(0)
     }
-
     
     pub fn earth_major_axis_scale_factor(&self) -> u8 {
         self.data[20]

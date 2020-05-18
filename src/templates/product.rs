@@ -1,5 +1,6 @@
 use grib_data_derive::{DisplayDescription, FromValue, Parameter};
 use super::template::{Template, TemplateType};
+use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -86,6 +87,10 @@ pub enum TimeUnit {
 	SixHours = 9,
 	#[description = "12 hours"]
 	TwelveHours = 10,
+}
+
+pub trait ProductDiscipline {
+	fn from_category_parameter(category: u8, parameter: u8) -> Self;
 }
 
 #[repr(u8)]
@@ -223,6 +228,26 @@ pub enum MassProduct {
 	#[abbrev = "PTEND"]
 	#[unit = "pas-1"]
 	PressureTendency = 2,
+}
+
+pub enum MeteorologicalProduct {
+	Temperature(TemperatureProduct),
+	Moisture(MoistureProduct),
+	Momentum(MomentumProduct),
+	Mass(MassProduct),
+	Other,
+}
+
+impl ProductDiscipline for MeteorologicalProduct {
+	fn from_category_parameter(category: u8, parameter: u8) -> Self {
+	    match category {
+	    	0 => MeteorologicalProduct::Temperature(parameter.into()),
+	    	1 => MeteorologicalProduct::Moisture(parameter.into()),
+	    	2 => MeteorologicalProduct::Momentum(parameter.into()),
+ 	    	3 => MeteorologicalProduct::Mass(parameter.into()),
+	    	_ => MeteorologicalProduct::Other,
+	    }
+	}
 }
 
 #[repr(u8)]
@@ -420,4 +445,142 @@ pub enum WavesProduct {
 	#[abbrev = "WLENG"]
 	#[unit = "-"]
 	WaveLength = 193,
+}
+
+pub enum OceanographicProduct {
+	Waves(WavesProduct),
+	Currents,
+	Ice, 
+	SurfaceProperties, 
+	SubSurfaceProperties,
+	Misc,
+}
+
+impl ProductDiscipline for OceanographicProduct {
+	fn from_category_parameter(category: u8, parameter: u8) -> OceanographicProduct {
+		match category {
+			0 => OceanographicProduct::Waves(parameter.into()),
+			1 => OceanographicProduct::Currents,
+			2 => OceanographicProduct::Ice,
+			3 => OceanographicProduct::SurfaceProperties,
+			4 => OceanographicProduct::SubSurfaceProperties,
+			_ => OceanographicProduct::Misc,
+		}
+	}
+}
+
+pub enum Product {
+	Meteorological(MeteorologicalProduct),
+	Hydrological,
+	LandSurface, 
+	Space, 
+	SpaceWeather, 
+	Oceanographic(OceanographicProduct),
+	Other,
+}
+
+impl Product {
+	pub fn from_discipline_category_parameter(discipline: u8, category: u8, parameter: u8) -> Product {
+		match discipline {
+			0 => Product::Meteorological(MeteorologicalProduct::from_category_parameter(category, parameter)),
+			1 => Product::Hydrological,
+			2 => Product::LandSurface,
+			3 => Product::Space,
+			4 => Product::SpaceWeather,
+			10 => Product::Oceanographic(OceanographicProduct::from_category_parameter(category, parameter)),
+			_ => Product::Other,
+		}
+	}
+}
+
+pub enum ProductTemplate<'a> {
+	HorizontalAnalysisForecast(HorizontalAnalysisForecastTemplate<'a>),
+	Other,
+}
+
+impl <'a> ProductTemplate<'a> {
+	pub fn from_template_number(template_number: u16, data: &'a[u8], discipline: u8) -> ProductTemplate {
+		match template_number {
+			0 => ProductTemplate::HorizontalAnalysisForecast(HorizontalAnalysisForecastTemplate{data, discipline}),
+			_ => ProductTemplate::Other,
+		}
+	}
+}
+
+pub struct HorizontalAnalysisForecastTemplate<'a> {
+	data: &'a[u8],
+	discipline: u8,
+}
+
+impl <'a> Template for HorizontalAnalysisForecastTemplate<'a> {
+	fn data(&self) -> &[u8] {
+    	self.data
+ 	}
+
+ 	fn template_number(&self) -> u16 {
+ 	    0
+ 	}
+
+ 	fn template_type(&self) -> TemplateType {
+ 	    TemplateType::Product
+ 	}
+}
+
+impl <'a> HorizontalAnalysisForecastTemplate<'a> {
+
+	pub fn category_value(&self) -> u8 {
+		self.data[9]
+	}
+
+	pub fn parameter_value(&self) -> u8{
+		self.data[10]
+	}
+
+	pub fn product(&self) -> Product {
+		Product::from_discipline_category_parameter(self.discipline, self.category_value(), self.parameter_value())
+	}
+
+	pub fn generating_process(&self) -> GeneratingProcess {
+		self.data[12].into()
+	}
+
+	pub fn hours_after_reference_time(&self) -> u16 {
+		read_u16_from_bytes(self.data, 14).unwrap_or(0)
+	}
+
+	pub fn minutes_after_reference_time(&self) -> u8 {
+		self.data[16]
+	}
+
+	pub fn time_unit(&self) -> TimeUnit {
+		self.data[17].into()
+	}
+
+	pub fn forecast_time(&self) -> u32 {
+		read_u32_from_bytes(self.data, 18).unwrap_or(0)
+	}
+
+    pub fn first_fixed_surface_type(&self) -> FixedSurfaceTypes {
+        self.data[22].into()
+    }
+
+    pub fn first_fixed_surface_scale_factor(&self) -> u8 {
+        self.data[23]
+    }
+
+    pub fn first_fixed_surface_scaled_value(&self) -> u32 {
+        read_u32_from_bytes(self.data, 24).unwrap_or(0)
+    }
+
+    pub fn second_fixed_surface_type(&self) -> FixedSurfaceTypes {
+        self.data[28].into()
+    }
+
+    pub fn second_fixed_surface_scale_factor(&self) -> u8 {
+        self.data[29]
+    }
+
+    pub fn second_fixed_surface_scaled_value(&self) -> u32 {
+        read_u32_from_bytes(self.data, 30).unwrap_or(0)
+    }
 }
