@@ -106,8 +106,6 @@ pub fn parameter_attributes(input: TokenStream) -> TokenStream {
         // Build the output, possibly using quasi-quotation
         let expanded = generate_parameter_attributes(&e);
 
-        println!("{}", expanded);
-
         // Hand the output tokens back to the compiler
         TokenStream::from(expanded)
     } else {
