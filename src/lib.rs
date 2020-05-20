@@ -1,5 +1,5 @@
 extern crate chrono;
-extern crate grib_data_derive;
+extern crate grib_macros;
 
 mod utils;
 mod sections;

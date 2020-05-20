@@ -1,4 +1,4 @@
-use grib_data_derive::{DisplayDescription, FromValue, Parameter};
+use grib_macros::{DisplayDescription, FromValue, Parameter};
 use super::template::{Template, TemplateType};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 

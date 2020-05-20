@@ -1,6 +1,6 @@
 use crate::sections::section::{Section, section_length};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
-use grib_data_derive::{DisplayDescription, FromValue};
+use grib_macros::{DisplayDescription, FromValue};
 use crate::templates::grid::{GridDefinitionTemplate, LatitudeLongitudeGridTemplate};
 
 #[repr(u8)]

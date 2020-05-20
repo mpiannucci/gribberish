@@ -1,4 +1,4 @@
-use grib_data_derive::{DisplayDescription, FromValue};
+use grib_macros::{DisplayDescription, FromValue};
 use super::section::{Section, section_length};
 use crate::utils::read_u16_from_bytes;
 use chrono::prelude::*;

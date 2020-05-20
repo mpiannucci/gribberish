@@ -1,4 +1,4 @@
-use grib_data_derive::{DisplayDescription, FromValue};
+use grib_macros::{DisplayDescription, FromValue};
 use super::template::{Template, TemplateType};
 use crate::utils::{read_u32_from_bytes, bits_from_bytes};
 use std::vec::Vec;
