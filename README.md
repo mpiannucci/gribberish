@@ -15,3 +15,5 @@ The limitation is that while python is easy, it is also slow. I want to speed th
 https://www.wmo.int/pages/prog/www/WMOCodes/Guides/GRIB/GRIB2_062006.pdf
 
 https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/
+
+https://www.wmo.int/pages/prog/www/DPS/FM92-GRIB2-11-2003.pdf
