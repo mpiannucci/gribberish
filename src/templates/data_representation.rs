@@ -1,6 +1,6 @@
 use grib_macros::{DisplayDescription, FromValue};
 use super::template::{Template, TemplateType};
-use crate::utils::{read_f32_from_bytes, read_i16_from_bytes, bits_from_bytes};
+use crate::utils::{read_f32_from_bytes, read_i16_from_bytes};
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -70,17 +70,25 @@ pub enum CompressionType {
 	Lossy = 1,
 }
 
-pub enum DataRepresentationTemplate {
-	SimpleGridPoint,
+pub enum DataRepresentationTemplate<'a> {
+	SimpleGridPoint(SimpleGridPointDataRepresentationTemplate<'a>),
 	Other,
 }
 
-pub struct SimpleGridPointDataTemplate<'a> {
-	data: &'a[u8],
-	discipline: u8,
+impl<'a> DataRepresentationTemplate<'a> {
+	pub fn from_template_number(template_number: u16, data: &'a[u8]) -> DataRepresentationTemplate {
+		match template_number {
+			0 => DataRepresentationTemplate::SimpleGridPoint(SimpleGridPointDataRepresentationTemplate{data}),
+			_ => DataRepresentationTemplate::Other,
+		}
+	}
 }
 
-impl <'a> Template for SimpleGridPointDataTemplate<'a> {
+pub struct SimpleGridPointDataRepresentationTemplate<'a> {
+	data: &'a[u8],
+}
+
+impl <'a> Template for SimpleGridPointDataRepresentationTemplate<'a> {
 	fn data(&self) -> &[u8] {
     	self.data
  	}
@@ -92,9 +100,13 @@ impl <'a> Template for SimpleGridPointDataTemplate<'a> {
  	fn template_type(&self) -> TemplateType {
  	    TemplateType::DataRepresentation
  	}
+
+ 	fn template_name(&self) -> &str {
+ 		"grid point data - simple packing"
+ 	}
 }
 
-impl <'a> SimpleGridPointDataTemplate<'a> {
+impl <'a> SimpleGridPointDataRepresentationTemplate<'a> {
 	pub fn reference_value(&self) -> f32 {
 		read_f32_from_bytes(self.data, 11).unwrap_or(0.0)
 	}

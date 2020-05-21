@@ -14,5 +14,7 @@ pub trait Template {
 
     fn template_number(&self) -> u16;
 
+    fn template_name(&self) -> &str;
+
     fn data(&self) -> &[u8];
 }

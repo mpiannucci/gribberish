@@ -1,5 +1,5 @@
 use super::section::{Section, section_length};
-use crate::utils::{bits_from_bytes};
+use crate::utils::bit_array_from_bytes;
 
 pub struct DataSection<'a> {
     data: &'a[u8],
@@ -17,7 +17,7 @@ impl<'a> DataSection<'a> {
         let len = section_length(data, offset);
         DataSection {
             data: &data[offset .. offset+len],
-            data_template_number: data_template_number,
+            data_template_number,
         }
     }
 
@@ -26,6 +26,6 @@ impl<'a> DataSection<'a> {
     }
 
     pub fn raw_bit_data(&self) -> Vec<u8> {
-        bits_from_bytes(self.raw_data_array())
+        bit_array_from_bytes(self.raw_data_array())
     }
 }

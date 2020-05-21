@@ -1,6 +1,6 @@
 use std::vec::Vec;
 use super::section::{Section, section_length};
-use crate::utils::bits_from_bytes;
+use crate::utils::bit_array_from_bytes;
 
 pub struct BitmapSection<'a> {
     data: &'a[u8],
@@ -29,6 +29,6 @@ impl<'a> BitmapSection<'a> {
     }
 
     pub fn bitmap(&self) -> Vec<u8> {
-        bits_from_bytes(self.raw_bitmap_data())
+        bit_array_from_bytes(self.raw_bitmap_data())
     }
 }

@@ -1,4 +1,5 @@
 extern crate chrono;
+extern crate num;
 extern crate grib_macros;
 
 mod utils;

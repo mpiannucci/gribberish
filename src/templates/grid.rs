@@ -1,6 +1,6 @@
 use grib_macros::{DisplayDescription, FromValue};
 use super::template::{Template, TemplateType};
-use crate::utils::{read_u32_from_bytes, bits_from_bytes};
+use crate::utils::{read_u32_from_bytes, bit_array_from_bytes};
 use std::vec::Vec;
 
 pub enum GridDefinitionTemplate<'a> {
@@ -107,6 +107,10 @@ impl <'a> Template for LatitudeLongitudeGridTemplate<'a> {
     fn data(&self) -> &[u8] {
         self.data
     }
+
+    fn template_name(&self) -> &str {
+        "Latitude Longitude"
+    }
 }
 
 impl <'a> LatitudeLongitudeGridTemplate<'a> {
@@ -157,7 +161,7 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
     }
 
     pub fn resolution_component_flags(&self) -> Vec<u8> {
-        bits_from_bytes(&self.data[54..55])
+        bit_array_from_bytes(&self.data[54..55])
     }
 
     pub fn end_latitude(&self) -> f64 {

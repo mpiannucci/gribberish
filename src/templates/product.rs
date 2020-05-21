@@ -524,6 +524,10 @@ impl <'a> Template for HorizontalAnalysisForecastTemplate<'a> {
  	fn template_type(&self) -> TemplateType {
  	    TemplateType::Product
  	}
+ 	
+    fn template_name(&self) -> &str {
+        "Analysis or forecast at a horizontal level or in a horizontal layer at a point in time"
+    }
 }
 
 impl <'a> HorizontalAnalysisForecastTemplate<'a> {

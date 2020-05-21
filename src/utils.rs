@@ -1,4 +1,6 @@
 use std::vec::Vec;
+use std::convert::From;
+use crate::num;
 
 pub fn read_u16_from_bytes(data: &[u8], offset: usize) -> Option<u16> {
     if data.len() < offset + 2 {
@@ -60,7 +62,15 @@ pub fn read_f64_from_bytes(data: &[u8], offset: usize) -> Option<f64> {
     Some(f64::from_be_bytes(l))
 }
 
-pub fn bits_from_bytes(data: &[u8]) -> Vec<u8> {
+pub fn from_bits<T>(bits: &[u8]) -> Option<T> where T: num::integer::Integer + From<u8> {
+    if bits.len() != (std::mem::size_of::<T>() * 8) {
+        return None;
+    }
+    
+    Some(bits.iter().rev().fold(T::from(0), |acc, &b| acc*T::from(2) + T::from(b)))
+}
+
+pub fn bit_array_from_bytes(data: &[u8]) -> Vec<u8> {
     data            
         .iter()
         .map(|r| format!("{:b}", r))
