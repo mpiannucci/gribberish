@@ -62,7 +62,6 @@ impl<'a> GridDefinitionTemplate<'a> {
             GridDefinitionTemplate::HovmollerDiagramGrid => 1100,
             GridDefinitionTemplate::TimeSectionGrid => 1200,
             GridDefinitionTemplate::Missing => 65535,
-            _ => 65535
         }
     }
 }
