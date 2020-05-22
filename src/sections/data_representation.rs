@@ -1,4 +1,3 @@
-use super::section::{Section, section_length};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use crate::templates::data_representation::DataRepresentationTemplate;
 
@@ -6,17 +5,10 @@ pub struct DataRepresentationSection<'a> {
     data: &'a[u8],
 }
 
-impl Section for DataRepresentationSection<'_> {
-    fn data(&self) -> &[u8] {
-        self.data
-    }
-}
-
 impl<'a> DataRepresentationSection<'a> {
-    pub fn from_data(data: &[u8], offset: usize) -> DataRepresentationSection {
-        let len = section_length(data, offset);
+    pub fn from_data(data: &[u8]) -> DataRepresentationSection {
         DataRepresentationSection {
-            data: &data[offset .. offset+len],
+            data: &data,
         }
     }
     

@@ -1,7 +1,6 @@
 use std::str;
 use grib_macros::{DisplayDescription, FromValue};
 use crate::utils::read_u64_from_bytes;
-use crate::sections::section::Section;
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -18,17 +17,11 @@ pub struct IndicatorSection<'a>{
     data: &'a[u8],
 }
 
-impl Section for IndicatorSection<'_> {
-    fn data(&self) -> &[u8] {
-        self.data
-    }
-}
-
 impl<'a> IndicatorSection<'a> {
 
-	pub fn from_data(data: &[u8], offset: usize) -> IndicatorSection {
+	pub fn from_data(data: &[u8]) -> IndicatorSection {
 		IndicatorSection {
-            data: &data[offset .. offset + 16],
+            data: &data,
 		}
 	}
 
@@ -48,21 +41,19 @@ impl<'a> IndicatorSection<'a> {
 	}
 
 	pub fn total_length(&self) -> u64{
-		read_u64_from_bytes(self.data(), 8).unwrap_or(0) as u64
+		read_u64_from_bytes(self.data, 8).unwrap_or(0) as u64
 	}
 }
 
 mod tests {
 	use super::IndicatorSection;
 	use super::Discipline;
-    use super::Section;
 
     #[test]
     fn read_indicator() {
 		let raw: [u8; 16] = [0x47, 0x52, 0x49, 0x42, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb3];
-		let indicator = IndicatorSection::from_data(&raw, 0);
+		let indicator = IndicatorSection::from_data(&raw);
         assert!(indicator.valid());
-		assert!(indicator.number() == 0);
 		assert!(indicator.discipline() == Discipline::Meteorological);
 	}
 }

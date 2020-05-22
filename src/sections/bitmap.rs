@@ -1,22 +1,14 @@
 use std::vec::Vec;
-use super::section::{Section, section_length};
 use crate::utils::bit_array_from_bytes;
 
 pub struct BitmapSection<'a> {
     data: &'a[u8],
 }
 
-impl Section for BitmapSection<'_> {
-    fn data(&self) -> &[u8] {
-        self.data
-    }
-}
-
 impl<'a> BitmapSection<'a> {
-    pub fn from_data(data: &[u8], offset: usize) -> BitmapSection {
-        let len = section_length(data, offset);
+    pub fn from_data(data: &[u8]) -> BitmapSection {
         BitmapSection {
-            data: &data[offset .. offset+len],
+            data: &data,
         }
     }
 

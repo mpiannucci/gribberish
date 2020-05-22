@@ -1,4 +1,3 @@
-use super::section::{Section, section_length};
 use crate::utils::read_u16_from_bytes;
 use crate::templates::product::ProductTemplate;
 
@@ -6,17 +5,10 @@ pub struct ProductDefinitionSection<'a> {
     data: &'a[u8],
 }
 
-impl Section for ProductDefinitionSection<'_> {
-    fn data(&self) -> &[u8] {
-        self.data
-    }
-}
-
 impl<'a> ProductDefinitionSection<'a> {
-    pub fn from_data(data: &[u8], offset: usize) -> ProductDefinitionSection {
-        let len = section_length(data, offset);
+    pub fn from_data(data: &[u8]) -> ProductDefinitionSection {
         ProductDefinitionSection {
-            data: &data[offset .. offset+len],
+            data: &data,
         }
     }
 

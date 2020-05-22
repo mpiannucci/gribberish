@@ -1,5 +1,4 @@
 use grib_macros::{DisplayDescription, FromValue};
-use super::section::{Section, section_length};
 use crate::utils::read_u16_from_bytes;
 use chrono::prelude::*;
 
@@ -66,17 +65,10 @@ pub struct IdentificationSection<'a>{
     data: &'a[u8],
 }
 
-impl Section for IdentificationSection<'_> {
-    fn data(&self) -> &[u8] {
-        self.data
-    }
-}
-
 impl<'a> IdentificationSection<'a> {
-    pub fn from_data(data: &[u8], offset: usize) -> IdentificationSection {
-        let len = section_length(data, offset);
+    pub fn from_data(data: &[u8]) -> IdentificationSection {
         IdentificationSection {
-            data: &data[offset .. offset+len],
+            data: &data,
         }
     }
  

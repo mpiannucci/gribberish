@@ -1,7 +1,6 @@
-use crate::sections::section::{Section, section_length};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use grib_macros::{DisplayDescription, FromValue};
-use crate::templates::grid::{GridDefinitionTemplate, LatitudeLongitudeGridTemplate};
+use crate::templates::grid::GridDefinitionTemplate;
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -31,17 +30,10 @@ pub struct GridDefinitionSection<'a>{
     data: &'a[u8],
 }
 
-impl Section for GridDefinitionSection<'_> {
-    fn data(&self) -> &[u8] {
-        self.data
-    }
-}
-
 impl<'a> GridDefinitionSection<'a> {
-    pub fn from_data(data: &[u8], offset: usize) -> GridDefinitionSection {
-        let len = section_length(data, offset);
+    pub fn from_data(data: &[u8]) -> GridDefinitionSection {
         GridDefinitionSection {
-            data: &data[offset .. offset+len],
+            data: &data,
         }
     }
 

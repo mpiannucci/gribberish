@@ -12,6 +12,4 @@ impl <'a> Message<'a> {
 			offset,
 		}
 	}
-
-	
 }

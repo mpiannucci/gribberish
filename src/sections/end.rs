@@ -1,20 +1,13 @@
 use std::str;
-use super::section::Section;
 
 pub struct EndSection<'a> {
     data: &'a[u8],
 }
 
-impl Section for EndSection<'_> {
-    fn data(&self) -> &[u8] {
-        self.data
-    }
-}
-
 impl<'a> EndSection<'a> {
-    pub fn from_data(data: &[u8], offset: usize) -> EndSection {
+    pub fn from_data(data: &[u8]) -> EndSection {
         EndSection {
-            data: &data[offset .. offset+4],
+            data: &data,
         }
     }
 
