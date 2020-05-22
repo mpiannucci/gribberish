@@ -67,6 +67,6 @@ impl<'a> GridDefinitionSection<'a> {
 
     pub fn grid_definition_template(&self) -> GridDefinitionTemplate {
         let template_number = self.grid_definition_template_number();
-        GridDefinitionTemplate::from_template_number(template_number, &self.data[14..])
+        GridDefinitionTemplate::from_template_number(template_number, &self.data)
     }
 }
