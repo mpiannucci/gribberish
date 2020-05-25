@@ -3,6 +3,6 @@ extern crate num;
 extern crate grib_macros;
 
 mod utils;
-mod sections;
-mod templates;
-mod message;
+pub mod sections;
+pub mod templates;
+pub mod message;
