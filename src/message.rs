@@ -22,7 +22,8 @@ impl <'a> Message<'a> {
             if let SectionType::Invalid = next_section.section {
                 return Err("Error while reading sections");
             }
-
+            
+            current_offset += next_section.len();
             sections.push(next_section);
         }
 
@@ -30,4 +31,11 @@ impl <'a> Message<'a> {
             sections
         })
 	}
+
+    pub fn len(&self) -> usize {
+        match self.sections.first() {
+            Some(section) => section.len(),
+            None => 0,
+        }
+    }
 }

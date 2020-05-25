@@ -67,7 +67,7 @@ impl <'a> Section <'a> {
         }
 	}
 
-    pub fn length(&self) -> usize {
+    pub fn len(&self) -> usize {
         read_u32_from_bytes(self.data, 0).unwrap_or(0) as usize
     }
 
