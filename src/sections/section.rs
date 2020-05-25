@@ -32,7 +32,7 @@ fn section_number(data: &[u8], offset: usize) -> u8 {
 
 pub struct Section<'a> {
 	data: &'a[u8],
-	section: SectionType<'a>
+	pub section: SectionType<'a>
 }
 
 impl <'a> Section <'a> {
