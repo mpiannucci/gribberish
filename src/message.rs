@@ -1,4 +1,4 @@
-
+use crate::sections::section::Section;
 
 pub struct Message<'a> {
 	data: &'a[u8],

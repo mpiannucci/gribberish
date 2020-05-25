@@ -19,6 +19,7 @@ pub enum SectionType<'a> {
 	Bitmap(BitmapSection<'a>),
     Data(DataSection<'a>),
 	End(EndSection<'a>),
+    Invalid,
 }
 
 fn section_length(data: &[u8], offset: usize) -> usize {
@@ -36,26 +37,33 @@ pub struct Section<'a> {
 
 impl <'a> Section <'a> {
 
-	pub fn from_data(data: &'a[u8], offset: usize) -> Section<'a> {
+	pub fn from_data(data: &'a[u8], offset: usize) -> Result<Section<'a>, &'static str> {
+        // TODO: Handle data sizing errors
+
         let section_len = section_length(data, offset);
         let section_num = section_number(data, offset);
         let section_data = &data[offset..offset+section_len];
-        
-        let section = match(section_num) { 
+
+        let section = match section_num { 
             0 => SectionType::Indicator(IndicatorSection::from_data(section_data)),
             1 => SectionType::Identification(IdentificationSection::from_data(section_data)),
+            2 => SectionType::LocalUse(LocalUseSection::from_data(section_data)),
             3 => SectionType::GridDefinition(GridDefinitionSection::from_data(section_data)),
             4 => SectionType::ProductDefinition(ProductDefinitionSection::from_data(section_data)),
             5 => SectionType::DataRepresentation(DataRepresentationSection::from_data(section_data)),
             6 => SectionType::Bitmap(BitmapSection::from_data(section_data)),
             7 => SectionType::Data(DataSection::from_data(section_data)),
             8 => SectionType::End(EndSection::from_data(section_data)),
-            _ => SectionType::LocalUse(LocalUseSection::from_data(section_data)),
+            _ => SectionType::Invalid,
         };
 
-        Section {
-            data: section_data,
-            section,
+        if let SectionType::Invalid = section {
+            Err("invalid section number")
+        } else {
+            Ok(Section {
+                data: section_data,
+                section,
+            })
         }
 	}
 
