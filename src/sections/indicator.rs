@@ -2,6 +2,13 @@ use std::str;
 use grib_macros::{DisplayDescription, FromValue};
 use crate::utils::read_u64_from_bytes;
 
+fn validate_indicator_section(data: &[u8]) -> bool {
+	match str::from_utf8(&data[0..4]) {
+		Ok(s) => s == "GRIB",
+		_ => false
+	}
+}
+
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum Discipline {
@@ -26,18 +33,12 @@ impl<'a> IndicatorSection<'a> {
 	}
 
     pub fn is_indicator_section(data: &[u8], offset: usize) -> bool {
- 		match str::from_utf8(&data[offset..offset+4]) {
-			Ok(s) => s == "GRIB",
-			_ => false
-		}       
+        validate_indicator_section(&data[offset..offset+4])
     }
 
 	pub fn valid(&self) -> bool {
-		match str::from_utf8(&self.data[0..4]) {
-			Ok(s) => s == "GRIB",
-			_ => false
-		}
-	}
+        validate_indicator_section(&self.data[0..4])
+    }
 
 	pub fn discipline(&self) -> Discipline {
 		self.data[6].into()
@@ -47,7 +48,7 @@ impl<'a> IndicatorSection<'a> {
 		self.data[7]
 	}
 
-	pub fn total_length(&self) -> u64{
+	pub fn total_length(&self) -> u64 {
 		read_u64_from_bytes(self.data, 8).unwrap_or(0) as u64
 	}
 }
