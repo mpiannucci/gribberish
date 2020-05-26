@@ -25,6 +25,13 @@ impl<'a> IndicatorSection<'a> {
 		}
 	}
 
+    pub fn is_indicator_section(data: &[u8], offset: usize) -> bool {
+ 		match str::from_utf8(&data[offset..offset+4]) {
+			Ok(s) => s == "GRIB",
+			_ => false
+		}       
+    }
+
 	pub fn valid(&self) -> bool {
 		match str::from_utf8(&self.data[0..4]) {
 			Ok(s) => s == "GRIB",

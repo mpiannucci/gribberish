@@ -14,5 +14,8 @@ fn read_multi() {
     let mut raw_grib_data = Vec::new();
     multi_grib_file.read_to_end(&mut raw_grib_data).expect("failed to read raw grib2 data");
 
-
+    let grib_data = raw_grib_data.as_slice();
+    let messages = Message::parse_all(raw_grib_data.as_slice());
+    
+    assert!(messages.len() > 0);
 }

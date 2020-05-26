@@ -23,11 +23,19 @@ pub enum SectionType<'a> {
 }
 
 fn section_length(data: &[u8], offset: usize) -> usize {
-    read_u32_from_bytes(data, offset).unwrap_or(0) as usize
+    if IndicatorSection::is_indicator_section(data, offset) {
+        16
+    } else {
+        read_u32_from_bytes(data, offset).unwrap_or(0) as usize
+    }
 }
 
 fn section_number(data: &[u8], offset: usize) -> u8 {
-    data[offset + 4]
+    if IndicatorSection::is_indicator_section(data, offset) {
+        0
+    } else {
+        data[offset + 4]
+    }
 }
 
 pub struct Section<'a> {
@@ -42,6 +50,7 @@ impl <'a> Section <'a> {
 
         let section_len = section_length(data, offset);
         let section_num = section_number(data, offset);
+
         let section_data = &data[offset..offset+section_len];
 
         let section = match section_num { 
@@ -68,10 +77,10 @@ impl <'a> Section <'a> {
 	}
 
     pub fn len(&self) -> usize {
-        read_u32_from_bytes(self.data, 0).unwrap_or(0) as usize
+        section_length(self.data, 0)
     }
 
     pub fn number(&self) -> u8 {
-        self.data[4]
+        section_number(self.data, 0)
     }
 }
