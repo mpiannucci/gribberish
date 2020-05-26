@@ -7,7 +7,7 @@ pub struct Message<'a> {
 }
 
 impl <'a> Message<'a> {
-	pub fn from_data(data: &'a[u8], offset: usize) -> Result<Message<'a>, &'static str> {
+	pub fn parse(data: &'a[u8], offset: usize) -> Result<Message<'a>, &'static str> {
         let mut sections: Vec<Section<'a>> = Vec::new();
 
         let mut current_offset = 0;
@@ -31,6 +31,22 @@ impl <'a> Message<'a> {
             sections
         })
 	}
+
+    pub fn parse_all(data: &'a[u8]) -> Vec<Message<'a>> {
+        let mut messages = Vec::new();
+        let mut offset: usize = 0;
+
+        while offset < data.len() {
+            if let Ok(message) = Message::parse(data, offset) {
+                offset += message.len();
+                messages.push(message);
+            } else {
+                break;
+            }
+        }
+
+        messages
+    }
 
     pub fn len(&self) -> usize {
         match self.sections.first() {
