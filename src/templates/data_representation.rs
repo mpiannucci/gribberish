@@ -1,6 +1,7 @@
 use grib_macros::{DisplayDescription, FromValue};
 use super::template::{Template, TemplateType};
 use crate::utils::{read_f32_from_bytes, read_i16_from_bytes};
+use num::{Float, Integer};
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -70,6 +71,10 @@ pub enum CompressionType {
 	Lossy = 1,
 }
 
+pub trait CompressedDataTemplate<T> where T: Float {
+    fn unpack(&self, bits: Vec<u8>) -> Vec<T>;
+}
+ 
 pub enum DataRepresentationTemplate<'a> {
 	SimpleGridPoint(SimpleGridPointDataRepresentationTemplate<'a>),
 	Other,
@@ -126,4 +131,19 @@ impl <'a> SimpleGridPointDataRepresentationTemplate<'a> {
 	pub fn original_field_value(&self) -> OriginalFieldValue {
 		self.data[20].into()
 	}
+}
+
+impl <'a, T> CompressedDataTemplate<T> for SimpleGridPointDataRepresentationTemplate<'a> where T: Float, f64: std::convert::Into<T> {
+    fn unpack(&self, bits: Vec<u8>) -> Vec<T> {
+        let v = Vec::new();
+            
+        let bits_per_val = self.bit_count() as usize;
+        let mut val: T = 0.0.into();   
+        
+        for i in (0..bits.len()).step_by(bits_per_val) {
+            
+        }
+
+        v
+    }
 }
