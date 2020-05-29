@@ -1,6 +1,6 @@
 use grib_macros::{DisplayDescription, FromValue};
 use super::template::{Template, TemplateType};
-use crate::utils::{read_f32_from_bytes, read_i16_from_bytes};
+use crate::utils::{read_f32_from_bytes, read_i16_from_bytes, from_bits};
 use num::{Float, Integer};
 
 #[repr(u8)]
@@ -133,15 +133,31 @@ impl <'a> SimpleGridPointDataRepresentationTemplate<'a> {
 	}
 }
 
-impl <'a, T> CompressedDataTemplate<T> for SimpleGridPointDataRepresentationTemplate<'a> where T: Float, f64: std::convert::Into<T> {
-    fn unpack(&self, bits: Vec<u8>) -> Vec<T> {
-        let v = Vec::new();
+impl <'a> CompressedDataTemplate<f64> for SimpleGridPointDataRepresentationTemplate<'a> {
+    fn unpack(&self, bits: Vec<u8>) -> Vec<f64> {
+        let mut v = Vec::new();
             
-        let bits_per_val = self.bit_count() as usize;
-        let mut val: T = 0.0.into();   
+        let bits_per_val: usize = self.bit_count().into();
+        let bit_start_index: usize = 64 - bits_per_val;
+        let reference_value: f64 = self.reference_value().into();
+        let binary_scale_factor: i32 = self.binary_scale_factor().into();
+        let decimal_scale_factor: i32 = self.decimal_scale_factor().into();
+
+        let mut raw_val: f64 = 0.0;
+        let mut val_bits: [u8; 32] = [0; 32];
         
         for i in (0..bits.len()).step_by(bits_per_val) {
-            
+        	val_bits = [0; 32];
+
+            let relevent_bits = &bits[i..i+bits_per_val];
+            for (j, bit) in relevent_bits.iter().enumerate() {
+            	val_bits[j + bit_start_index] = *bit;
+            }
+
+            // TODO: Get rid of expect and handle the error
+            raw_val = from_bits::<u32>(&val_bits).expect("Invalid cast from bits to u64").into();
+            let val = (reference_value + (raw_val * 2.0.powi(binary_scale_factor))) / 10.0.powi(decimal_scale_factor);
+            v.push(val);
         }
 
         v
