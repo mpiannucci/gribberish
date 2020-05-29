@@ -71,7 +71,7 @@ pub enum CompressionType {
 	Lossy = 1,
 }
 
-pub trait CompressedDataTemplate<T> where T: Float {
+pub trait CompressedDataTemplate<T> {
     fn unpack(&self, bits: Vec<u8>) -> Vec<T>;
 }
  
@@ -155,7 +155,7 @@ impl <'a> CompressedDataTemplate<f64> for SimpleGridPointDataRepresentationTempl
             }
 
             // TODO: Get rid of expect and handle the error
-            raw_val = from_bits::<u32>(&val_bits).expect("Invalid cast from bits to u64").into();
+            raw_val = from_bits::<u32>(&val_bits).expect("Invalid cast from bits to u32").into();
             let val = (reference_value + (raw_val * 2.0.powi(binary_scale_factor))) / 10.0.powi(decimal_scale_factor);
             v.push(val);
         }

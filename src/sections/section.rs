@@ -54,6 +54,7 @@ impl <'a> Section <'a> {
 
         let section_len = section_length(data, offset);
         let section_num = section_number(data, offset);
+
         let section_data = &data[offset..offset+section_len];
 
         let section = match section_num { 

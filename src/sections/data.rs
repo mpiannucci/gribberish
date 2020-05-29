@@ -1,5 +1,4 @@
 use crate::utils::bit_array_from_bytes;
-use crate::templates::data::DataTemplate;
 
 pub struct DataSection<'a> {
     data: &'a[u8],

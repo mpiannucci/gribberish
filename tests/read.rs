@@ -17,5 +17,9 @@ fn read_multi() {
     let grib_data = raw_grib_data.as_slice();
     let messages = Message::parse_all(raw_grib_data.as_slice());
     
-    assert!(messages.len() > 0);
+    assert_eq!(messages.len(), 10);
+
+    for message in messages {
+    	assert_eq!(message.sections.len(), 8);
+    }
 }

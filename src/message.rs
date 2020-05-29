@@ -3,7 +3,7 @@ use std::vec::Vec;
 
 
 pub struct Message<'a> {
-	sections: Vec<Section<'a>>,
+	pub sections: Vec<Section<'a>>,
 }
 
 impl <'a> Message<'a> {
@@ -50,7 +50,10 @@ impl <'a> Message<'a> {
 
     pub fn len(&self) -> usize {
         match self.sections.first() {
-            Some(section) => section.len(),
+            Some(section) => match &section.section {
+                SectionType::Indicator(indicator) => indicator.total_length() as usize,
+                _ => 0,
+            },
             None => 0,
         }
     }

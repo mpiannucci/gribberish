@@ -23,4 +23,17 @@ impl<'a> BitmapSection<'a> {
     pub fn bitmap(&self) -> Vec<u8> {
         bit_array_from_bytes(self.raw_bitmap_data())
     }
+
+    pub fn map_data(&self, unmapped_data: Vec<f64>) -> Vec<f64> {
+        let mut value_count: usize = 0;
+
+        self.bitmap().iter().map(|b| match b {
+            1 => {
+                let m = unmapped_data[value_count];
+                value_count += 1;
+                m
+            },
+            _ => std::f64::NAN
+        }).collect()
+    }
 }
