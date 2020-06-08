@@ -33,6 +33,10 @@ fn read_multi() {
             SectionType::ProductDefinition(_) => true,
             _ => false 
         }) {
+            if let SectionType::ProductDefinition(product_definition) = &product_definition_section.section {
+
+            }
+
             let product_definition = match product_definition_section.section {
                 SectionType::ProductDefinition(ref p) => Some(p), 
                 _ => None,
