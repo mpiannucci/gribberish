@@ -1,9 +1,11 @@
 use crate::sections::section::{Section, SectionType};
+use crate::field::Field;
 use std::vec::Vec;
 
 
 pub struct Message<'a> {
-	pub sections: Vec<Section<'a>>,
+    pub sections: Vec<Section<'a>>,
+    pub fields: Vec<Field<'a>>,
 }
 
 impl <'a> Message<'a> {
@@ -27,8 +29,13 @@ impl <'a> Message<'a> {
             sections.push(next_section);
         }
 
+        let fields = Vec::new();
+        // TODO: Iterate and unpack all the fields
+
+
         Ok(Message {
-            sections
+            sections,
+            fields,
         })
 	}
 
@@ -56,5 +63,13 @@ impl <'a> Message<'a> {
             },
             None => 0,
         }
+    }
+
+    pub fn section_count(&self) -> usize {
+        self.sections.len()
+    }
+
+    pub fn field_count(&self) -> usize {
+        self.fields.len()
     }
 }
