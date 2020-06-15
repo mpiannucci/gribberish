@@ -1,11 +1,9 @@
-use crate::sections::section::{Section, SectionType};
-use crate::field::Field;
+use crate::sections::section::Section;
 use std::vec::Vec;
 
 
 pub struct Message<'a> {
     pub sections: Vec<Section<'a>>,
-    pub fields: Vec<Field<'a>>,
 }
 
 impl <'a> Message<'a> {
@@ -15,27 +13,18 @@ impl <'a> Message<'a> {
         let mut current_offset = 0;
         loop {
             if let Some(section) = sections.last() {
-                if let SectionType::End(_) = section.section {
+                if let Section::End(_) = section {
                     break;
                 }
             }
 
             let next_section = Section::from_data(data, offset + current_offset)?;
-            if let SectionType::Invalid = next_section.section {
-                return Err("Error while reading sections");
-            }
-            
             current_offset += next_section.len();
             sections.push(next_section);
         }
 
-        let fields = Vec::new();
-        // TODO: Iterate and unpack all the fields
-
-
         Ok(Message {
             sections,
-            fields,
         })
 	}
 
@@ -57,8 +46,8 @@ impl <'a> Message<'a> {
 
     pub fn len(&self) -> usize {
         match self.sections.first() {
-            Some(section) => match &section.section {
-                SectionType::Indicator(indicator) => indicator.total_length() as usize,
+            Some(section) => match &section {
+                Section::Indicator(indicator) => indicator.total_length() as usize,
                 _ => 0,
             },
             None => 0,
@@ -67,9 +56,5 @@ impl <'a> Message<'a> {
 
     pub fn section_count(&self) -> usize {
         self.sections.len()
-    }
-
-    pub fn field_count(&self) -> usize {
-        self.fields.len()
     }
 }

@@ -1,4 +1,5 @@
 use std::str;
+use super::grib_section::GribSection;
 
 fn validate_end_section(data: &[u8]) -> bool {
     match str::from_utf8(&data[0..4]) {
@@ -24,5 +25,15 @@ impl<'a> EndSection<'a> {
 
     pub fn valid(&self) -> bool {
         validate_end_section(&self.data[0..4])
+    }
+}
+
+impl <'a> GribSection for EndSection<'a> {
+    fn len(&self) -> usize {
+        4
+    }
+
+    fn number(&self) -> u8 {
+        8
     }
 }

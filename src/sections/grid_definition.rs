@@ -1,6 +1,7 @@
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use grib_macros::{DisplayDescription, FromValue};
 use crate::templates::grid::GridDefinitionTemplate;
+use super::grib_section::GribSection;
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -60,5 +61,15 @@ impl<'a> GridDefinitionSection<'a> {
     pub fn grid_definition_template(&self) -> GridDefinitionTemplate {
         let template_number = self.grid_definition_template_number();
         GridDefinitionTemplate::from_template_number(template_number, &self.data)
+    }
+}
+
+impl <'a> GribSection for GridDefinitionSection<'a> {
+    fn len(&self) -> usize {
+        read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
+    }
+
+    fn number(&self) -> u8 {
+        self.data[4]
     }
 }

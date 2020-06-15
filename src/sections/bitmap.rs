@@ -1,5 +1,7 @@
 use std::vec::Vec;
 use crate::utils::bit_array_from_bytes;
+use crate::utils::read_u32_from_bytes;
+use super::grib_section::GribSection;
 
 pub struct BitmapSection<'a> {
     data: &'a[u8],
@@ -35,5 +37,15 @@ impl<'a> BitmapSection<'a> {
             },
             _ => std::f64::NAN
         }).collect()
+    }
+}
+
+impl <'a> GribSection for BitmapSection<'a> {
+    fn len(&self) -> usize {
+        read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
+    }
+
+    fn number(&self) -> u8 {
+        self.data[4]
     }
 }

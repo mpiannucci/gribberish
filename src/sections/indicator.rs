@@ -1,6 +1,7 @@
 use std::str;
 use grib_macros::{DisplayDescription, FromValue};
 use crate::utils::read_u64_from_bytes;
+use super::grib_section::GribSection;
 
 fn validate_indicator_section(data: &[u8]) -> bool {
 	match str::from_utf8(&data[0..4]) {
@@ -51,6 +52,16 @@ impl<'a> IndicatorSection<'a> {
 	pub fn total_length(&self) -> u64 {
 		read_u64_from_bytes(self.data, 8).unwrap_or(0) as u64
 	}
+}
+
+impl <'a> GribSection for IndicatorSection<'a> {
+    fn len(&self) -> usize {
+        16
+    }
+
+    fn number(&self) -> u8 {
+        0
+    }
 }
 
 mod tests {

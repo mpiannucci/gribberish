@@ -1,3 +1,4 @@
+pub mod grib_section;
 pub mod section;
 pub mod indicator;
 pub mod identification;

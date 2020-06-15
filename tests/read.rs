@@ -1,7 +1,7 @@
 extern crate grib;
 
 use grib::message::Message;
-use grib::sections::section::SectionType;
+use grib::sections::section::Section;
 use grib::sections::product_definition::ProductDefinitionSection;
 use std::path::Path;
 use std::fs::File;
@@ -24,21 +24,21 @@ fn read_multi() {
     for message in messages {
         assert_eq!(message.sections.len(), 8);
 
-        message.sections.iter().find(|s| match s.section { 
-            SectionType::ProductDefinition(_) => true,
+        message.sections.iter().find(|s| match s { 
+            Section::ProductDefinition(_) => true,
             _ => false 
         });
 
-        if let Some(product_definition_section) = message.sections.iter().find(|s| match s.section { 
-            SectionType::ProductDefinition(_) => true,
+        if let Some(product_definition_section) = message.sections.iter().find(|s| match s { 
+            Section::ProductDefinition(_) => true,
             _ => false 
         }) {
-            if let SectionType::ProductDefinition(product_definition) = &product_definition_section.section {
+            if let Section::ProductDefinition(product_definition) = &product_definition_section {
 
             }
 
-            let product_definition = match product_definition_section.section {
-                SectionType::ProductDefinition(ref p) => Some(p), 
+            let product_definition = match product_definition_section {
+                Section::ProductDefinition(ref p) => Some(p), 
                 _ => None,
             }.unwrap();
         }
