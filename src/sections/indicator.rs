@@ -11,7 +11,7 @@ fn validate_indicator_section(data: &[u8]) -> bool {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Eq, Clone, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum Discipline {
 	Meteorological = 0,
 	Hydrological = 1,

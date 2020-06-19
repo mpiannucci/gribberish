@@ -74,7 +74,7 @@ impl<'a> Section<'a> {
     }
 }
 
-// TODO: IMPL TRY FROMS FOR INNER TYPES HERE
+// TODO: IMPL TRY FROMS FOR INNER TYPES HERE 
 
 fn section_length(data: &[u8], offset: usize) -> usize {
     if IndicatorSection::is_indicator_section(data, offset) {
