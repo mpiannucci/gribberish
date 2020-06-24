@@ -96,7 +96,7 @@ fn generate_from_value_impl(enum_data: &ItemEnum) -> TokenStream {
     }).into()
 }
 
-#[proc_macro_derive(Parameter, attributes(abbrev, unit))]
+#[proc_macro_derive(Parameter, attributes(name, abbrev, unit))]
 pub fn parameter_attributes(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let input = parse_macro_input!(input as DeriveInput);
@@ -118,6 +118,16 @@ fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
     let variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma> = &enum_data.variants;
     let variant_names_first = variants.into_iter().map(|v| v.ident.clone());
     let variant_names_second = variants.into_iter().map(|v| v.ident.clone());
+    let variant_names_third = variants.into_iter().map(|v| v.ident.clone());
+    let variant_names = variants
+        .into_iter()
+        .map(|v| {
+            let unit_attribute = v.attrs.iter().find(|a| a.path.is_ident("name"));
+            match unit_attribute {
+                Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
+                _ => v.ident.to_string().to_lowercase(),
+            }
+        });
     let variant_abbreviations = variants
         .into_iter()
         .map(|v| {
@@ -133,16 +143,24 @@ fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
             let unit_attribute = v.attrs.iter().find(|a| a.path.is_ident("unit"));
             match unit_attribute {
                 Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
-                _ => v.ident.to_string().to_lowercase(),
+                _ => "n/a".to_string(),
             }
         });
 
     (quote! {
         impl #name {
+            fn name(&self) -> &str {
+                match self {
+                    #(
+                        #name::#variant_names_first => #variant_names,
+                    )*
+                }
+            }
+
             fn abbrev(&self) -> &str {
                 match self {
                     #(
-                        #name::#variant_names_first => #variant_abbreviations,
+                        #name::#variant_names_second => #variant_abbreviations,
                     )*
                 }
             }
@@ -150,7 +168,7 @@ fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
             fn unit(&self) -> &str {
                 match self {
                     #(
-                        #name::#variant_names_second => #variant_units,
+                        #name::#variant_names_third => #variant_units,
                     )*
                 }
             }

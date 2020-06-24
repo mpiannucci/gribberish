@@ -1,7 +1,7 @@
 #[macro_use]
-extern crate grib_data_derive;
+extern crate grib_macros;
 
-use grib_data_derive::{DisplayDescription, FromValue, Parameter};
+use grib_macros::{DisplayDescription, FromValue, Parameter};
 
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
 enum Shape {
@@ -13,6 +13,7 @@ enum Shape {
     #[abbrev = "tri"]
     #[unit = "sqft"]
     Triangle = 1,
+    #[name = "round one"]
     #[abbrev = "cir"]
     #[unit = "radius"]
     Circle = 2,
@@ -48,7 +49,9 @@ fn shape_parameter_attributes() {
 
     let triangle: Shape = 1u8.into();
     assert_eq!(triangle.abbrev(), "tri");
+    assert_eq!(triangle.name(), "triangle");
 
     let circle: Shape = 2u8.into();
     assert_eq!(circle.unit(), "radius");
+    assert_eq!(circle.name(), "round one");
 }
