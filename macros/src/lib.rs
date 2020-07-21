@@ -96,7 +96,7 @@ fn generate_from_value_impl(enum_data: &ItemEnum) -> TokenStream {
     }).into()
 }
 
-#[proc_macro_derive(Parameter, attributes(name, abbrev, unit))]
+#[proc_macro_derive(ToParameter, attributes(name, abbrev, unit))]
 pub fn parameter_attributes(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let input = parse_macro_input!(input as DeriveInput);
@@ -170,6 +170,16 @@ fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
                     #(
                         #name::#variant_names_third => #variant_units,
                     )*
+                }
+            }
+        }
+
+        impl std::convert::From<#name> for Parameter {
+            fn from(value: #name) -> Parameter {
+                Parameter {
+                    name: value.name().to_string(),
+                    unit: value.unit().to_string(),
+                    abbrev: value.abbrev().to_string(),
                 }
             }
         }

@@ -1,4 +1,5 @@
-use grib_macros::{DisplayDescription, FromValue, Parameter};
+use grib_macros::{DisplayDescription, FromValue, ToParameter};
+use grib_types::Parameter;
 use super::template::{Template, TemplateType};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 
@@ -91,10 +92,12 @@ pub enum TimeUnit {
 
 pub trait ProductDiscipline {
 	fn from_category_parameter(category: u8, parameter: u8) -> Self;
+
+	fn parameter(&self) -> Option<Parameter>;
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum TemperatureProduct {
 	#[abbrev = "TMP"]
 	#[unit = "K"]
@@ -142,7 +145,7 @@ pub enum TemperatureProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum MoistureProduct {
 	#[description = "specific humidity"]
 	#[abbrev = "SPFH"]
@@ -174,7 +177,7 @@ pub enum MoistureProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum MomentumProduct {
 	#[description = "wind direction"]
 	#[abbrev = "WDIR"]
@@ -215,7 +218,7 @@ pub enum MomentumProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum MassProduct {
 	#[abbrev = "PRES"]
 	#[unit = "pa"]
@@ -230,28 +233,28 @@ pub enum MassProduct {
 	PressureTendency = 2,
 }
 
-pub enum MeteorologicalProduct {
-	Temperature(TemperatureProduct),
-	Moisture(MoistureProduct),
-	Momentum(MomentumProduct),
-	Mass(MassProduct),
-	Other,
+fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter> {
+	match category {
+		0 => Some(Parameter::from(TemperatureProduct::from(parameter))),
+		1 => Some(Parameter::from(MoistureProduct::from(parameter))),
+		2 => Some(Parameter::from(MomentumProduct::from(parameter))),
+		3 => Some(Parameter::from(MassProduct::from(parameter))),
+		_ => None,
+	}
 }
 
-impl ProductDiscipline for MeteorologicalProduct {
-	fn from_category_parameter(category: u8, parameter: u8) -> Self {
-	    match category {
-	    	0 => MeteorologicalProduct::Temperature(parameter.into()),
-	    	1 => MeteorologicalProduct::Moisture(parameter.into()),
-	    	2 => MeteorologicalProduct::Momentum(parameter.into()),
- 	    	3 => MeteorologicalProduct::Mass(parameter.into()),
-	    	_ => MeteorologicalProduct::Other,
-	    }
+fn meteorological_category(category: u8) -> &'static str {
+	match category {
+		0 => "temperature",
+		1 => "moisture",
+		2 => "momentum",
+		3 => "mass",
+		_ => "other",
 	}
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum WavesProduct {
 	#[description = "primary wave spectra"]
 	#[abbrev = "WVSP1"]
@@ -447,49 +450,21 @@ pub enum WavesProduct {
 	WaveLength = 193,
 }
 
-pub enum OceanographicProduct {
-	Waves(WavesProduct),
-	Currents,
-	Ice, 
-	SurfaceProperties, 
-	SubSurfaceProperties,
-	Misc,
-}
-
-impl ProductDiscipline for OceanographicProduct {
-	fn from_category_parameter(category: u8, parameter: u8) -> OceanographicProduct {
-		match category {
-			0 => OceanographicProduct::Waves(parameter.into()),
-			1 => OceanographicProduct::Currents,
-			2 => OceanographicProduct::Ice,
-			3 => OceanographicProduct::SurfaceProperties,
-			4 => OceanographicProduct::SubSurfaceProperties,
-			_ => OceanographicProduct::Misc,
-		}
+fn oceanographic_parameter(category: u8, parameter: u8) -> Option<Parameter> {
+	match category {
+		0 => Some(Parameter::from(WavesProduct::from(parameter))),
+		_ => None,
 	}
 }
 
-pub enum Product {
-	Meteorological(MeteorologicalProduct),
-	Hydrological,
-	LandSurface, 
-	Space, 
-	SpaceWeather, 
-	Oceanographic(OceanographicProduct),
-	Other,
-}
-
-impl Product {
-	pub fn from_discipline_category_parameter(discipline: u8, category: u8, parameter: u8) -> Product {
-		match discipline {
-			0 => Product::Meteorological(MeteorologicalProduct::from_category_parameter(category, parameter)),
-			1 => Product::Hydrological,
-			2 => Product::LandSurface,
-			3 => Product::Space,
-			4 => Product::SpaceWeather,
-			10 => Product::Oceanographic(OceanographicProduct::from_category_parameter(category, parameter)),
-			_ => Product::Other,
-		}
+fn oceanographic_category(category: u8) -> &'static str {
+	match category {
+		0 => "waves",
+		1 => "currents",
+		2 => "ice",
+		3 => "surface",
+		4 => "subsurface",
+		_ => "misc",
 	}
 }
 
@@ -540,8 +515,24 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
 		self.data[10]
 	}
 
-	pub fn product(&self) -> Product {
-		Product::from_discipline_category_parameter(self.discipline, self.category_value(), self.parameter_value())
+	pub fn category(&self) -> &'static str {
+		let category = self.category_value();
+		match self.discipline {
+			0 => meteorological_category(category),
+			10 => oceanographic_category(category),
+			_ => "",
+		}
+	}
+
+	pub fn parameter(&self) -> Option<Parameter> {
+		let category = self.category_value();
+		let parameter = self.parameter_value();
+
+		match self.discipline {
+			0 => meteorological_parameter(category, parameter),
+			10 => oceanographic_parameter(category, parameter),
+			_ => None,
+		}
 	}
 
 	pub fn generating_process(&self) -> GeneratingProcess {

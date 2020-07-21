@@ -8,7 +8,6 @@ use crate::sections::product_definition::ProductDefinitionSection;
 use crate::sections::bitmap::BitmapSection;
 use crate::sections::data::DataSection;
 use crate::templates::product::ProductTemplate;
-use crate::templates::product::Product;
 
 pub struct Field {
     pub discipline: Discipline,
@@ -41,7 +40,7 @@ impl <'a> TryFrom<Message<'a>> for Field {
 			_ => None,
 		}, "Only HorizontalAnalysisForecast templates are supported at this time");
 
-		let product = product_template.product();
+		// let product = product_template.product();
 
 		// TODO: Now that we have the product, find a way to unwrap it and get the vals
 		let variable = "HMAX";

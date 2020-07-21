@@ -1,9 +1,10 @@
 #[macro_use]
 extern crate grib_macros;
 
-use grib_macros::{DisplayDescription, FromValue, Parameter};
+use grib_macros::{DisplayDescription, FromValue, ToParameter};
+use grib_types::Parameter;
 
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, Parameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 enum Shape {
     #[description = "rectangle"]
     #[abbrev = "rect"]
