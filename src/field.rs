@@ -12,8 +12,8 @@ use crate::templates::product::ProductTemplate;
 pub struct Field {
     pub discipline: Discipline,
     pub reference_date: DateTime<Utc>,
-    pub variable: &'static str,
-    pub units: &'static str
+    pub variable: String,
+    pub units: String,
 }
 
 impl <'a> TryFrom<Message<'a>> for Field {
@@ -40,17 +40,13 @@ impl <'a> TryFrom<Message<'a>> for Field {
 			_ => None,
 		}, "Only HorizontalAnalysisForecast templates are supported at this time");
 
-		// let product = product_template.product();
-
-		// TODO: Now that we have the product, find a way to unwrap it and get the vals
-		let variable = "HMAX";
-		let units = "m";
+		let parameter = unwrap_or_return!(product_template.parameter(), "This Product and Parameter is currently not supported") ;
 
 		Ok(Field {
 			discipline,
 			reference_date,
-			variable, 
-			units,
+			variable: parameter.name, 
+			units: parameter.unit,
 		})
 	}
 }
