@@ -8,10 +8,12 @@ use crate::sections::product_definition::ProductDefinitionSection;
 use crate::sections::bitmap::BitmapSection;
 use crate::sections::data::DataSection;
 use crate::templates::product::ProductTemplate;
+use chrono::Duration;
 
 pub struct Field {
     pub discipline: Discipline,
 	pub reference_date: DateTime<Utc>,
+	pub forecast_date: DateTime<Utc>,
 	pub variable_name: String,
 	pub variable_abbreviation: String,
     pub units: String,
@@ -41,11 +43,13 @@ impl <'a> TryFrom<Message<'a>> for Field {
 			_ => None,
 		}, "Only HorizontalAnalysisForecast templates are supported at this time");
 
-		let parameter = unwrap_or_return!(product_template.parameter(), "This Product and Parameter is currently not supported") ;
+		let parameter = unwrap_or_return!(product_template.parameter(), "This Product and Parameter is currently not supported");
+		let forecast_date = product_template.forecast_datetime(reference_date);
 
 		Ok(Field {
 			discipline,
 			reference_date,
+			forecast_date,
 			variable_name: parameter.name, 
 			variable_abbreviation: parameter.abbrev,
 			units: parameter.unit,

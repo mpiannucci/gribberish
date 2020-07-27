@@ -33,6 +33,6 @@ fn read_multi() {
         }
 
         let field = field.unwrap();
-        println!("{}", field.variable_abbreviation);
+        println!("{}: {}", field.variable_abbreviation, field.forecast_date);
     }
 }

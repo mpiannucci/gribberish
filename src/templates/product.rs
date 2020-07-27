@@ -2,6 +2,7 @@ use grib_macros::{DisplayDescription, FromValue, ToParameter};
 use grib_types::Parameter;
 use super::template::{Template, TemplateType};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
+use chrono::{Utc, DateTime, Duration};
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -83,11 +84,31 @@ pub enum TimeUnit {
 	Normal = 6, 
 	Century = 7,
 	#[description = "3 hours"]
-	ThreeHours = 8,
+	ThreeHours = 10,
 	#[description = "6 hours"]
-	SixHours = 9,
+	SixHours = 11,
 	#[description = "12 hours"]
-	TwelveHours = 10,
+	TwelveHours = 12,
+	Seconds = 13,
+}
+
+impl TimeUnit {
+	pub fn duration(&self, value: i64) -> Duration {
+		match self {
+			TimeUnit::Minute => Duration::minutes(value),
+			TimeUnit::Hour => Duration::hours(value),
+			TimeUnit::ThreeHours => Duration::hours(value * 3),
+			TimeUnit::SixHours => Duration::hours(value * 6),
+			TimeUnit::TwelveHours => Duration::hours(value * 12),
+			TimeUnit::Day => Duration::hours(value * 24),
+			TimeUnit::Month => Duration::hours(value * 730),
+			TimeUnit::Year => Duration::hours(value * 8760),
+			TimeUnit::Decade => Duration::hours(value * 87600),
+			TimeUnit::Normal => Duration::hours(value * 262800),
+			TimeUnit::Century => Duration::hours(value * 876000),
+			TimeUnit::Seconds => Duration::seconds(value),
+		}
+	}
 }
 
 pub trait ProductDiscipline {
@@ -553,6 +574,12 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
 
 	pub fn forecast_time(&self) -> u32 {
 		read_u32_from_bytes(self.data, 18).unwrap_or(0)
+	}
+
+	pub fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc> {
+		let forecast_offset = self.forecast_time();
+		let offset_duration: Duration = self.time_unit().duration(forecast_offset as i64);
+		reference_date + offset_duration
 	}
 
     pub fn first_fixed_surface_type(&self) -> FixedSurfaceTypes {
