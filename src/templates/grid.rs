@@ -188,6 +188,10 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
         self.data[71]
     }
 
+    pub fn grid_point_count(&self) -> usize {
+        (self.parallel_point_count() * self.meridian_point_count()) as usize
+    }
+
     pub fn origin_latitude(&self) -> f64 {
         return (self.start_latitude() + self.end_latitude()) * 0.5;
     }
@@ -221,4 +225,25 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
 
         return locations;
     }
+
+    pub fn index_for_location(&self, latitude: f64, longitude: f64) -> Result<usize, &'static str> {
+        if latitude < self.start_latitude() || latitude > self.end_latitude() {
+           return Err("Latitude is out of range")
+        } else if longitude < self.start_longitude() || longitude > self.end_longitude() {
+            return Err("Longitude is out of range")
+        }
+
+        let lat_difference = latitude - self.start_latitude();
+        let lat_index = (lat_difference / self.i_direction_increment()) as usize;
+        
+        let lon_difference = longitude - self.start_longitude();
+        let lon_index = (lon_difference / self.j_direction_increment()) as usize;
+
+        let index = lat_index * self.parallel_point_count() as usize + lon_index;
+        Ok(index)
+    }
+
+    pub fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str> {
+        Err("unimplemented")
+    } 
 }
