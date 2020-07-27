@@ -11,8 +11,9 @@ use crate::templates::product::ProductTemplate;
 
 pub struct Field {
     pub discipline: Discipline,
-    pub reference_date: DateTime<Utc>,
-    pub variable: String,
+	pub reference_date: DateTime<Utc>,
+	pub variable_name: String,
+	pub variable_abbreviation: String,
     pub units: String,
 }
 
@@ -45,7 +46,8 @@ impl <'a> TryFrom<Message<'a>> for Field {
 		Ok(Field {
 			discipline,
 			reference_date,
-			variable: parameter.name, 
+			variable_name: parameter.name, 
+			variable_abbreviation: parameter.abbrev,
 			units: parameter.unit,
 		})
 	}

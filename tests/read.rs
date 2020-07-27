@@ -2,11 +2,14 @@ extern crate grib;
 
 use grib::message::Message;
 use grib::sections::section::Section;
+use grib::field::Field;
+use std::convert::TryFrom;
 use grib::sections::product_definition::ProductDefinitionSection;
 use std::path::Path;
 use std::fs::File;
 use std::io::Read;
 use std::vec::Vec;
+use std::error::Error;
 
 #[test]
 fn read_multi() {
@@ -24,19 +27,12 @@ fn read_multi() {
     for message in messages {
         assert_eq!(message.sections.len(), 8);
 
-        message.sections.iter().find(|s| match s { 
-            Section::ProductDefinition(_) => true,
-            _ => false 
-        });
+        let field = Field::try_from(message);
+        if let Err(_) = field {
+            continue;
+        }
 
-        let product_definition_section = message.sections.iter().find(|s| match s { 
-            Section::ProductDefinition(_) => true,
-            _ => false 
-        }).unwrap();
-
-        let product_definition = match product_definition_section {
-            Section::ProductDefinition(ref p) => Some(p), 
-            _ => None,
-        }.unwrap();
+        let field = field.unwrap();
+        println!("{}", field.variable_abbreviation);
     }
 }
