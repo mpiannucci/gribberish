@@ -3,12 +3,7 @@ use chrono::prelude::*;
 use crate::message::Message;
 use crate::sections::indicator::Discipline;
 use crate::sections::section::Section;
-use crate::sections::grid_definition::GridDefinitionSection;
-use crate::sections::product_definition::ProductDefinitionSection;
-use crate::sections::bitmap::BitmapSection;
-use crate::sections::data::DataSection;
 use crate::templates::product::ProductTemplate;
-use chrono::Duration;
 
 pub struct Field {
     pub discipline: Discipline,

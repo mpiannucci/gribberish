@@ -2,6 +2,7 @@ use grib_macros::{DisplayDescription, FromValue};
 use super::template::{Template, TemplateType};
 use crate::utils::{read_u32_from_bytes, bit_array_from_bytes};
 use std::vec::Vec;
+use std::iter::Iterator;
 
 pub enum GridDefinitionTemplate<'a> {
     LatitudeLongitude(LatitudeLongitudeGridTemplate<'a>),
@@ -185,5 +186,39 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
 
     pub fn scanning_mode_flags(&self) -> u8 {
         self.data[71]
+    }
+
+    pub fn origin_latitude(&self) -> f64 {
+        return (self.start_latitude() + self.end_latitude()) * 0.5;
+    }
+
+    pub fn origin_longitude(&self) -> f64 {
+        return (self.start_longitude() + self.end_longitude()) * 0.5;
+    }
+
+    pub fn latitudes(&self) -> Vec<f64> {
+        let latitude_start = self.start_latitude();
+        let latitude_step = self.i_direction_increment();
+        (0..self.meridian_point_count()).map(|i| latitude_start + i as f64 * latitude_step).collect()
+    }
+
+    pub fn longitudes(&self) -> Vec<f64> {
+        let longitude_start = self.start_longitude();
+        let longitude_step = self.j_direction_increment();
+        (0..self.parallel_point_count()).map(|i| longitude_start + i as f64 * longitude_step).collect()
+    }
+
+    pub fn locations(&self) -> Vec<(f64, f64)> {
+        let latitudes = self.latitudes();     
+        let longitudes = self.longitudes();
+
+        let mut locations = Vec::with_capacity(latitudes.len() * longitudes.len());
+        for lat_i in 0..latitudes.len() {
+            for lon_i in 0..longitudes.len() {
+                locations.push((latitudes[lat_i], longitudes[lon_i]));
+            }
+        }
+
+        return locations;
     }
 }
