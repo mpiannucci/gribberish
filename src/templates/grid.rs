@@ -244,6 +244,16 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
     }
 
     pub fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str> {
-        Err("unimplemented")
+        if index >= self.grid_point_count() {
+            return Err("Index out of range")
+        }
+
+        let lat_index = index / self.parallel_point_count() as usize;
+        let lon_index = index % self.parallel_point_count()as usize;
+
+        let latitude = self.start_latitude() + self.i_direction_increment() * lat_index as f64;
+        let longitude = self.start_longitude() + self.j_direction_increment() * lon_index as f64;
+
+        Ok((latitude, longitude))
     } 
 }
