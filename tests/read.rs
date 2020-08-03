@@ -2,7 +2,7 @@ extern crate grib;
 
 use grib::message::Message;
 use grib::sections::section::Section;
-use grib::field::Field;
+use grib::message_metadata::MessageMetadata;
 use std::convert::TryFrom;
 use grib::sections::product_definition::ProductDefinitionSection;
 use std::path::Path;
@@ -30,7 +30,7 @@ fn read_multi() {
     for message in messages {
         assert_eq!(message.sections.len(), 8);
 
-        let field = Field::try_from(message);
+        let field = MessageMetadata::try_from(message);
         if let Err(_) = field {
             continue;
         }

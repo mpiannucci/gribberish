@@ -5,7 +5,7 @@ use crate::sections::indicator::Discipline;
 use crate::sections::section::Section;
 use crate::templates::product::ProductTemplate;
 
-pub struct Field {
+pub struct MessageMetadata {
     pub discipline: Discipline,
 	pub reference_date: DateTime<Utc>,
 	pub forecast_date: DateTime<Utc>,
@@ -14,7 +14,7 @@ pub struct Field {
     pub units: String,
 }
 
-impl <'a> TryFrom<Message<'a>> for Field {
+impl <'a> TryFrom<Message<'a>> for MessageMetadata {
 	type Error = &'static str;
 
 	fn try_from(message: Message) -> Result<Self, Self::Error> {
@@ -41,7 +41,7 @@ impl <'a> TryFrom<Message<'a>> for Field {
 		let parameter = unwrap_or_return!(product_template.parameter(), "This Product and Parameter is currently not supported");
 		let forecast_date = product_template.forecast_datetime(reference_date);
 
-		Ok(Field {
+		Ok(MessageMetadata {
 			discipline,
 			reference_date,
 			forecast_date,
