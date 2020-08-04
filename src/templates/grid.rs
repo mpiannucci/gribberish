@@ -4,67 +4,16 @@ use crate::utils::{read_u32_from_bytes, bit_array_from_bytes};
 use std::vec::Vec;
 use std::iter::Iterator;
 
-pub enum GridDefinitionTemplate<'a> {
-    LatitudeLongitude(LatitudeLongitudeGridTemplate<'a>),
-    RotatedLatitudeLongitude,
-    StretchedLatitudeLongitude,
-    StetchedAndRotatedLatitudeLongitude,
-    Mercator, 
-    PolarStereographic,
-    LambertConformal, 
-    GaussianLatitudeLongitude,
-    RotatedGaussianLatitudeLongitude,
-    StretchedGaussianLatitudeLongitude,
-    StretchedAndRotatedGaussianLatitudeLongitude,
-    SphericalHarmonicCoefficients,
-    RotatedSphericalHarmonicCoefficients,
-    StretchedSphericalHarmonicCoefficients,
-    StretchedAndRotatedSphericalHarmonicCoefficients,
-    SpaceViewPerspectiveOrthographic,
-    TriangularGrid,
-    EquitorialAzimuthalEquidistantProjection,
-    AzimuthRangeProjection,
-    CrossSectionGrid,
-    HovmollerDiagramGrid, 
-    TimeSectionGrid,
-    Missing,
-}
-
-impl<'a> GridDefinitionTemplate<'a> {
-    pub fn from_template_number(template_number: u16, data: &'a[u8]) -> Self {
-        match template_number {
-            0 => GridDefinitionTemplate::LatitudeLongitude(LatitudeLongitudeGridTemplate{data}),
-            _ => GridDefinitionTemplate::Missing,
-        }
-    }
-
-    pub fn template_number(&self) -> u16 {
-        match self {
-            GridDefinitionTemplate::LatitudeLongitude(_) => 0,
-            GridDefinitionTemplate::RotatedLatitudeLongitude => 1,
-            GridDefinitionTemplate::StretchedLatitudeLongitude => 2,
-            GridDefinitionTemplate::StetchedAndRotatedLatitudeLongitude => 3,
-            GridDefinitionTemplate::Mercator => 10,
-            GridDefinitionTemplate::PolarStereographic => 20, 
-            GridDefinitionTemplate::LambertConformal => 30, 
-            GridDefinitionTemplate::GaussianLatitudeLongitude => 40, 
-            GridDefinitionTemplate::RotatedGaussianLatitudeLongitude => 41, 
-            GridDefinitionTemplate::StretchedGaussianLatitudeLongitude => 42, 
-            GridDefinitionTemplate::StretchedAndRotatedGaussianLatitudeLongitude => 43,
-            GridDefinitionTemplate::SphericalHarmonicCoefficients => 50, 
-            GridDefinitionTemplate::RotatedSphericalHarmonicCoefficients => 51, 
-            GridDefinitionTemplate::StretchedSphericalHarmonicCoefficients => 52, 
-            GridDefinitionTemplate::StretchedAndRotatedSphericalHarmonicCoefficients => 53, 
-            GridDefinitionTemplate::SpaceViewPerspectiveOrthographic => 90, 
-            GridDefinitionTemplate::TriangularGrid => 100, 
-            GridDefinitionTemplate::EquitorialAzimuthalEquidistantProjection => 110,
-            GridDefinitionTemplate::AzimuthRangeProjection => 120, 
-            GridDefinitionTemplate::CrossSectionGrid => 1000,
-            GridDefinitionTemplate::HovmollerDiagramGrid => 1100,
-            GridDefinitionTemplate::TimeSectionGrid => 1200,
-            GridDefinitionTemplate::Missing => 65535,
-        }
-    }
+pub trait GridDefinitionTemplate {
+    fn grid_point_count(&self) -> usize;
+    fn start(&self) -> (f64, f64);
+    fn origin(&self) -> (f64, f64);
+    fn end(&self) -> (f64, f64);
+    fn latitudes(&self) -> Vec<f64>;
+    fn longitudes(&self) -> Vec<f64>;
+    fn locations(&self) -> Vec<(f64, f64)>;
+    fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str>;
+    fn index_for_location(&self, latitude: f64, longitude: f64) -> Result<usize, &'static str>;
 }
 
 #[repr(u8)]
@@ -114,6 +63,10 @@ impl <'a> Template for LatitudeLongitudeGridTemplate<'a> {
 }
 
 impl <'a> LatitudeLongitudeGridTemplate<'a> {
+    pub fn new(data: &'a[u8]) -> LatitudeLongitudeGridTemplate {
+        LatitudeLongitudeGridTemplate {data}
+    }
+
     pub fn earth_shape(&self) -> EarthShape {
         self.data[14].into()
     }
@@ -187,32 +140,41 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
     pub fn scanning_mode_flags(&self) -> u8 {
         self.data[71]
     }
+}
 
-    pub fn grid_point_count(&self) -> usize {
+
+impl <'a> GridDefinitionTemplate for LatitudeLongitudeGridTemplate<'a> {
+    fn grid_point_count(&self) -> usize {
         (self.parallel_point_count() * self.meridian_point_count()) as usize
     }
 
-    pub fn origin_latitude(&self) -> f64 {
-        return (self.start_latitude() + self.end_latitude()) * 0.5;
+    fn start(&self) -> (f64, f64) {
+        (self.start_latitude(), self.start_longitude())
     }
 
-    pub fn origin_longitude(&self) -> f64 {
-        return (self.start_longitude() + self.end_longitude()) * 0.5;
+    fn origin(&self) -> (f64, f64) {
+        let lat = (self.start_latitude() + self.end_latitude()) * 0.5;
+        let lng = (self.start_longitude() + self.end_longitude()) * 0.5;
+        (lat, lng)
     }
 
-    pub fn latitudes(&self) -> Vec<f64> {
+    fn end(&self) -> (f64, f64) {
+        (self.end_latitude(), self.end_longitude())
+    }
+
+    fn latitudes(&self) -> Vec<f64> {
         let latitude_start = self.start_latitude();
         let latitude_step = self.i_direction_increment();
         (0..self.meridian_point_count()).map(|i| latitude_start + i as f64 * latitude_step).collect()
     }
 
-    pub fn longitudes(&self) -> Vec<f64> {
+    fn longitudes(&self) -> Vec<f64> {
         let longitude_start = self.start_longitude();
         let longitude_step = self.j_direction_increment();
         (0..self.parallel_point_count()).map(|i| longitude_start + i as f64 * longitude_step).collect()
     }
 
-    pub fn locations(&self) -> Vec<(f64, f64)> {
+    fn locations(&self) -> Vec<(f64, f64)> {
         let latitudes = self.latitudes();     
         let longitudes = self.longitudes();
 
@@ -226,7 +188,7 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
         return locations;
     }
 
-    pub fn index_for_location(&self, latitude: f64, longitude: f64) -> Result<usize, &'static str> {
+    fn index_for_location(&self, latitude: f64, longitude: f64) -> Result<usize, &'static str> {
         if latitude < self.start_latitude() || latitude > self.end_latitude() {
            return Err("Latitude is out of range")
         } else if longitude < self.start_longitude() || longitude > self.end_longitude() {
@@ -243,7 +205,7 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
         Ok(index)
     }
 
-    pub fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str> {
+    fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str> {
         if index >= self.grid_point_count() {
             return Err("Index out of range")
         }

@@ -1,6 +1,6 @@
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use grib_macros::{DisplayDescription, FromValue};
-use crate::templates::grid::GridDefinitionTemplate;
+use crate::templates::grid::{GridDefinitionTemplate, LatitudeLongitudeGridTemplate};
 use super::grib_section::GribSection;
 
 #[repr(u8)]
@@ -58,9 +58,12 @@ impl<'a> GridDefinitionSection<'a> {
         read_u16_from_bytes(self.data, 12).unwrap_or(0)
     }
 
-    pub fn grid_definition_template(&self) -> GridDefinitionTemplate {
+    pub fn grid_definition_template(&self) -> Option<Box<dyn GridDefinitionTemplate + 'a>> {
         let template_number = self.grid_definition_template_number();
-        GridDefinitionTemplate::from_template_number(template_number, &self.data)
+        match template_number {
+            0 => Some(Box::new(LatitudeLongitudeGridTemplate::new(self.data))),
+            _ => None,
+        }
     }
 }
 

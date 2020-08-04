@@ -11,7 +11,8 @@ pub struct MessageMetadata {
 	pub forecast_date: DateTime<Utc>,
 	pub variable_name: String,
 	pub variable_abbreviation: String,
-    pub units: String,
+	pub region: ((f64, f64), (f64, f64)),
+	pub units: String,
 }
 
 impl <'a> TryFrom<Message<'a>> for MessageMetadata {
@@ -27,6 +28,14 @@ impl <'a> TryFrom<Message<'a>> for MessageMetadata {
 			Section::Identification(identification) => Some(identification.reference_date()),
 			_ => None,
 		}), "Identification section not found when reading reference date");
+
+		let grid_definition = unwrap_or_return!(message.sections.iter().find_map(|s| match s {
+			Section::GridDefinition(grid_definition) => Some(grid_definition),
+			_ => None,
+		}), "Grid definition section not found when reading variable data");
+
+		let grid_template = unwrap_or_return!(grid_definition.grid_definition_template(), "Only latitude longitude templates supported at this time");
+		let region = (grid_template.start(), grid_template.end());
 
 		let product_definition = unwrap_or_return!(message.sections.iter().find_map(|s| match s {
 			Section::ProductDefinition(product_definition) => Some(product_definition),
@@ -47,6 +56,7 @@ impl <'a> TryFrom<Message<'a>> for MessageMetadata {
 			forecast_date,
 			variable_name: parameter.name, 
 			variable_abbreviation: parameter.abbrev,
+			region,
 			units: parameter.unit,
 		})
 	}
