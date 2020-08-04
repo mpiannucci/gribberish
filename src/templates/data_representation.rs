@@ -1,6 +1,7 @@
 use grib_macros::{DisplayDescription, FromValue};
 use super::template::{Template, TemplateType};
 use crate::utils::{read_f32_from_bytes, read_i16_from_bytes, from_bits};
+use crate::unwrap_or_return;
 use num::{Float, Integer};
 
 #[repr(u8)]
@@ -71,22 +72,8 @@ pub enum CompressionType {
 	Lossy = 1,
 }
 
-pub trait CompressedDataTemplate<T> {
-    fn unpack(&self, bits: Vec<u8>) -> Vec<T>;
-}
- 
-pub enum DataRepresentationTemplate<'a> {
-	SimpleGridPoint(SimpleGridPointDataRepresentationTemplate<'a>),
-	Other,
-}
-
-impl<'a> DataRepresentationTemplate<'a> {
-	pub fn from_template_number(template_number: u16, data: &'a[u8]) -> DataRepresentationTemplate {
-		match template_number {
-			0 => DataRepresentationTemplate::SimpleGridPoint(SimpleGridPointDataRepresentationTemplate{data}),
-			_ => DataRepresentationTemplate::Other,
-		}
-	}
+pub trait DataRepresentationTemplate<T> {
+    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<T>, &'static str>;
 }
 
 pub struct SimpleGridPointDataRepresentationTemplate<'a> {
@@ -112,6 +99,10 @@ impl <'a> Template for SimpleGridPointDataRepresentationTemplate<'a> {
 }
 
 impl <'a> SimpleGridPointDataRepresentationTemplate<'a> {
+	pub fn new(data: &'a[u8]) -> SimpleGridPointDataRepresentationTemplate {
+		SimpleGridPointDataRepresentationTemplate{data}
+	}
+
 	pub fn reference_value(&self) -> f32 {
 		read_f32_from_bytes(self.data, 11).unwrap_or(0.0)
 	}
@@ -133,8 +124,8 @@ impl <'a> SimpleGridPointDataRepresentationTemplate<'a> {
 	}
 }
 
-impl <'a> CompressedDataTemplate<f64> for SimpleGridPointDataRepresentationTemplate<'a> {
-    fn unpack(&self, bits: Vec<u8>) -> Vec<f64> {
+impl <'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTemplate<'a> {
+    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, &'static str> {
         let mut v = Vec::new();
             
         let bits_per_val: usize = self.bit_count().into();
@@ -152,14 +143,13 @@ impl <'a> CompressedDataTemplate<f64> for SimpleGridPointDataRepresentationTempl
             let relevent_bits = &bits[i..i+bits_per_val];
             for (j, bit) in relevent_bits.iter().enumerate() {
             	val_bits[j + bit_start_index] = *bit;
-            }
-
-            // TODO: Get rid of expect and handle the error
-            raw_val = from_bits::<u32>(&val_bits).expect("Invalid cast from bits to u32").into();
+			}
+		
+            raw_val = unwrap_or_return!(from_bits::<u32>(&val_bits), "failed to convert value to u32").into();
             let val = (reference_value + (raw_val * 2.0.powi(binary_scale_factor))) / 10.0.powi(decimal_scale_factor);
             v.push(val);
         }
 
-        v
+        Ok(v)
     }
 }
