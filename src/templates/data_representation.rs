@@ -73,7 +73,8 @@ pub enum CompressionType {
 }
 
 pub trait DataRepresentationTemplate<T> {
-    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<T>, &'static str>;
+	fn scaled_value(&self, raw_value: T) -> T;
+	fn unpack(&self, bits: Vec<u8>) -> Result<Vec<T>, &'static str>;
 }
 
 pub struct SimpleGridPointDataRepresentationTemplate<'a> {
@@ -125,16 +126,22 @@ impl <'a> SimpleGridPointDataRepresentationTemplate<'a> {
 }
 
 impl <'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTemplate<'a> {
+
+	fn scaled_value(&self, raw_value: f64) -> f64 {
+		let reference_value: f64 = self.reference_value().into();
+        let binary_scale_factor: i32 = self.binary_scale_factor().into();
+		let decimal_scale_factor: i32 = self.decimal_scale_factor().into();
+		
+		(reference_value + (raw_value * 2.0.powi(binary_scale_factor))) / 10.0.powi(decimal_scale_factor)
+	}
+
     fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, &'static str> {
         let mut v = Vec::new();
             
         let bits_per_val: usize = self.bit_count().into();
         let bit_start_index: usize = 64 - bits_per_val;
-        let reference_value: f64 = self.reference_value().into();
-        let binary_scale_factor: i32 = self.binary_scale_factor().into();
-        let decimal_scale_factor: i32 = self.decimal_scale_factor().into();
 
-        let mut raw_val: f64 = 0.0;
+        let mut raw_value: f64 = 0.0;
         let mut val_bits: [u8; 32] = [0; 32];
         
         for i in (0..bits.len()).step_by(bits_per_val) {
@@ -145,8 +152,8 @@ impl <'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationT
             	val_bits[j + bit_start_index] = *bit;
 			}
 		
-            raw_val = unwrap_or_return!(from_bits::<u32>(&val_bits), "failed to convert value to u32").into();
-            let val = (reference_value + (raw_val * 2.0.powi(binary_scale_factor))) / 10.0.powi(decimal_scale_factor);
+            raw_value = unwrap_or_return!(from_bits::<u32>(&val_bits), "failed to convert value to u32").into();
+            let val = self.scaled_value(raw_value);
             v.push(val);
         }
 
