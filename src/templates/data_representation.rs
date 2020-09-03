@@ -2,7 +2,7 @@ use grib_macros::{DisplayDescription, FromValue};
 use super::template::{Template, TemplateType};
 use crate::utils::{read_f32_from_bytes, read_i16_from_bytes, from_bits};
 use crate::unwrap_or_return;
-use num::{Float, Integer};
+use num::{Float};
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -143,7 +143,7 @@ impl <'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationT
 
         let mut raw_value: f64 = 0.0;
         let mut val_bits: [u8; 32] = [0; 32];
-        
+
         for i in (0..bits.len()).step_by(bits_per_val) {
         	val_bits = [0; 32];
 

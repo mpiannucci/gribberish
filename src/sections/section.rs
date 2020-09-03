@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use crate::utils::read_u32_from_bytes;
 use super::indicator::IndicatorSection;
 use super::identification::IdentificationSection;
