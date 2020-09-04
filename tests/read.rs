@@ -35,7 +35,7 @@ fn read_multi() {
         }
 
         let field = field.unwrap();
-        println!("{}: {}", field.variable_abbreviation, field.forecast_date);
+        println!("{}: {} +{}", field.variable_abbreviation, field.forecast_date, field.reference_date);
 
         let data = message.data();
         if let Err(_) = data {
@@ -43,6 +43,6 @@ fn read_multi() {
         }
 
         let data = data.unwrap();
-        println!("Data count: {}", data.len());
+        println!("Data: {:?}", data);
     }
 }

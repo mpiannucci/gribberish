@@ -142,8 +142,6 @@ impl<'a> Message<'a> {
 
         let raw_packed_data = data_section.raw_bit_data();
 
-        println!("data len {}", raw_packed_data.len());
-
         let data_representation_section = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::DataRepresentation(data_representation_section) =>

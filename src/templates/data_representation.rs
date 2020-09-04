@@ -139,15 +139,20 @@ impl <'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationT
         let mut v = Vec::new();
             
         let bits_per_val: usize = self.bit_count().into();
-        let bit_start_index: usize = 64 - bits_per_val;
+		let bit_start_index: usize = 32 - bits_per_val;
 
         let mut raw_value: f64 = 0.0;
         let mut val_bits: [u8; 32] = [0; 32];
 
         for i in (0..bits.len()).step_by(bits_per_val) {
-        	val_bits = [0; 32];
+			val_bits = [0; 32];
 
-            let relevent_bits = &bits[i..i+bits_per_val];
+			let mut end_index = i+bits_per_val;
+			if end_index >= bits.len() {
+				end_index = bits.len() - 1;
+			}
+
+            let relevent_bits = &bits[i..end_index];
             for (j, bit) in relevent_bits.iter().enumerate() {
             	val_bits[j + bit_start_index] = *bit;
 			}

@@ -73,9 +73,9 @@ pub fn from_bits<T>(bits: &[u8]) -> Option<T> where T: num::integer::Integer + F
 pub fn bit_array_from_bytes(data: &[u8]) -> Vec<u8> {
     data            
         .iter()
-        .map(|r| format!("{:b}", r))
+        .map(|r| format!("{:08b}", r))
         .flat_map(|s| s.chars()
-                                .map(|c| c.to_digit(10).unwrap_or(0) as u8)
+                                .map(|c| c.to_digit(2).unwrap_or(0) as u8)
                                 .collect::<Vec<u8>>())
         .collect::<Vec<u8>>()
 }

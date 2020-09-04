@@ -27,16 +27,23 @@ impl<'a> BitmapSection<'a> {
     }
 
     pub fn map_data(&self, unmapped_data: Vec<f64>) -> Vec<f64> {
-        let mut value_count: usize = 0;
+        let mut nan_count: usize = 0;
 
-        self.bitmap().iter().map(|b| match b {
-            1 => {
-                let m = unmapped_data[value_count];
-                value_count += 1;
-                m
-            },
-            _ => std::f64::NAN
-        }).collect()
+        let bitmask = self.bitmap();
+        let mut data = Vec::new();
+        data.resize(bitmask.len(), 0.0);
+
+        for (i, mask) in bitmask.iter().enumerate() {
+            data[i] = match mask {
+                1 => unmapped_data[i - nan_count],
+                _ => {
+                    nan_count += 1;
+                    std::f64::NAN
+                }
+            };
+        }
+
+        data
     }
 }
 
