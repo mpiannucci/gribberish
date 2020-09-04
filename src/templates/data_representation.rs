@@ -157,7 +157,7 @@ impl <'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationT
             	val_bits[j + bit_start_index] = *bit;
 			}
 		
-            raw_value = unwrap_or_return!(from_bits::<u32>(&val_bits), "failed to convert value to u32").into();
+			raw_value = unwrap_or_return!(from_bits::<u32>(&val_bits), "failed to convert value to u32").into();
             let val = self.scaled_value(raw_value);
             v.push(val);
         }

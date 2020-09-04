@@ -67,7 +67,7 @@ pub fn from_bits<T>(bits: &[u8]) -> Option<T> where T: num::integer::Integer + F
         return None;
     }
     
-    Some(bits.iter().rev().fold(T::from(0), |acc, &b| acc*T::from(2) + T::from(b)))
+    Some(bits.iter().fold(T::from(0), |acc, &b| acc*T::from(2) + T::from(b)))
 }
 
 pub fn bit_array_from_bytes(data: &[u8]) -> Vec<u8> {
