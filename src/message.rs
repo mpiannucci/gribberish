@@ -173,4 +173,21 @@ impl<'a> Message<'a> {
         let mapped_scaled_data = bitmap_section.map_data(scaled_unpacked_data);
         Ok(mapped_scaled_data)
     }
+
+    pub fn data_locations(&self) -> Result<Vec<(f64, f64)>, &'static str> {
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data"
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time"
+        );
+
+        Ok(grid_template.locations())
+    }
 }
