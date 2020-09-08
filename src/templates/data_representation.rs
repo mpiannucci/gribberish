@@ -138,7 +138,11 @@ impl <'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationT
     fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, &'static str> {
         let mut v = Vec::new();
             
-        let bits_per_val: usize = self.bit_count().into();
+		let bits_per_val: usize = self.bit_count().into();
+		if bits_per_val == 0 {
+			return Err("Invalis bits per value size");
+		}
+
 		let bit_start_index: usize = 32 - bits_per_val;
 
         let mut raw_value: f64 = 0.0;

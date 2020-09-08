@@ -4,12 +4,13 @@ extern crate futures;
 extern crate tokio;
 extern crate reqwest;
 extern crate bytes;
+extern crate csv;
 
+use std::error::Error;
 use std::fmt;
 use std::clone::Clone;
 use std::ops::Range;
 use futures::{stream, StreamExt};
-use futures::stream::Collect;
 use chrono::prelude::*;
 use reqwest::{Url};
 use bytes::Bytes;
@@ -144,16 +145,29 @@ impl<'a> NOAAModelUrlBuilder<'a> {
     }
 }
 
+pub fn mean(data: &Vec<f64>) -> f64 {
+    let filtered_data: Vec<_> = data
+        .iter()
+        .filter(|v| !v.is_nan())
+        .collect();
+
+    let filtered_count = filtered_data.len();
+    filtered_data
+        .iter()
+        .fold(0.0, |sum, v| sum + *v) / (filtered_count as f64)
+}
+
 // RI Coast 41.4, -71.45
 // BI Buoy 40.969, 71.127
 #[tokio::main]
-async fn main() -> Result<(), &'static str> {
-    let now = Utc::now().with_hour(0).unwrap();
+async fn main() -> Result<(), Box<dyn Error>> {
+    let now = Utc::now().with_hour(12).unwrap();
     let urls = NOAAModelUrlBuilder::new(NOAAModelType::MultiGridWave, "at_10m", now)
-        .with_subregion(41.4, 41.6, -71.6, -71.4)
-        .build_at_indexes(0..181);
+        .with_subregion(40.0, 42.0, -72.0, -71.0)
+        .build_at_indexes(0..100);
 
-    let worker = stream::iter(urls.into_iter().map(|url|
+    // Download the data from NOAA's grib endpoint
+    let results: Vec<Option<Bytes>> = stream::iter(urls.into_iter().map(|url|
         async move {
             let rurl = Url::parse(url.as_str()).unwrap();
             match reqwest::get(rurl).await {
@@ -165,13 +179,58 @@ async fn main() -> Result<(), &'static str> {
                 },
                 Err(_) => None,
             }
-    }));
-
-    // worker.collect();
+    })).buffered(8).collect().await;
     
-    // buffered(8).collect::<Vec<Option<Bytes>>>();
+    // Parse out the data into data and metadata
+    let all_grib_data: Vec<_> = results
+        .into_iter()
+        .filter_map(|b| {
+            match b {
+                Some(b) => {
+                    let data: Vec<_> = grib::message::Message::parse_all(b.clone().as_ref())
+                    .iter()
+                    .filter(|m| m.metadata().is_ok())    
+                    .map(|m| (m.metadata().unwrap(), m.data(), m.data_locations()))
+                    .collect();
+                    Some(data)
+                },
+                None => None,
+            }
+        }).collect();
 
-    // let data = worker.await;
+    
+    let mut wtr = csv::Writer::from_path("ri_wave_data.csv")?;
+
+    // Collect the variables and write out the result as the header
+    let mut vars: Vec<_> = all_grib_data[0]
+        .iter()
+        .map(|m| format!("{} ({})", (m.0).variable_abbreviation.clone(), (m.0).units ))
+        .collect();
+    if vars.len() == 0 {
+        return Err(Box::from("No variables read"));
+    }
+    vars.insert(0, String::from("TIME"));
+    wtr.write_record(vars)?;
+
+    // Then collect the mean of every value 
+    all_grib_data.iter().for_each(|dt| {
+        let mut point_data: Vec<_> = dt
+            .iter()
+            .map(|d| {
+                let value = match &d.1 {
+                    Ok(vals) => mean(vals),
+                    Err(_) => std::f64::NAN,
+                };
+                format!("{:.2}", value)
+            }).collect();
+        if point_data.len() > 0 {
+            point_data.insert(0, dt[0].0.forecast_date.to_rfc3339());
+        }
+
+        let _ = wtr.write_record(point_data);
+    });
+
+    wtr.flush()?;
 
     Ok(())
 }

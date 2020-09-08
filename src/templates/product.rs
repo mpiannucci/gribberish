@@ -578,7 +578,7 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
 
 	pub fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc> {
 		let forecast_offset = self.forecast_time();
-		let offset_duration: Duration = self.time_unit().duration(forecast_offset as i64);
+		let offset_duration: Duration = self.time_unit().duration(forecast_offset as i64 * 3);
 		reference_date + offset_duration
 	}
 
