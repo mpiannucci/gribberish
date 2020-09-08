@@ -1,12 +1,18 @@
 extern crate chrono;
 extern crate grib;
+extern crate futures;
+extern crate tokio;
+extern crate reqwest;
+extern crate bytes;
 
 use std::fmt;
 use std::clone::Clone;
 use std::ops::Range;
+use futures::{stream, StreamExt};
+use futures::stream::Collect;
 use chrono::prelude::*;
-
-const BASE_WW3_MODEL_URL: &'static str = "https://nomads.ncep.noaa.gov/cgi-bin/filter_wave_multi.pl?file={0}.t{1}z.f{2}.grib2&all_lev=on&all_var=on&subregion=&leftlon={4}&rightlon={5}&toplat={6}&bottomlat={7}&dir=%2Fmulti_1.{3}";
+use reqwest::{Url};
+use bytes::Bytes;
 
 #[derive(Clone, Debug)]
 enum NOAAModelType {
@@ -140,11 +146,32 @@ impl<'a> NOAAModelUrlBuilder<'a> {
 
 // RI Coast 41.4, -71.45
 // BI Buoy 40.969, 71.127
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), &'static str> {
     let now = Utc::now().with_hour(0).unwrap();
     let urls = NOAAModelUrlBuilder::new(NOAAModelType::MultiGridWave, "at_10m", now)
         .with_subregion(41.4, 41.6, -71.6, -71.4)
         .build_at_indexes(0..181);
 
-    println!("{:?}", urls);
+    let worker = stream::iter(urls.into_iter().map(|url|
+        async move {
+            let rurl = Url::parse(url.as_str()).unwrap();
+            match reqwest::get(rurl).await {
+                Ok(resp) => {
+                    match resp.bytes().await {
+                        Ok(b) => Some(b),
+                        Err(_) => None,
+                    }
+                },
+                Err(_) => None,
+            }
+    }));
+
+    // worker.collect();
+    
+    // buffered(8).collect::<Vec<Option<Bytes>>>();
+
+    // let data = worker.await;
+
+    Ok(())
 }
