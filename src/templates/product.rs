@@ -560,11 +560,11 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
 		self.data[12].into()
 	}
 
-	pub fn hours_after_reference_time(&self) -> u16 {
+	pub fn observation_cutoff_hours_after_reference_time(&self) -> u16 {
 		read_u16_from_bytes(self.data, 14).unwrap_or(0)
 	}
 
-	pub fn minutes_after_reference_time(&self) -> u8 {
+	pub fn observation_cutoff_minutes_after_cutoff_time(&self) -> u8 {
 		self.data[16]
 	}
 
