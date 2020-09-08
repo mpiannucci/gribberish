@@ -456,7 +456,7 @@ pub enum WavesProduct {
 	#[description = "benjamin-feir index"]
 	#[abbrev = "BENINX"]
 	#[unit = "-"]
-	BejaminFeirIndex = 44, 
+	BenjaminFeirIndex = 44, 
 	#[description = "spectral peakedness factor"]
 	#[abbrev = "SPFTR"]
 	#[unit = "s-1"]

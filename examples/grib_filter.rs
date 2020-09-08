@@ -2,10 +2,13 @@ extern crate chrono;
 extern crate grib;
 
 use std::fmt;
+use std::clone::Clone;
+use std::ops::Range;
 use chrono::prelude::*;
 
 const BASE_WW3_MODEL_URL: &'static str = "https://nomads.ncep.noaa.gov/cgi-bin/filter_wave_multi.pl?file={0}.t{1}z.f{2}.grib2&all_lev=on&all_var=on&subregion=&leftlon={4}&rightlon={5}&toplat={6}&bottomlat={7}&dir=%2Fmulti_1.{3}";
 
+#[derive(Clone, Debug)]
 enum NOAAModelType {
     MultiGridWave,
 }
@@ -27,6 +30,7 @@ impl fmt::Display for NOAAModelType {
     }
 }
 
+#[derive(Clone, Debug)]
 struct NOAAModelUrlBuilder<'a> {
     model_type: NOAAModelType,
     model_region_name: &'a str,
@@ -98,6 +102,15 @@ impl<'a> NOAAModelUrlBuilder<'a> {
         )
     }
 
+    pub fn build_at_indexes(&self, indexes: Range<usize>) -> Vec<String> {
+        let mut builder = self.clone();
+        indexes.map(|i| {
+            builder
+                .at_index(i);
+            builder.build()
+        }).collect()
+    }
+
     fn build_subregion(&self) -> String {
         if let Some(region) = self.subregion {
             format!(
@@ -125,13 +138,13 @@ impl<'a> NOAAModelUrlBuilder<'a> {
     }
 }
 
-// 41.4, -71.45
+// RI Coast 41.4, -71.45
+// BI Buoy 40.969, 71.127
 fn main() {
     let now = Utc::now().with_hour(0).unwrap();
-    let url = NOAAModelUrlBuilder::new(NOAAModelType::MultiGridWave, "at_10m", now)
-        .at_index(0)
+    let urls = NOAAModelUrlBuilder::new(NOAAModelType::MultiGridWave, "at_10m", now)
         .with_subregion(41.4, 41.6, -71.6, -71.4)
-        .build();
+        .build_at_indexes(0..181);
 
-    println!("{}", url);
+    println!("{:?}", urls);
 }
