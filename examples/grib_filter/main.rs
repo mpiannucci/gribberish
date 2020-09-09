@@ -155,13 +155,8 @@ pub fn mean(data: &Vec<f64>) -> f64 {
         .filter(|v| !v.is_nan())
         .collect();
 
-    let mut sum = 0.0;
-    for f in filtered_data.iter() {
-        sum += *f;
-    }
-
     let count = filtered_data.len() as f64;
-    sum / count
+    filtered_data.into_iter().sum::<f64>() / count
 }
 
 // RI Coast 41.4, -71.45
