@@ -96,7 +96,7 @@ impl<'a> NOAAModelUrlBuilder<'a> {
     }
 
     pub fn build(&self) -> String {
-        format!("https://nomads.ncep.noaa.gov/cgi-bin/filter_{}.pl?file={}.{}.t{:02}z.f{:03}.grib2{}{}&dir=%2F{}.{}", 
+        format!("https://nomads.ncep.noaa.gov/cgi-bin/filter_{}.pl?file={}.{}.t{:02}z.f{:03}.grib2&all_lev=on{}{}&dir=%2F{}.{}", 
             self.model_type.filter_name(), 
             self.model_type, 
             self.model_region_name, 
@@ -111,10 +111,14 @@ impl<'a> NOAAModelUrlBuilder<'a> {
 
     pub fn build_at_indexes(&self, indexes: Range<usize>) -> Vec<String> {
         let mut builder = self.clone();
-        indexes.map(|i| {
+        indexes.step_by(1).filter_map(|i| {
+            if i > 120 && (i - 120) % 3 != 0 {
+                return None;
+            }
+
             builder
                 .at_index(i);
-            builder.build()
+            Some(builder.build())
         }).collect()
     }
 
@@ -151,20 +155,25 @@ pub fn mean(data: &Vec<f64>) -> f64 {
         .filter(|v| !v.is_nan())
         .collect();
 
-    let filtered_count = filtered_data.len();
-    filtered_data
-        .iter()
-        .fold(0.0, |sum, v| sum + *v) / (filtered_count as f64)
+    let mut sum = 0.0;
+    for f in filtered_data.iter() {
+        sum += *f;
+    }
+
+    let count = filtered_data.len() as f64;
+    sum / count
 }
 
 // RI Coast 41.4, -71.45
 // BI Buoy 40.969, 71.127
+// https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p50.pl?file=gfs.t06z.pgrb2full.0p50.f168&lev_10_m_above_ground=on&var_GUST=on&var_PRES=on&var_TMP=on&var_UGRD=on&var_VGRD=on&subregion=&leftlon=-72.0&rightlon=-71.0&toplat=42.0&bottomlat=41.0&dir=%2Fgfs.20200909%2F06
+// https://nomads.ncep.noaa.gov/cgi-bin/filter_wave_multi.pl?file=multi_1.at_10m.t06z.f057.grib2&all_lev=on&all_var=on&subregion=&leftlon=-72.0&rightlon=-71.0&toplat=42.0&bottomlat=41.0&dir=%2Fmulti_1.20200909
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let now = Utc::now().with_hour(12).unwrap();
+    let now = Utc::now().with_hour(6).unwrap();
     let urls = NOAAModelUrlBuilder::new(NOAAModelType::MultiGridWave, "at_10m", now)
-        .with_subregion(40.0, 42.0, -72.0, -71.0)
-        .build_at_indexes(0..100);
+        .with_subregion(41.0, 42.0, -72.0, -71.0)
+        .build_at_indexes(0..180);
 
     // Download the data from NOAA's grib endpoint
     let results: Vec<Option<Bytes>> = stream::iter(urls.into_iter().map(|url|
@@ -199,7 +208,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }).collect();
 
     
-    let mut wtr = csv::Writer::from_path("ri_wave_data.csv")?;
+    let mut wtr = csv::Writer::from_path("./examples/grib_filter/output/ri_wave_data.csv")?;
 
     // Collect the variables and write out the result as the header
     let mut vars: Vec<_> = all_grib_data[0]
