@@ -165,7 +165,7 @@ pub fn mean(data: &Vec<f64>) -> f64 {
 // https://nomads.ncep.noaa.gov/cgi-bin/filter_wave_multi.pl?file=multi_1.at_10m.t06z.f057.grib2&all_lev=on&all_var=on&subregion=&leftlon=-72.0&rightlon=-71.0&toplat=42.0&bottomlat=41.0&dir=%2Fmulti_1.20200909
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let now = Utc::now().with_hour(6).unwrap();
+    let now = Utc::now().with_hour(12).unwrap();
     let urls = NOAAModelUrlBuilder::new(NOAAModelType::MultiGridWave, "at_10m", now)
         .with_subregion(41.0, 42.0, -72.0, -71.0)
         .build_at_indexes(0..180);
