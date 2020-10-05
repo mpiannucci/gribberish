@@ -1,4 +1,4 @@
-/target
+*/target
 Cargo.lock
 *.sublime-workspace
 *.DS_Store

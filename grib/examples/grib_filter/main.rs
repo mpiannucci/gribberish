@@ -160,6 +160,11 @@ pub fn mean(data: &Vec<f64>) -> f64 {
     filtered_data.into_iter().sum::<f64>() / count
 }
 
+// URL SCHEMES
+// https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25_1hr.pl?file=gfs.t12z.pgrb2.0p25.f000&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.20201005%2F12
+// https://nomads.ncep.noaa.gov/cgi-bin/filter_wave_multi.pl?file=multi_1.at_10m.t06z.f040.grib2&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fmulti_1.20201005
+// https://nomads.ncep.noaa.gov/cgi-bin/filter_wave.pl?file=multi_1.nww3.t06z.grib2&all_lev=on&var_SWDIR=on&var_SWELL=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fmulti_1.20201005
+
 // RI Coast 41.4, -71.45
 // BI Buoy 40.969, 71.127
 // https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p50.pl?file=gfs.t06z.pgrb2full.0p50.f168&lev_10_m_above_ground=on&var_GUST=on&var_PRES=on&var_TMP=on&var_UGRD=on&var_VGRD=on&subregion=&leftlon=-72.0&rightlon=-71.0&toplat=42.0&bottomlat=41.0&dir=%2Fgfs.20200909%2F06
@@ -169,7 +174,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let start = Instant::now();
 
-    let now = Utc::now().with_hour(12).unwrap();
+    let now = Utc::now().with_hour(6).unwrap();
     let urls = NOAAModelUrlBuilder::new(NOAAModelType::MultiGridWave, "at_10m", now)
         .with_subregion(41.0, 42.0, -72.0, -71.0)
         .build_at_indexes(0..180);
