@@ -190,4 +190,29 @@ impl<'a> Message<'a> {
 
         Ok(grid_template.locations())
     }
+
+    pub fn data_at_location(&self, location: &(f64, f64)) -> Result<f64, &'static str> {
+        let data = self.data()?;
+
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data"
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time"
+        );
+
+        let location_index = grid_template.index_for_location(location.0, location.1)?;
+
+        if location_index >= data.len() {
+            return Err("Invalid data index for location")
+        }
+
+        Ok(data[location_index])
+    }
 }

@@ -18,3 +18,4 @@ tokio = { version = "0.2", features = ["full"] }
 csv = "1.1"
 futures = "0.3"
 bytes = "0.5"
+surfmath = { path = "./../../surfmath" }

@@ -2,3 +2,4 @@
 Cargo.lock
 *.sublime-workspace
 *.DS_Store
+target/
