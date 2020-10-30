@@ -9,6 +9,10 @@ pub trait GridDefinitionTemplate {
     fn start(&self) -> (f64, f64);
     fn origin(&self) -> (f64, f64);
     fn end(&self) -> (f64, f64);
+    fn latitude_count(&self) -> usize;
+    fn longitude_count(&self) -> usize;
+    fn latitude_resolution(&self) -> f64;
+    fn longitude_resolution(&self) -> f64;
     fn latitudes(&self) -> Vec<f64>;
     fn longitudes(&self) -> Vec<f64>;
     fn locations(&self) -> Vec<(f64, f64)>;
@@ -160,6 +164,22 @@ impl <'a> GridDefinitionTemplate for LatitudeLongitudeGridTemplate<'a> {
 
     fn end(&self) -> (f64, f64) {
         (self.end_latitude(), self.end_longitude())
+    }
+
+    fn latitude_count(&self) -> usize {
+        self.parallel_point_count() as usize
+    }
+
+    fn longitude_count(&self) -> usize {
+        self.meridian_point_count() as usize
+    }
+
+    fn latitude_resolution(&self) -> f64 {
+        self.i_direction_increment()
+    }
+
+    fn longitude_resolution(&self) -> f64 {
+        self.j_direction_increment()
     }
 
     fn latitudes(&self) -> Vec<f64> {

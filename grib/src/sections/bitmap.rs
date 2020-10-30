@@ -1,4 +1,5 @@
 use std::vec::Vec;
+use std::iter::Iterator;
 use crate::utils::bit_array_from_bytes;
 use crate::utils::read_u32_from_bytes;
 use super::grib_section::GribSection;
@@ -44,6 +45,25 @@ impl<'a> BitmapSection<'a> {
         }
 
         data
+    }
+
+    pub fn data_index(&self, index: usize) -> Option<usize> {
+        // 110101011
+        // 012345678
+        // 5 - 2 = 3
+        let bitmask = self.bitmap();
+        if bitmask[index] == 0 {
+            return None
+        }
+
+        let mut nan_count: usize = 0;
+        for i in (0..index).rev() {
+            if bitmask[i] == 0 {
+                nan_count += 1;
+            }
+        }
+ 
+        Some(index - nan_count)
     }
 }
 

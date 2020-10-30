@@ -16,6 +16,8 @@ pub struct MessageMetadata {
     pub variable_name: String,
     pub variable_abbreviation: String,
     pub region: ((f64, f64), (f64, f64)),
+    pub location_grid: (usize, usize),
+    pub location_resolution: (f64, f64),
     pub units: String,
 }
 
@@ -97,6 +99,8 @@ impl<'a> Message<'a> {
             "Only latitude longitude templates supported at this time"
         );
         let region = (grid_template.start(), grid_template.end());
+        let location_grid = (grid_template.latitude_count(), grid_template.longitude_count());
+        let location_resolution = (grid_template.latitude_resolution(), grid_template.longitude_resolution());
 
         let product_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
@@ -127,6 +131,8 @@ impl<'a> Message<'a> {
             variable_name: parameter.name,
             variable_abbreviation: parameter.abbrev,
             region,
+            location_grid,
+            location_resolution,
             units: parameter.unit,
         })
     }
