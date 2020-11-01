@@ -163,7 +163,7 @@ impl<'a> Message<'a> {
         );
 
         let scaled_unpacked_data = data_representation_template
-            .unpack(raw_packed_data)?
+            .unpack_all(raw_packed_data)?
             .iter()
             .map(|v| data_representation_template.scaled_value(*v))
             .collect::<Vec<f64>>();
@@ -198,8 +198,6 @@ impl<'a> Message<'a> {
     }
 
     pub fn data_at_location(&self, location: &(f64, f64)) -> Result<f64, &'static str> {
-        let data = self.data()?;
-
         let grid_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
@@ -215,10 +213,44 @@ impl<'a> Message<'a> {
 
         let location_index = grid_template.index_for_location(location.0, location.1)?;
 
-        if location_index >= data.len() {
-            return Err("Invalid data index for location")
-        }
+        let data_section = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::Data(data_section) => Some(data_section),
+                _ => None,
+            }),
+            "Data section not found when reading message data"
+        );
 
-        Ok(data[location_index])
+        let data_representation_section = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::DataRepresentation(data_representation_section) =>
+                    Some(data_representation_section),
+                _ => None,
+            }),
+            "Data representation section not found when reading message data"
+        );
+
+        let data_representation_template = unwrap_or_return!(
+            data_representation_section.data_representation_template(),
+            "Failed to unpack the data representation template"
+        );
+
+        let bitmap_section = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::Bitmap(bitmap_section) => Some(bitmap_section),
+                _ => None,
+            }),
+            "Bitmap section not found when reading message data"
+        );
+
+        let data_index = unwrap_or_return!(
+            bitmap_section.data_index(location_index), 
+            "Invalid data index for the given location"
+        );
+
+        let raw_packed_data = data_section.raw_bit_data();
+        let data = data_representation_template.unpack_range(raw_packed_data, data_index..data_index+1)?;
+
+        Ok(data[0])
     }
 }

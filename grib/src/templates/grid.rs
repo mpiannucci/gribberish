@@ -106,8 +106,13 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
     pub fn meridian_point_count(&self) -> u32 {
         read_u32_from_bytes(self.data, 34).unwrap_or(0)
     }
+
+    pub fn basic_angle(&self) -> u32 {
+        read_u32_from_bytes(self.data, 38).unwrap_or(0)
+    }
     
     pub fn start_latitude(&self) -> f64 {
+        println!("{}", self.data[49]);
         let value = read_u32_from_bytes(self.data, 46).unwrap_or(0) as f64;
         value*(10f64.powf(-6.0))
     }
