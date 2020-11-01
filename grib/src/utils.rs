@@ -62,6 +62,34 @@ pub fn read_f64_from_bytes(data: &[u8], offset: usize) -> Option<f64> {
     Some(f64::from_be_bytes(l))
 }
 
+pub fn read_signed_from_bytes(data: &[u8], offset: usize) -> Option<i32> {
+    let mut bits = bit_array_from_bytes(&data[offset..offset+4]);
+    
+    let mut is_negative = false;
+    if bits[0] == 1 {
+        bits[0] = 0;
+        is_negative = true;
+    } else {
+        return match read_u32_from_bytes(data, offset) {
+            Some(v) => Some(v as i32),
+            None => None,
+        };
+    }
+
+    let data = bits_to_bytes(bits).unwrap();
+
+    let value = read_u32_from_bytes(&data[0..], 0);
+    if let Some(value) = value {
+        if is_negative {
+            Some(value as i32 * -1)
+        } else {
+            Some(value as i32)
+        }
+    } else {
+        None
+    }
+}
+
 pub fn from_bits<T>(bits: &[u8]) -> Option<T> where T: num::integer::Integer + From<u8> {
     if bits.len() != (std::mem::size_of::<T>() * 8) {
         return None;
@@ -78,4 +106,18 @@ pub fn bit_array_from_bytes(data: &[u8]) -> Vec<u8> {
                                 .map(|c| c.to_digit(2).unwrap_or(0) as u8)
                                 .collect::<Vec<u8>>())
         .collect::<Vec<u8>>()
+}
+
+pub fn bits_to_bytes(bits: Vec<u8>) -> Option<Vec<u8>> {
+    if bits.len() % 8 != 0 {
+        println!("{}", bits.len());
+        return None;
+    }
+
+    let mut bytes = Vec::new();
+    for i in (0..bits.len()).step_by(8) {
+        let value = bits[i..i+8].iter().fold(0u8, |acc, &b| acc * 2 + b);
+        bytes.push(value);
+    }
+    Some(bytes)
 }

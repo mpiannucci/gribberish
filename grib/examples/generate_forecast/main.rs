@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut data_map: HashMap<DateTime<Utc>, Vec<(String, f64)>> = HashMap::new();
 
-    const FORECAST_LOCATION: (f64, f64) = (40.969, -71.127);
+    const FORECAST_LOCATION: (f64, f64) = (40.969, 288.873);
 
     for message in messages {
         let metadata = message.metadata();
@@ -38,7 +38,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             continue;
         }
         let metadata = metadata.unwrap();
-        println!("{:?}", metadata.region);
         
         let datapoint = message.data_at_location(&FORECAST_LOCATION);
         if let Err(e) = datapoint {
