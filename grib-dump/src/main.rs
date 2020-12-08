@@ -9,6 +9,7 @@ use std::io::Read;
 use std::vec::Vec;
 use std::env;
 use std::process;
+use std::fmt::Display;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

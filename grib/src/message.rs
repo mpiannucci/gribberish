@@ -4,10 +4,7 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use std::vec::Vec;
-
-pub struct Message<'a> {
-    pub sections: Vec<Section<'a>>,
-}
+use std::fmt::Display;
 
 pub struct MessageMetadata {
     pub discipline: Discipline,
@@ -19,6 +16,10 @@ pub struct MessageMetadata {
     pub location_grid: (usize, usize),
     pub location_resolution: (f64, f64),
     pub units: String,
+}
+
+pub struct Message<'a> {
+    pub sections: Vec<Section<'a>>,
 }
 
 impl<'a> Message<'a> {
