@@ -3,4 +3,5 @@
 members = [
     "grib",
     "grib-filter",
+    "grib-dump"
 ]
