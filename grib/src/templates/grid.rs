@@ -184,33 +184,33 @@ impl<'a> GridDefinitionTemplate for LatitudeLongitudeGridTemplate<'a> {
     }
 
     fn latitude_count(&self) -> usize {
-        self.parallel_point_count() as usize
-    }
-
-    fn longitude_count(&self) -> usize {
         self.meridian_point_count() as usize
     }
 
+    fn longitude_count(&self) -> usize {
+        self.parallel_point_count() as usize
+    }
+
     fn latitude_resolution(&self) -> f64 {
-        self.i_direction_increment()
+        self.j_direction_increment()
     }
 
     fn longitude_resolution(&self) -> f64 {
-        self.j_direction_increment()
+        self.i_direction_increment()
     }
 
     fn latitudes(&self) -> Vec<f64> {
         let latitude_start = self.start_latitude();
-        let latitude_step = self.i_direction_increment();
-        (0..self.meridian_point_count())
+        let latitude_step = self.latitude_resolution();
+        (0..self.latitude_count())
             .map(|i| latitude_start + i as f64 * latitude_step)
             .collect()
     }
 
     fn longitudes(&self) -> Vec<f64> {
         let longitude_start = self.start_longitude();
-        let longitude_step = self.j_direction_increment();
-        (0..self.parallel_point_count())
+        let longitude_step = self.longitude_resolution();
+        (0..self.longitude_count())
             .map(|i| longitude_start + i as f64 * longitude_step)
             .collect()
     }
@@ -241,12 +241,12 @@ impl<'a> GridDefinitionTemplate for LatitudeLongitudeGridTemplate<'a> {
         }
 
         let lat_difference = (latitude - self.start_latitude()).abs();
-        let lat_index = (lat_difference / self.i_direction_increment().abs()) as usize;
+        let lat_index = (lat_difference / self.latitude_resolution().abs()) as usize;
 
         let lon_difference = (longitude - self.start_longitude()).abs();
-        let lon_index = (lon_difference / self.j_direction_increment().abs()) as usize;
+        let lon_index = (lon_difference / self.longitude_resolution().abs()) as usize;
 
-        let index = lat_index * self.parallel_point_count() as usize + lon_index;
+        let index = lat_index * self.longitude_count() as usize + lon_index;
         Ok(index)
     }
 
@@ -255,11 +255,11 @@ impl<'a> GridDefinitionTemplate for LatitudeLongitudeGridTemplate<'a> {
             return Err("Index out of range");
         }
 
-        let lat_index = index / self.parallel_point_count() as usize;
-        let lon_index = index % self.parallel_point_count() as usize;
+        let lat_index = index / self.latitude_resolution() as usize;
+        let lon_index = index % self.longitude_resolution() as usize;
 
-        let latitude = self.start_latitude() + self.i_direction_increment() * lat_index as f64;
-        let longitude = self.start_longitude() + self.j_direction_increment() * lon_index as f64;
+        let latitude = self.start_latitude() + self.latitude_resolution() * lat_index as f64;
+        let longitude = self.start_longitude() + self.longitude_resolution() * lon_index as f64;
 
         Ok((latitude, longitude))
     }
