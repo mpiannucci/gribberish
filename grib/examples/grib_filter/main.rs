@@ -19,12 +19,14 @@ use bytes::Bytes;
 #[derive(Clone, Debug)]
 enum NOAAModelType {
     MultiGridWave,
+    NWW3MultiWave,
 }
 
 impl NOAAModelType {
     pub fn filter_name(&self) -> &'static str {
         match self {
             NOAAModelType::MultiGridWave => "wave_multi",
+            NOAAModelType::NWW3MultiWave => "wave",
         }
     }
 }
@@ -33,6 +35,7 @@ impl fmt::Display for NOAAModelType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
             NOAAModelType::MultiGridWave => "multi_1",
+            NOAAModelType::NWW3MultiWave => "multi_1",
         };
         write!(f, "{}", name)
     }
@@ -43,7 +46,7 @@ struct NOAAModelUrlBuilder<'a> {
     model_type: NOAAModelType,
     model_region_name: &'a str,
     date: DateTime<Utc>,
-    index: usize,
+    index: Option<usize>,
     subregion: Option<((f64, f64), (f64, f64))>,
     variables: Vec<String>,
 }
@@ -58,14 +61,14 @@ impl<'a> NOAAModelUrlBuilder<'a> {
             model_type,
             model_region_name,
             date,
-            index: 0,
+            index: None,
             subregion: None,
             variables: vec![],
         }
     }
 
     pub fn at_index(&mut self, index: usize) -> &mut Self {
-        self.index = index;
+        self.index = Some(index);
         self
     }
 
@@ -97,12 +100,12 @@ impl<'a> NOAAModelUrlBuilder<'a> {
     }
 
     pub fn build(&self) -> String {
-        format!("https://nomads.ncep.noaa.gov/cgi-bin/filter_{}.pl?file={}.{}.t{:02}z.f{:03}.grib2&all_lev=on{}{}&dir=%2F{}.{}", 
+        format!("https://nomads.ncep.noaa.gov/cgi-bin/filter_{}.pl?file={}.{}.t{:02}z{}.grib2&all_lev=on{}{}&dir=%2F{}.{}", 
             self.model_type.filter_name(), 
             self.model_type, 
             self.model_region_name, 
             self.date.hour(),
-            self.index,
+            self.build_index(),
             self.build_vars(),
             self.build_subregion(),
             self.model_type, 
@@ -137,6 +140,14 @@ impl<'a> NOAAModelUrlBuilder<'a> {
         }
     }
 
+    fn build_index(&self) -> String {
+        if let Some(index) = self.index {
+            format!(".f{:03}", index)
+        } else {
+            String::from("")
+        }
+    }
+
     fn build_vars(&self) -> String {
         if self.variables.len() > 0 {
         self.variables
@@ -165,10 +176,12 @@ pub fn mean(data: &Vec<f64>) -> f64 {
 // https://nomads.ncep.noaa.gov/cgi-bin/filter_wave_multi.pl?file=multi_1.at_10m.t06z.f040.grib2&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fmulti_1.20201005
 // https://nomads.ncep.noaa.gov/cgi-bin/filter_wave.pl?file=multi_1.nww3.t06z.grib2&all_lev=on&var_SWDIR=on&var_SWELL=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fmulti_1.20201005
 
-// RI Coast 41.4, -71.45
+// RI Coast 41.4, -71.45l
 // BI Buoy 40.969, 71.127
 // https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p50.pl?file=gfs.t06z.pgrb2full.0p50.f168&lev_10_m_above_ground=on&var_GUST=on&var_PRES=on&var_TMP=on&var_UGRD=on&var_VGRD=on&subregion=&leftlon=-72.0&rightlon=-71.0&toplat=42.0&bottomlat=41.0&dir=%2Fgfs.20200909%2F06
 // https://nomads.ncep.noaa.gov/cgi-bin/filter_wave_multi.pl?file=multi_1.at_10m.t06z.f057.grib2&all_lev=on&all_var=on&subregion=&leftlon=-72.0&rightlon=-71.0&toplat=42.0&bottomlat=41.0&dir=%2Fmulti_1.20200909
+// https://nomads.ncep.noaa.gov/cgi-bin/filter_wave.pl?file=multi_1.nww3.t12z.grib2&subregion=&leftlon=265&rightlon=275&toplat=42&bottomlat=41&dir=%2Fmulti_1.20201209
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 
