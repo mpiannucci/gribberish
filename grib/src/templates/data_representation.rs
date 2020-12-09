@@ -147,7 +147,7 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
 
         let bits_per_val: usize = self.bit_count().into();
         if bits_per_val == 0 {
-            return Err("Invalis bits per value size");
+            return Err("Invalid bits per value size of 0");
         }
 
         let bit_start_index: usize = 32 - bits_per_val;
@@ -161,12 +161,14 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
         for i in (start_index..end_index).step_by(bits_per_val) {
             val_bits = [0; 32];
 
-            let mut end_index = i + bits_per_val;
-            if end_index >= bits.len() {
-                end_index = bits.len() - 1;
+            let mut i_end_index = i + bits_per_val;
+            if i >= bits.len() {
+                continue;
+            } else if i_end_index >= bits.len() {
+                i_end_index = bits.len() - 1;
             }
 
-            let relevent_bits = &bits[i..end_index];
+            let relevent_bits = &bits[i..i_end_index];
             for (j, bit) in relevent_bits.iter().enumerate() {
                 val_bits[j + bit_start_index] = *bit;
             }

@@ -48,13 +48,17 @@ impl<'a> BitmapSection<'a> {
     }
 
     pub fn data_index(&self, index: usize) -> Option<usize> {
+        if !self.has_bitmap() {
+            return Some(index);
+        }
+
         // 110101011
         // 012345678
         // 5 - 2 = 3
         let bitmask = self.bitmap();
         if (bitmask.len() <= index) {
             return None
-        }else if bitmask[index] == 0 {
+        } else if bitmask[index] == 0 {
             return None
         }
 
