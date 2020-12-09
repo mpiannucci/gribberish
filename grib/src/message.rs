@@ -16,6 +16,7 @@ pub struct MessageMetadata {
     pub location_grid: (usize, usize),
     pub location_resolution: (f64, f64),
     pub units: String,
+    pub data_template_number: u16,
 }
 
 pub struct Message<'a> {
@@ -125,6 +126,15 @@ impl<'a> Message<'a> {
         );
         let forecast_date = product_template.forecast_datetime(reference_date);
 
+        let data_representation = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::DataRepresentation(data_representation) => Some(data_representation),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data"
+        );
+        let data_template_number = data_representation.data_representation_template_number();
+
         Ok(MessageMetadata {
             discipline,
             reference_date,
@@ -135,6 +145,7 @@ impl<'a> Message<'a> {
             location_grid,
             location_resolution,
             units: parameter.unit,
+            data_template_number,
         })
     }
 
