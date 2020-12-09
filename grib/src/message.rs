@@ -17,6 +17,7 @@ pub struct MessageMetadata {
     pub location_resolution: (f64, f64),
     pub units: String,
     pub data_template_number: u16,
+    pub data_point_count: usize,
 }
 
 pub struct Message<'a> {
@@ -134,6 +135,7 @@ impl<'a> Message<'a> {
             "Product definition section not found when reading variable data"
         );
         let data_template_number = data_representation.data_representation_template_number();
+        let data_point_count = grid_definition.data_point_count();
 
         Ok(MessageMetadata {
             discipline,
@@ -146,6 +148,7 @@ impl<'a> Message<'a> {
             location_resolution,
             units: parameter.unit,
             data_template_number,
+            data_point_count
         })
     }
 

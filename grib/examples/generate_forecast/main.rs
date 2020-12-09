@@ -25,12 +25,13 @@ fn read_grib_messages(path: &str) -> Vec<u8> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let grib_data = read_grib_messages("./grib/examples/generate_forecast/nww3.t06z.grib.grib2");
+    // from https://nomads.ncep.noaa.gov/cgi-bin/filter_wave.pl?file=multi_1.nww3.t12z.grib2&subregion=&leftlon=288&rightlon=289&toplat=41&bottomlat=40&dir=%2Fmulti_1.20201209
+    let grib_data = read_grib_messages("./grib/examples/generate_forecast/multi_1.nww3.t12z.grib2");
     let messages = Message::parse_all(grib_data.as_slice());
 
     let mut data_map: HashMap<DateTime<Utc>, Vec<(String, f64)>> = HashMap::new();
 
-    const FORECAST_LOCATION: (f64, f64) = (40.969, 288.873);
+    const FORECAST_LOCATION: (f64, f64) = (40.969, 288.75);
 
     for message in messages {
         let metadata = message.metadata();

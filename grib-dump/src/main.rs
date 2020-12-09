@@ -28,12 +28,12 @@ fn main() {
 
     println!("GRIB2 file read: {}", grib_path);
     println!("Message count: {}", messages.len());
-    println!("{}\t{}\t{}\t{}\t{}\t{}", "Message #", "Variable", "Units", "Date", "Region", "Data Template Id");
-    println!("-------------------------------------------------------------------");
+    println!("{}\t{}\t{}\t{}\t{}\t{}\t{}", "Message #", "Variable", "Units", "Date", "Region", "Data Template Id", "Data Point Count");
+    println!("------------------------------------------------------------------------------------------------------------");
 
     messages.iter().enumerate().for_each(|m| {
         if let Ok(metadata) = m.1.metadata() {
-            println!("{}\t{}\t{}\t{}\t{:?}\t{}", m.0, metadata.variable_abbreviation, metadata.units, metadata.forecast_date, metadata.region, metadata.data_template_number);
+            println!("{}\t{}\t{}\t{}\t{:?}\t{}\t{}", m.0, metadata.variable_abbreviation, metadata.units, metadata.forecast_date, metadata.region, metadata.data_template_number, metadata.data_point_count);
         }
     });
 }
