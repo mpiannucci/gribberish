@@ -50,7 +50,7 @@ pub fn mean(data: &Vec<f64>) -> f64 {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let location = (41.0, -71.0);
+    let location = (41.0, 289.0);
 
     let model_time = Utc::now().with_hour(6).unwrap();
     let urls = (0..60).collect::<Vec<i32>>().iter().map(|i| {
@@ -73,6 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .await;
 
     // println!("Download Data: {:?}", start.elapsed());
+    println!("Downloaded Model Data");
     
     // Parse out the data into data and metadata
     let all_grib_data: Vec<_> = results
@@ -92,8 +93,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }).collect();
 
     // println!("Parse Model Data: {:?}", start.elapsed());
-    
-    let mut wtr = csv::Writer::from_path("./examples/generate_forecast/output/ri_wave_data.csv")?;
+
+    println!("Parsed Model Data");
+
+    let mut wtr = csv::Writer::from_path("./ri_wave_data.csv")?;
 
     // Collect the variables and write out the result as the header
     let mut vars: Vec<_> = all_grib_data[0]
