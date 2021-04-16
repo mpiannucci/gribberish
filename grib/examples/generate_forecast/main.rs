@@ -1,30 +1,55 @@
-extern crate chrono;
-extern crate grib;
-extern crate futures;
-extern crate tokio;
-extern crate reqwest;
 extern crate bytes;
+extern crate chrono;
 extern crate csv;
- 
+extern crate futures;
+extern crate grib;
+extern crate reqwest;
+extern crate tokio;
+
+use bytes::Bytes;
 use chrono::prelude::*;
-use std::error::Error;
+use futures::stream;
 use grib::message::Message;
+use reqwest::Url;
+use std::collections::HashMap;
+use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 use std::vec::Vec;
-use std::collections::HashMap;
 
 fn read_grib_messages(path: &str) -> Vec<u8> {
     let mut grib_file = File::open(path).expect("file not found");
 
     let mut raw_grib_data = Vec::new();
-    grib_file.read_to_end(&mut raw_grib_data).expect("failed to read raw grib2 data");
+    grib_file
+        .read_to_end(&mut raw_grib_data)
+        .expect("failed to read raw grib2 data");
 
     raw_grib_data
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    // 20210415, 18, 18, 000
+    format!("https://ftp.ncep.noaa.gov/data/nccf/com/gfs/prod/gfs.{}/{}/wave/gridded/gfswave.t{}z.atlocn.0p16.f{}.grib2", "20210415", "18", "18", "000");
+
+    let now = Utc::now().with_hour(6).unwrap();
+
+    // Download the data from NOAA's grib endpoint
+    let results: Vec<Option<Bytes>> = stream::iter(urls.into_iter().map(|url| async move {
+        let rurl = Url::parse(url.as_str()).unwrap();
+        match reqwest::get(rurl).await {
+            Ok(resp) => match resp.bytes().await {
+                Ok(b) => Some(b),
+                Err(_) => None,
+            },
+            Err(_) => None,
+        }
+    }))
+    .buffered(8)
+    .collect()
+    .await;
+
     // from https://nomads.ncep.noaa.gov/cgi-bin/filter_wave.pl?file=multi_1.nww3.t12z.grib2&subregion=&leftlon=288&rightlon=289&toplat=41.5&bottomlat=40.5&dir=%2Fmulti_1.20201209
     let grib_data = read_grib_messages("./grib/examples/generate_forecast/multi_1.nww3.t12z.grib2");
     let messages = Message::parse_all(grib_data.as_slice());
@@ -38,7 +63,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             continue;
         }
         let metadata = metadata.unwrap();
-        
+
         let datapoints = message.data();
         if let Err(e) = datapoints {
             println!("{}: {}", metadata.variable_abbreviation, e);
@@ -51,7 +76,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
 
         if let Some(data_collection) = data_map.get_mut(&metadata.forecast_date) {
-            data_collection.push((metadata.variable_abbreviation, datapoints.first().unwrap().clone()));
+            data_collection.push((
+                metadata.variable_abbreviation,
+                datapoints.first().unwrap().clone(),
+            ));
         }
     }
 
