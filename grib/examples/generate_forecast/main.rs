@@ -8,7 +8,7 @@ extern crate tokio;
 
 use bytes::Bytes;
 use chrono::prelude::*;
-use futures::stream;
+use futures::{stream, StreamExt};
 use grib::message::Message;
 use reqwest::Url;
 use std::collections::HashMap;
@@ -28,12 +28,34 @@ fn read_grib_messages(path: &str) -> Vec<u8> {
     raw_grib_data
 }
 
+fn generate_grib_url(date: &DateTime<Utc>, valid_hour: i32) -> Url {
+    let raw_url = format!("https://ftp.ncep.noaa.gov/data/nccf/com/gfs/prod/gfs.{}/{:02}/wave/gridded/gfswave.t{:02}z.atlocn.0p16.f{:03}.grib2", 
+    date.format("%Y%m%d"), 
+    date.hour(), 
+    date.hour(), 
+    valid_hour);
+
+    Url::parse(&raw_url).unwrap()
+}
+
+pub fn mean(data: &Vec<f64>) -> f64 {
+    let filtered_data: Vec<_> = data
+        .iter()
+        .filter(|v| !v.is_nan())
+        .collect();
+
+    let count = filtered_data.len() as f64;
+    filtered_data.into_iter().sum::<f64>() / count
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // 20210415, 18, 18, 000
-    format!("https://ftp.ncep.noaa.gov/data/nccf/com/gfs/prod/gfs.{}/{}/wave/gridded/gfswave.t{}z.atlocn.0p16.f{}.grib2", "20210415", "18", "18", "000");
+    let location = (41.0, -71.0);
 
-    let now = Utc::now().with_hour(6).unwrap();
+    let model_time = Utc::now().with_hour(6).unwrap();
+    let urls = (0..60).collect::<Vec<i32>>().iter().map(|i| {
+        generate_grib_url(&model_time, i * 3)
+    }).collect::<Vec<Url>>();
 
     // Download the data from NOAA's grib endpoint
     let results: Vec<Option<Bytes>> = stream::iter(urls.into_iter().map(|url| async move {
@@ -50,40 +72,61 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .collect()
     .await;
 
-    // from https://nomads.ncep.noaa.gov/cgi-bin/filter_wave.pl?file=multi_1.nww3.t12z.grib2&subregion=&leftlon=288&rightlon=289&toplat=41.5&bottomlat=40.5&dir=%2Fmulti_1.20201209
-    let grib_data = read_grib_messages("./grib/examples/generate_forecast/multi_1.nww3.t12z.grib2");
-    let messages = Message::parse_all(grib_data.as_slice());
+    // println!("Download Data: {:?}", start.elapsed());
+    
+    // Parse out the data into data and metadata
+    let all_grib_data: Vec<_> = results
+        .into_iter()
+        .filter_map(|b| {
+            match b {
+                Some(b) => {
+                    let data: Vec<_> = grib::message::Message::parse_all(b.clone().as_ref())
+                    .iter()
+                    .filter(|m| m.metadata().is_ok())    
+                    .map(|m| (m.metadata().unwrap(), m.data_at_location(&location)))
+                    .collect();
+                    Some(data)
+                },
+                None => None,
+            }
+        }).collect();
 
-    let mut data_map: HashMap<DateTime<Utc>, Vec<(String, f64)>> = HashMap::new();
+    // println!("Parse Model Data: {:?}", start.elapsed());
+    
+    let mut wtr = csv::Writer::from_path("./examples/generate_forecast/output/ri_wave_data.csv")?;
 
-    println!("{}", messages.len());
-    for message in messages {
-        let metadata = message.metadata();
-        if let Err(_) = metadata {
-            continue;
-        }
-        let metadata = metadata.unwrap();
-
-        let datapoints = message.data();
-        if let Err(e) = datapoints {
-            println!("{}: {}", metadata.variable_abbreviation, e);
-            continue;
-        }
-        let datapoints = datapoints.unwrap();
-
-        if !data_map.contains_key(&metadata.forecast_date) {
-            data_map.insert(metadata.forecast_date, Vec::new());
-        }
-
-        if let Some(data_collection) = data_map.get_mut(&metadata.forecast_date) {
-            data_collection.push((
-                metadata.variable_abbreviation,
-                datapoints.first().unwrap().clone(),
-            ));
-        }
+    // Collect the variables and write out the result as the header
+    let mut vars: Vec<_> = all_grib_data[0]
+        .iter()
+        .map(|m| format!("{} ({})", (m.0).variable_abbreviation.clone(), (m.0).units ))
+        .collect();
+    if vars.len() == 0 {
+        return Err(Box::from("No variables read"));
     }
+    vars.insert(0, String::from("TIME"));
+    wtr.write_record(vars)?;
 
-    println!("{:?}", data_map.keys());
+    // Then collect the mean of every value 
+    all_grib_data.iter().for_each(|dt| {
+        let mut point_data: Vec<_> = dt
+            .iter()
+            .map(|d| {
+                let value = match &d.1 {
+                    Ok(vals) => *vals,
+                    Err(_) => std::f64::NAN,
+                };
+                format!("{:.2}", value)
+            }).collect();
+        if point_data.len() > 0 {
+            point_data.insert(0, dt[0].0.forecast_date.to_rfc3339());
+        }
+
+        let _ = wtr.write_record(point_data);
+    });
+
+    wtr.flush()?;
+
+    // println!("Output Model Data: {:?}", start.elapsed());
 
     Ok(())
 }
