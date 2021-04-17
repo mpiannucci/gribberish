@@ -56,7 +56,7 @@ impl<'a> BitmapSection<'a> {
         // 012345678
         // 5 - 2 = 3
         let bitmask = self.bitmap();
-        if (bitmask.len() <= index) {
+        if bitmask.len() <= index {
             return None
         } else if bitmask[index] == 0 {
             return None

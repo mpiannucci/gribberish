@@ -59,7 +59,7 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
 		self.bit_count() as usize
     }
     
-    fn decode_bits(&self, bits: Vec<u8>) -> Result<Vec<u8>, &'static str> {
+    fn decode_bits(&self, bits: Vec<u8>) -> Result<Vec<u8>, String> {
         Ok(bits)
     }
 

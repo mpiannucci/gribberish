@@ -2,11 +2,12 @@ use crate::templates::template::{Template, TemplateType};
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::{CompressionType, OriginalFieldValue};
 use crate::unwrap_or_return;
-use crate::utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes};
+use crate::utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes, bits_to_bytes};
 use num::Float;
 use std::ops::Range;
 use std::io::BufReader;
 use jpeg_decoder;
+use jpeg2000;
 
 pub struct JPEGDataRepresentationTemplate<'a> {
     data: &'a [u8],
@@ -69,13 +70,33 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
 		self.bit_count() as usize
     }
     
-    fn decode_bits(&self, bits: Vec<u8>) -> Result<Vec<u8>, &'static str> {
-        let reader = BufReader::new(bits.as_slice());
-        let mut decoder = jpeg_decoder::Decoder::new(reader);
-        match decoder.decode() {
-            Ok(decoded_bits) => Ok(decoded_bits),
-            Err(_) => Err("Error decoding JPEG codestream"),
-        }
+    fn decode_bits(&self, bits: Vec<u8>) -> Result<Vec<u8>, String> {
+        // let reader = BufReader::new(bits.as_slice());
+        // let mut decoder = jpeg_decoder::Decoder::new(reader);
+
+        let bytes = bits_to_bytes(bits).unwrap();
+
+        // println!("{:?}", bytes);
+
+        let image = match jpeg2000::decode::from_memory(
+            bytes.as_slice(), 
+            jpeg2000::decode::Codec::J2K, 
+            jpeg2000::decode::DecodeConfig {
+                default_colorspace: Some(jpeg2000::decode::ColorSpace::GRAY),
+                discard_level: 0,
+            }, 
+            None,
+        ) {
+            Ok(i) => Ok(i),
+            Err(e) => Err(String::from(format!("Error decoing JPEG codestream {}", e)))
+        }?;
+
+        Ok(image.raw_pixels())
+
+        // match decoder.decode() {
+        //     Ok(decoded_bits) => Ok(decoded_bits),
+        //     Err(e) => Err(format!("Error decoding JPEG codestream {}", e).into()),
+        // }
     }
 
     fn scaled_value(&self, raw_value: f64) -> f64 {

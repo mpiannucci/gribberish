@@ -152,13 +152,13 @@ impl<'a> Message<'a> {
         })
     }
 
-    pub fn data(&self) -> Result<Vec<f64>, &'static str> {
+    pub fn data(&self) -> Result<Vec<f64>, String> {
         let data_section = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::Data(data_section) => Some(data_section),
                 _ => None,
             }),
-            "Data section not found when reading message data"
+            "Data section not found when reading message data".into()
         );
 
         let raw_packed_data = data_section.raw_bit_data();
@@ -170,12 +170,12 @@ impl<'a> Message<'a> {
                     Some(data_representation_section),
                 _ => None,
             }),
-            "Data representation section not found when reading message data"
+            "Data representation section not found when reading message data".into()
         );
 
         let data_representation_template = unwrap_or_return!(
             data_representation_section.data_representation_template(),
-            "Failed to unpack the data representation template"
+            "Failed to unpack the data representation template".into()
         );
 
         let decoded_raw_packed_data = data_representation_template.decode_bits(raw_packed_data)?;
@@ -191,42 +191,42 @@ impl<'a> Message<'a> {
                 Section::Bitmap(bitmap_section) => Some(bitmap_section),
                 _ => None,
             }),
-            "Bitmap section not found when reading message data"
+            "Bitmap section not found when reading message data".into()
         );
 
         let mapped_scaled_data = bitmap_section.map_data(scaled_unpacked_data);
         Ok(mapped_scaled_data)
     }
 
-    pub fn data_locations(&self) -> Result<Vec<(f64, f64)>, &'static str> {
+    pub fn data_locations(&self) -> Result<Vec<(f64, f64)>, String> {
         let grid_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
-            "Grid definition section not found when reading variable data"
+            "Grid definition section not found when reading variable data".into()
         );
 
         let grid_template = unwrap_or_return!(
             grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time"
+            "Only latitude longitude templates supported at this time".into()
         );
 
         Ok(grid_template.locations())
     }
 
-    pub fn data_at_location(&self, location: &(f64, f64)) -> Result<f64, &'static str> {
+    pub fn data_at_location(&self, location: &(f64, f64)) -> Result<f64, String> {
         let grid_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
-            "Grid definition section not found when reading variable data"
+            "Grid definition section not found when reading variable data".into()
         );
 
         let grid_template = unwrap_or_return!(
             grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time"
+            "Only latitude longitude templates supported at this time".into()
         );
 
         let location_index = grid_template.index_for_location(location.0, location.1)?;
@@ -236,7 +236,7 @@ impl<'a> Message<'a> {
                 Section::Data(data_section) => Some(data_section),
                 _ => None,
             }),
-            "Data section not found when reading message data"
+            "Data section not found when reading message data".into()
         );
 
         let data_representation_section = unwrap_or_return!(
@@ -245,12 +245,12 @@ impl<'a> Message<'a> {
                     Some(data_representation_section),
                 _ => None,
             }),
-            "Data representation section not found when reading message data"
+            "Data representation section not found when reading message data".into()
         );
 
         let data_representation_template = unwrap_or_return!(
             data_representation_section.data_representation_template(),
-            "Failed to unpack the data representation template"
+            "Failed to unpack the data representation template".into()
         );
 
         let bitmap_section = unwrap_or_return!(
@@ -258,12 +258,12 @@ impl<'a> Message<'a> {
                 Section::Bitmap(bitmap_section) => Some(bitmap_section),
                 _ => None,
             }),
-            "Bitmap section not found when reading message data"
+            "Bitmap section not found when reading message data".into()
         );
 
         let data_index = unwrap_or_return!(
             bitmap_section.data_index(location_index), 
-            "Invalid data index for the given location"
+            "Invalid data index for the given location".into()
         );
 
         let raw_packed_data = data_section.raw_bit_data();
