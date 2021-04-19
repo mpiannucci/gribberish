@@ -50,7 +50,7 @@ pub fn mean(data: &Vec<f64>) -> f64 {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let location = (41.0, 289.0);
+    let location = (40.0, 288.5);
 
     let model_time = Utc::now().with_hour(12).unwrap();
     let urls = (0..3).collect::<Vec<i32>>().iter().map(|i| {

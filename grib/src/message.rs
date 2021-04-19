@@ -263,7 +263,7 @@ impl<'a> Message<'a> {
 
         let data_index = unwrap_or_return!(
             bitmap_section.data_index(location_index), 
-            "Invalid data index for the given location".into()
+            format!("No data available at index {}", location_index).into()
         );
 
         let raw_packed_data = data_section.raw_bit_data();
