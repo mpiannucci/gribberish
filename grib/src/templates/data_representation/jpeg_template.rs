@@ -71,6 +71,10 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
     }
     
     fn decode_bits(&self, bits: Vec<u8>) -> Result<Vec<u8>, String> {
+        // TODO: MATCH THIS WORKFLOW https://github.com/ecmwf/eccodes/blob/develop/src/grib_openjpeg_encoding.c
+        // TODO: https://github.com/uclouvain/openjpeg/blob/master/src/lib/openjp2/openjpeg.h
+        // TODO: https://docs.rs/openjpeg-sys/1.0.1/openjpeg_sys/
+
         // let reader = BufReader::new(bits.as_slice());
         // let mut decoder = jpeg_decoder::Decoder::new(reader);
 
@@ -88,10 +92,16 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
             None,
         ) {
             Ok(i) => Ok(i),
-            Err(e) => Err(String::from(format!("Error decoing JPEG codestream {}", e)))
+            Err(e) => Err(String::from(format!("Error decoding JPEG codestream {}", e)))
         }?;
 
-        Ok(image.raw_pixels())
+        let mask = (1 << self.bit_count_per_datapoint()) - 1;
+
+        let bytes = image.raw_pixels().iter().map(|p| {
+            p & mask
+        }).collect();
+
+        Ok(bytes)
 
         // match decoder.decode() {
         //     Ok(decoded_bits) => Ok(decoded_bits),

@@ -52,7 +52,7 @@ pub fn mean(data: &Vec<f64>) -> f64 {
 async fn main() -> Result<(), Box<dyn Error>> {
     let location = (40.0, 288.5);
 
-    let model_time = Utc::now().with_hour(12).unwrap();
+    let model_time = Utc::now().with_day(20).unwrap().with_hour(12).unwrap();
     let urls = (0..3).collect::<Vec<i32>>().iter().map(|i| {
         generate_grib_url(&model_time, i * 3)
     }).collect::<Vec<Url>>();
