@@ -6,8 +6,7 @@ use crate::utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes, bits_to_
 use num::Float;
 use std::ops::Range;
 use std::io::BufReader;
-use jpeg_decoder;
-use jpeg2000;
+use openjpeg_sys;
 
 pub struct JPEGDataRepresentationTemplate<'a> {
     data: &'a [u8],
@@ -82,26 +81,32 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
 
         // println!("{:?}", bytes);
 
-        let image = match jpeg2000::decode::from_memory(
-            bytes.as_slice(), 
-            jpeg2000::decode::Codec::J2K, 
-            jpeg2000::decode::DecodeConfig {
-                default_colorspace: Some(jpeg2000::decode::ColorSpace::GRAY),
-                discard_level: 0,
-            }, 
-            None,
-        ) {
-            Ok(i) => Ok(i),
-            Err(e) => Err(String::from(format!("Error decoding JPEG codestream {}", e)))
-        }?;
+        // let decoder = openjpeg_sys::opj_create_decompress(openjpeg_sys::OPJ_CODEC_FORMAT::OPJ_CODEC_J2K);
 
-        let mask = (1 << self.bit_count_per_datapoint()) - 1;
+        // let stream = openjpeg_sys::opj_stream_create
 
-        let bytes = image.raw_pixels().iter().map(|p| {
-            p & mask
-        }).collect();
+        // let image = match jpeg2000::decode::from_memory(
+        //     bytes.as_slice(), 
+        //     jpeg2000::decode::Codec::J2K, 
+        //     jpeg2000::decode::DecodeConfig {
+        //         default_colorspace: Some(jpeg2000::decode::ColorSpace::GRAY),
+        //         discard_level: 0,
+        //     }, 
+        //     None,
+        // ) {
+        //     Ok(i) => Ok(i),
+        //     Err(e) => Err(String::from(format!("Error decoding JPEG codestream {}", e)))
+        // }?;
 
-        Ok(bytes)
+        // let mask = (1 << self.bit_count_per_datapoint()) - 1;
+
+        // let bytes = image.raw_pixels().iter().map(|p| {
+        //     p & mask
+        // }).collect();
+
+        // Ok(bytes)
+
+        Err(String::from("akljsjasd"))
 
         // match decoder.decode() {
         //     Ok(decoded_bits) => Ok(decoded_bits),
