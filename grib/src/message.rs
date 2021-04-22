@@ -178,10 +178,8 @@ impl<'a> Message<'a> {
             "Failed to unpack the data representation template".into()
         );
 
-        let decoded_raw_packed_data = data_representation_template.decode_bits(raw_packed_data)?;
-
         let scaled_unpacked_data = data_representation_template
-            .unpack_all(decoded_raw_packed_data)?
+            .unpack_all(raw_packed_data)?
             .iter()
             .map(|v| data_representation_template.scaled_value(*v))
             .collect::<Vec<f64>>();
@@ -267,8 +265,7 @@ impl<'a> Message<'a> {
         );
 
         let raw_packed_data = data_section.raw_bit_data();
-        let raw_decoded_packed_data = data_representation_template.decode_bits(raw_packed_data)?;
-        let data = data_representation_template.unpack_range(raw_decoded_packed_data, data_index..data_index+1)?;
+        let data = data_representation_template.unpack_range(raw_packed_data, data_index..data_index+1)?;
 
         Ok(data[0])
     }

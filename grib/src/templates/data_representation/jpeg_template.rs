@@ -6,7 +6,6 @@ use crate::utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes, bits_to_
 use num::Float;
 use std::ops::Range;
 use std::io::BufReader;
-use openjpeg_sys;
 
 pub struct JPEGDataRepresentationTemplate<'a> {
     data: &'a [u8],
@@ -69,7 +68,7 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
 		self.bit_count() as usize
     }
     
-    fn decode_bits(&self, bits: Vec<u8>) -> Result<Vec<u8>, String> {
+    // fn decode_bits(&self, bits: Vec<u8>) -> Result<Vec<u8>, String> {
         // TODO: MATCH THIS WORKFLOW https://github.com/ecmwf/eccodes/blob/develop/src/grib_openjpeg_encoding.c
         // TODO: https://github.com/uclouvain/openjpeg/blob/master/src/lib/openjp2/openjpeg.h
         // TODO: https://docs.rs/openjpeg-sys/1.0.1/openjpeg_sys/
@@ -77,7 +76,7 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
         // let reader = BufReader::new(bits.as_slice());
         // let mut decoder = jpeg_decoder::Decoder::new(reader);
 
-        let bytes = bits_to_bytes(bits).unwrap();
+        // let bytes = bits_to_bytes(bits).unwrap();
 
         // println!("{:?}", bytes);
 
@@ -106,13 +105,13 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
 
         // Ok(bytes)
 
-        Err(String::from("akljsjasd"))
+        // Err(String::from("akljsjasd"))
 
         // match decoder.decode() {
         //     Ok(decoded_bits) => Ok(decoded_bits),
         //     Err(e) => Err(format!("Error decoding JPEG codestream {}", e).into()),
         // }
-    }
+    // }
 
     fn scaled_value(&self, raw_value: f64) -> f64 {
         let reference_value: f64 = self.reference_value().into();
@@ -124,6 +123,36 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
     }
 	
 	fn unpack_range(&self, bits: Vec<u8>, range: Range<usize>) -> Result<Vec<f64>, &'static str> {
+
+        let bytes = bits_to_bytes(bits).unwrap();
+
+        unsafe {
+            let parameters = &mut openjpeg_sys::opj_dparameters{
+                cp_reduce: 0,
+                cp_layer: 0,
+                infile: [0; 4096],
+                outfile: [0; 4096],
+                decod_format: 0,
+                cod_format: 0,
+                DA_x0: 0,
+                DA_x1: 0,
+                DA_y0: 0,
+                DA_y1: 0,
+                m_verbose: 0,
+                tile_index: 0,
+                nb_tile_to_decode: 0,
+                jpwl_correct: 0,
+                jpwl_exp_comps: 0,
+                jpwl_max_tiles: 0,
+                flags: 0,
+            } as *mut openjpeg_sys::opj_dparameters_t;
+            openjpeg_sys::opj_set_default_decoder_parameters(parameters);
+            let dinfo = openjpeg_sys::opj_create_decompress(openjpeg_sys::CODEC_FORMAT::OPJ_CODEC_J2K);
+            openjpeg_sys::opj_setup_decoder(dinfo, parameters);
+
+            // TODO: Actually decode 
+        }
+
         let mut v = Vec::new();
 
         let bits_per_val: usize = self.bit_count().into();

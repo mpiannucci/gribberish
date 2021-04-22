@@ -58,10 +58,6 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
 	fn bit_count_per_datapoint(&self) -> usize {
 		self.bit_count() as usize
     }
-    
-    fn decode_bits(&self, bits: Vec<u8>) -> Result<Vec<u8>, String> {
-        Ok(bits)
-    }
 
     fn scaled_value(&self, raw_value: f64) -> f64 {
         let reference_value: f64 = self.reference_value().into();
