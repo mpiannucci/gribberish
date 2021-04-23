@@ -68,12 +68,12 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
             / 10.0.powi(decimal_scale_factor)
     }
 	
-	fn unpack_range(&self, bits: Vec<u8>, range: Range<usize>) -> Result<Vec<f64>, &'static str> {
+	fn unpack_range(&self, bits: Vec<u8>, range: Range<usize>) -> Result<Vec<f64>, String> {
         let mut v = Vec::new();
 
         let bits_per_val: usize = self.bit_count().into();
         if bits_per_val == 0 {
-            return Err("Invalid bits per value size of 0");
+            return Err("Invalid bits per value size of 0".into());
         }
 
         let bit_start_index: usize = 32 - bits_per_val;
@@ -101,7 +101,7 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
 
             raw_value = unwrap_or_return!(
                 from_bits::<u32>(&val_bits),
-                "failed to convert value to u32"
+                "failed to convert value to u32".into()
             )
             .into();
             let val = self.scaled_value(raw_value);
@@ -111,7 +111,7 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
         Ok(v)
 	}
 
-    fn unpack_all(&self, bits: Vec<u8>) -> Result<Vec<f64>, &'static str> {
+    fn unpack_all(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
 		let bit_count = bits.len();
 		self.unpack_range(bits, 0..bit_count)
     }
