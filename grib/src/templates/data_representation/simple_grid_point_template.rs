@@ -1,9 +1,8 @@
-use crate::templates::template::{Template, TemplateType};
+use crate::{templates::template::{Template, TemplateType}, utils::grib_power};
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::{OriginalFieldValue};
 use crate::unwrap_or_return;
 use crate::utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes};
-use num::Float;
 use std::ops::Range;
 
 pub struct SimpleGridPointDataRepresentationTemplate<'a> {
@@ -58,15 +57,6 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
 	fn bit_count_per_datapoint(&self) -> usize {
 		self.bit_count() as usize
     }
-
-    fn scaled_value(&self, raw_value: f64) -> f64 {
-        let reference_value: f64 = self.reference_value().into();
-        let binary_scale_factor: i32 = self.binary_scale_factor().into();
-        let decimal_scale_factor: i32 = self.decimal_scale_factor().into();
-
-        (reference_value + (raw_value * 2.0.powi(binary_scale_factor)))
-            / 10.0.powi(decimal_scale_factor)
-    }
 	
 	fn unpack_range(&self, bits: Vec<u8>, range: Range<usize>) -> Result<Vec<f64>, String> {
         let mut v = Vec::new();
@@ -83,6 +73,10 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
 		
 		let start_index = range.start * bits_per_val;
 		let end_index = range.end * bits_per_val;
+
+        let bscale = grib_power(self.binary_scale_factor().into(), 2);
+        let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
+        let reference_value: f64 = self.reference_value().into();
 
         for i in (start_index..end_index).step_by(bits_per_val) {
             val_bits = [0; 32];
@@ -104,7 +98,7 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
                 "failed to convert value to u32".into()
             )
             .into();
-            let val = self.scaled_value(raw_value);
+            let val = (raw_value * bscale + reference_value) * dscale;
             v.push(val);
         }
 

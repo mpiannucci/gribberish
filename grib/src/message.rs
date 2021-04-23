@@ -179,10 +179,7 @@ impl<'a> Message<'a> {
         );
 
         let scaled_unpacked_data = data_representation_template
-            .unpack_all(raw_packed_data)?
-            .iter()
-            .map(|v| data_representation_template.scaled_value(*v))
-            .collect::<Vec<f64>>();
+            .unpack_all(raw_packed_data)?;
 
         let bitmap_section = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {

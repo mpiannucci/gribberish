@@ -68,15 +68,6 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
 	fn bit_count_per_datapoint(&self) -> usize {
 		self.bit_count() as usize
     }
-
-    fn scaled_value(&self, raw_value: f64) -> f64 {
-        let reference_value: f64 = self.reference_value().into();
-        let binary_scale_factor: i32 = self.binary_scale_factor().into();
-        let decimal_scale_factor: i32 = self.decimal_scale_factor().into();
-
-        (reference_value + (raw_value * 2.0.powi(binary_scale_factor)))
-            / 10.0.powi(decimal_scale_factor)
-    }
 	
 	fn unpack_range(&self, bits: Vec<u8>, range: Range<usize>) -> Result<Vec<f64>, String> {
 
