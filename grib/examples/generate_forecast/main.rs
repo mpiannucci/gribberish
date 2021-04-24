@@ -11,6 +11,7 @@ use chrono::prelude::*;
 use futures::{stream, StreamExt};
 use grib::message::Message;
 use reqwest::Url;
+use tokio::time::Instant;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
@@ -48,12 +49,24 @@ pub fn mean(data: &Vec<f64>) -> f64 {
     filtered_data.into_iter().sum::<f64>() / count
 }
 
+pub fn latest_model_time() -> DateTime<Utc> {
+    let now = Utc::now();
+    match now.hour() {
+        0..=5 => now.with_hour(18).unwrap().with_day(now.day() - 1).unwrap(),
+        6..=11 => now.with_hour(0).unwrap(),
+        12..=17 => now.with_hour(6).unwrap(), 
+        _ => now.with_hour(12).unwrap(),
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let location = (40.0, 288.5);
+    let start = Instant::now();
 
-    let model_time = Utc::now().with_day(20).unwrap().with_hour(12).unwrap();
-    let urls = (0..3).collect::<Vec<i32>>().iter().map(|i| {
+    let location = (41.0, 288.5);
+
+    let model_time = latest_model_time();
+    let urls = (0..61).collect::<Vec<i32>>().iter().map(|i| {
         generate_grib_url(&model_time, i * 3)
     }).collect::<Vec<Url>>();
 
@@ -72,8 +85,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .collect()
     .await;
 
-    // println!("Download Data: {:?}", start.elapsed());
-    println!("Downloaded Model Data");
+    println!("Downloaded Data: {:?}", start.elapsed());
     
     // Parse out the data into data and metadata
     let all_grib_data: Vec<_> = results
@@ -92,9 +104,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }).collect();
 
-    // println!("Parse Model Data: {:?}", start.elapsed());
-
-    println!("Parsed Model Data");
+    println!("Parsed Model Data: {:?}", start.elapsed());
 
     let mut wtr = csv::Writer::from_path("./ri_wave_data.csv")?;
 
@@ -132,7 +142,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     wtr.flush()?;
 
-    // println!("Output Model Data: {:?}", start.elapsed());
+    println!("Wrote Model Data: {:?}", start.elapsed());
 
     Ok(())
 }
