@@ -1,8 +1,6 @@
-use crate::{
-    sections::{indicator::Discipline, section::Section},
-    templates::product::ProductTemplate,
-};
+use crate::{sections::{indicator::Discipline, section::Section}, templates::{data_representation::DataRepresentationTemplate, product::ProductTemplate}};
 use chrono::{DateTime, Utc};
+use grib_types::Parameter;
 use std::vec::Vec;
 use std::fmt::Display;
 
@@ -60,6 +58,68 @@ impl<'a> Message<'a> {
         messages
     }
 
+    pub fn variable_names(messages: Vec<Message<'a>>) -> Vec<Option<String>> {
+        Message::parameters(messages)
+            .iter()
+            .map(|p| {
+                match p {
+                    Some(p) => Some(p.name.clone()),
+                    None => None,
+                }
+            })
+            .collect()
+    }
+
+    pub fn variable_abbrevs(messages: Vec<Message<'a>>) -> Vec<Option<String>> {
+        Message::parameters(messages)
+            .iter()
+            .map(|p| {
+                match p {
+                    Some(p) => Some(p.abbrev.clone()),
+                    None => None,
+                }
+            })
+            .collect()
+    }
+
+    pub fn units(messages: Vec<Message<'a>>) -> Vec<Option<String>> {
+        Message::parameters(messages)
+            .iter()
+            .map(|p| {
+                match p {
+                    Some(p) => Some(p.unit.clone()),
+                    None => None,
+                }
+            })
+            .collect()
+    }
+
+    pub fn parameters(messages: Vec<Message<'a>>) -> Vec<Option<Parameter>> {
+        messages
+            .iter()
+            .map(|m| m.parameter())
+            .map(|r| {
+                match r {
+                    Ok(parameter) => Some(parameter),
+                    Err(_) => None,
+                }
+            })
+            .collect()
+    }
+
+    pub fn forecast_dates(messages: Vec<Message<'a>>) -> Vec<Option<DateTime<Utc>>> {
+        messages
+            .iter()
+            .map(|m| m.forecast_date())
+            .map(|r| {
+                match r {
+                    Ok(date) => Some(date),
+                    Err(_) => None,
+                }
+            })
+            .collect()
+    }
+
     pub fn len(&self) -> usize {
         match self.sections.first() {
             Some(section) => match &section {
@@ -74,43 +134,22 @@ impl<'a> Message<'a> {
         self.sections.len()
     }
 
-    pub fn metadata(&self) -> Result<MessageMetadata, &'static str> {
-        let discipline = match self.sections.first().unwrap() {
+    pub fn discipline(&self) -> Result<Discipline, String> {
+        match self.sections.first().unwrap() {
             Section::Indicator(indicator) => Ok(indicator.discipline()),
-            _ => Err("Indicator section not found when reading discipline"),
-        }?
-        .clone();
+            _ => Err("Indicator section not found when reading discipline".into()),
+        }.clone()
+    }
 
-        let reference_date = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
-                Section::Identification(identification) => Some(identification.reference_date()),
-                _ => None,
-            }),
-            "Identification section not found when reading reference date"
-        );
-
-        let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data"
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time"
-        );
-        let region = (grid_template.start(), grid_template.end());
-        let location_grid = (grid_template.latitude_count(), grid_template.longitude_count());
-        let location_resolution = (grid_template.latitude_resolution(), grid_template.longitude_resolution());
+    pub fn parameter(&self) -> Result<Parameter, String> {
+        let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::ProductDefinition(product_definition) => Some(product_definition),
                 _ => None,
             }),
-            "Product definition section not found when reading variable data"
+            "Product definition section not found when reading variable data".into()
         );
 
         let product_template = unwrap_or_return!(
@@ -118,21 +157,92 @@ impl<'a> Message<'a> {
                 ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
                 _ => None,
             },
-            "Only HorizontalAnalysisForecast templates are supported at this time"
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
         let parameter = unwrap_or_return!(
             product_template.parameter(),
-            "This Product and Parameter is currently not supported"
+            "This Product and Parameter is currently not supported".into()
         );
-        let forecast_date = product_template.forecast_datetime(reference_date);
+
+        Ok(parameter)
+    }
+
+    pub fn variable_name(&self) -> Result<String, String> {
+        let parameter = self.parameter()?;
+        Ok(parameter.name)
+    }
+
+    pub fn variable_abbrev(&self) -> Result<String, String> {
+        let parameter = self.parameter()?;
+        Ok(parameter.abbrev)
+    }
+
+    pub fn reference_date(&self) -> Result<DateTime<Utc>, String> {
+        let reference_date = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::Identification(identification) => Some(identification.reference_date()),
+                _ => None,
+            }),
+            "Identification section not found when reading reference date".into()
+        );
+        Ok(reference_date)
+    }
+
+    pub fn forecast_date(&self) -> Result<DateTime<Utc>, String> {
+        let discipline = self.discipline()?;
+
+        let product_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            match product_definition.product_definition_template(discipline.clone() as u8) {
+                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
+                _ => None,
+            },
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        let reference_date = self.reference_date()?;
+        Ok(product_template.forecast_datetime(reference_date))
+    }
+
+    pub fn metadata(&self) -> Result<MessageMetadata, String> {
+        let discipline = self.discipline()?;
+
+        let reference_date = self.reference_date()?;
+
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+        let region = (grid_template.start(), grid_template.end());
+        let location_grid = (grid_template.latitude_count(), grid_template.longitude_count());
+        let location_resolution = (grid_template.latitude_resolution(), grid_template.longitude_resolution());
+
+        let parameter = self.parameter()?;
+    
+        let forecast_date = self.forecast_date()?;
 
         let data_representation = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::DataRepresentation(data_representation) => Some(data_representation),
                 _ => None,
             }),
-            "Product definition section not found when reading variable data"
+            "Product definition section not found when reading variable data".into()
         );
         let data_template_number = data_representation.data_representation_template_number();
         let data_point_count = grid_definition.data_point_count();
