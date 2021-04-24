@@ -18,17 +18,6 @@ use std::fs::File;
 use std::io::Read;
 use std::vec::Vec;
 
-fn read_grib_messages(path: &str) -> Vec<u8> {
-    let mut grib_file = File::open(path).expect("file not found");
-
-    let mut raw_grib_data = Vec::new();
-    grib_file
-        .read_to_end(&mut raw_grib_data)
-        .expect("failed to read raw grib2 data");
-
-    raw_grib_data
-}
-
 fn generate_grib_url(date: &DateTime<Utc>, valid_hour: i32) -> Url {
     let raw_url = format!("https://ftp.ncep.noaa.gov/data/nccf/com/gfs/prod/gfs.{}/{:02}/wave/gridded/gfswave.t{:02}z.atlocn.0p16.f{:03}.grib2", 
     date.format("%Y%m%d"), 
@@ -119,7 +108,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     vars.insert(0, String::from("TIME"));
     wtr.write_record(vars)?;
 
-    // Then collect the mean of every value 
+    // Then collect the value of grid point
     all_grib_data.iter().for_each(|dt| {
         let mut point_data: Vec<_> = dt
             .iter()
