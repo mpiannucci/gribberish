@@ -3,7 +3,6 @@ use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::{CompressionType, OriginalFieldValue};
 use crate::unwrap_or_return;
 use crate::utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes, bits_to_bytes};
-use num::Float;
 use openjpeg_sys::opj_stream_set_user_data;
 use std::{convert::TryInto, ops::Range, ptr::null_mut};
 use std::io::BufReader;
