@@ -1,4 +1,4 @@
-use grib_macros::{DisplayDescription, FromValue};
+use gribberish_macros::{DisplayDescription, FromValue};
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]

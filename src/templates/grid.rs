@@ -1,6 +1,6 @@
 use super::template::{Template, TemplateType};
 use crate::utils::{bit_array_from_bytes, read_signed_from_bytes, read_u32_from_bytes};
-use grib_macros::{DisplayDescription, FromValue};
+use gribberish_macros::{DisplayDescription, FromValue};
 use std::iter::Iterator;
 use std::vec::Vec;
 

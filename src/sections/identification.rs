@@ -1,4 +1,4 @@
-use grib_macros::{DisplayDescription, FromValue};
+use gribberish_macros::{DisplayDescription, FromValue};
 use crate::utils::{read_u32_from_bytes, read_u16_from_bytes};
 use super::grib_section::GribSection;
 use chrono::prelude::*;

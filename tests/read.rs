@@ -1,9 +1,9 @@
-extern crate grib;
+extern crate gribberish;
 
-use grib::message::Message;
-use grib::sections::section::Section;
+use gribberish::message::Message;
+use gribberish::sections::section::Section;
 use std::convert::TryFrom;
-use grib::sections::product_definition::ProductDefinitionSection;
+use gribberish::sections::product_definition::ProductDefinitionSection;
 use std::path::Path;
 use std::fs::File;
 use std::io::Read;

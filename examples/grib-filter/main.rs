@@ -1,5 +1,5 @@
 extern crate chrono;
-extern crate grib;
+extern crate gribberish;
 extern crate futures;
 extern crate tokio;
 extern crate reqwest;
@@ -217,7 +217,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .filter_map(|b| {
             match b {
                 Some(b) => {
-                    let data: Vec<_> = grib::message::Message::parse_all(b.clone().as_ref())
+                    let data: Vec<_> = gribberish::message::Message::parse_all(b.clone().as_ref())
                     .iter()
                     .filter(|m| m.metadata().is_ok())    
                     .map(|m| (m.metadata().unwrap(), m.data(), m.data_locations()))

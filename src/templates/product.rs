@@ -1,5 +1,5 @@
-use grib_macros::{DisplayDescription, FromValue, ToParameter};
-use grib_types::Parameter;
+use gribberish_macros::{DisplayDescription, FromValue, ToParameter};
+use gribberish_types::Parameter;
 use super::template::{Template, TemplateType};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use chrono::{Utc, DateTime, Duration};

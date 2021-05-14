@@ -1,6 +1,6 @@
 use crate::{sections::{indicator::Discipline, section::Section}, templates::{data_representation::DataRepresentationTemplate, product::ProductTemplate}};
 use chrono::{DateTime, Utc};
-use grib_types::Parameter;
+use gribberish_types::Parameter;
 use std::vec::Vec;
 use std::fmt::Display;
 

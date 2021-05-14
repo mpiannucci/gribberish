@@ -1,5 +1,5 @@
 extern crate chrono;
-extern crate grib_macros;
+extern crate gribberish_macros;
 
 #[macro_use]
 mod macros;

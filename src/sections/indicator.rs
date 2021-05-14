@@ -1,5 +1,5 @@
 use std::str;
-use grib_macros::{DisplayDescription, FromValue};
+use gribberish_macros::{DisplayDescription, FromValue};
 use crate::utils::read_u64_from_bytes;
 use super::grib_section::GribSection;
 

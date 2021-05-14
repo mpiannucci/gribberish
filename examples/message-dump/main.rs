@@ -1,9 +1,9 @@
 extern crate chrono;
-extern crate grib;
+extern crate gribberish;
 
 use chrono::prelude::*;
 use std::error::Error;
-use grib::message::Message;
+use gribberish::message::Message;
 use std::fs::File;
 use std::io::Read;
 use std::vec::Vec;

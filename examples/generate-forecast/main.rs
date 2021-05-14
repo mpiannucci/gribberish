@@ -2,14 +2,14 @@ extern crate bytes;
 extern crate chrono;
 extern crate csv;
 extern crate futures;
-extern crate grib;
+extern crate gribberish;
 extern crate reqwest;
 extern crate tokio;
 
 use bytes::Bytes;
 use chrono::prelude::*;
 use futures::{stream, StreamExt};
-use grib::message::Message;
+use gribberish::message::Message;
 use reqwest::Url;
 use tokio::time::Instant;
 use std::collections::HashMap;
@@ -82,7 +82,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .filter_map(|b| {
             match b {
                 Some(b) => {
-                    let data: Vec<_> = grib::message::Message::parse_all(b.clone().as_ref())
+                    let data: Vec<_> = gribberish::message::Message::parse_all(b.clone().as_ref())
                     .iter()
                     .filter(|m| m.metadata().is_ok())    
                     .map(|m| (m.metadata().unwrap(), m.data_at_location(&location)))

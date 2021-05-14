@@ -1,5 +1,5 @@
 [package]
-name = "grib-macros"
+name = "gribberish-macros"
 version = "0.1.0"
 authors = ["Matthew Iannucci <mpiannucci@gmail.com>"]
 edition = "2018"
@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-grib-types = { path = "./../types" }
+gribberish-types = { path = "./../types" }
 syn = { version = "1.0", features = ["full"] }
 quote = "1.0"
 

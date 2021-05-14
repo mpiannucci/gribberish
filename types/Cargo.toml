@@ -1,5 +1,5 @@
 [package]
-name = "grib-types"
+name = "gribberish-types"
 version = "0.1.0"
 authors = ["Matthew Iannucci <mpiannucci@gmail.com>"]
 edition = "2018"
