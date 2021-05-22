@@ -1,4 +1,4 @@
-use crate::{templates::template::{Template, TemplateType}, utils::{grib_power, jpeg}};
+use crate::{templates::template::{Template, TemplateType}, utils::{grib_power, extract_jpeg_data}};
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::{CompressionType, OriginalFieldValue};
 use crate::unwrap_or_return;
@@ -76,7 +76,7 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
         let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
         let reference_value: f64 = self.reference_value().into();
 
-        let output_value: Vec<f64> = jpeg::extract_jpeg_data(&bytes)?
+        let output_value: Vec<f64> = extract_jpeg_data(&bytes)?
             [range]
             .iter()
             .map(|d| {

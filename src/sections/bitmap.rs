@@ -2,6 +2,8 @@ use std::vec::Vec;
 use std::iter::Iterator;
 use crate::utils::bit_array_from_bytes;
 use crate::utils::read_u32_from_bytes;
+use crate::utils::positive_bit_count;
+use crate::utils::byte_to_bits;
 use super::grib_section::GribSection;
 
 pub struct BitmapSection<'a> {
@@ -52,7 +54,7 @@ impl<'a> BitmapSection<'a> {
             return Some(index);
         }
 
-        // 110101011
+        // 110101011 01101101
         // 012345678
         // 5 - 2 = 3
         let bitmask = self.bitmap();
@@ -68,8 +70,28 @@ impl<'a> BitmapSection<'a> {
                 nan_count += 1;
             }
         }
- 
+
         Some(index - nan_count)
+
+        // EXPERIMENTAL
+        // let raw_bitmap = self.raw_bitmap_data();
+        // let mut index_counter: usize = 0;
+
+        // for i in 0..raw_bitmap.len() {
+        //     let valid_count = positive_bit_count(&raw_bitmap[i]);
+        //     if index > i * 8 {
+        //         // println!("{}: {}", index_counter, valid_count);
+        //         index_counter += valid_count as usize;
+        //         continue;
+        //     }
+
+        //     let bits = byte_to_bits(&raw_bitmap[i]);
+        //     let stop_index = (i*8) - index;
+        //     index_counter += raw_bitmap[0..stop_index].iter().sum::<u8>() as usize;
+        //     break;
+        // }
+
+        // Some(index_counter.into())
     }
 }
 
