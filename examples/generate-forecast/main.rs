@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let location = (41.0, 288.5);
 
     let model_time = latest_model_time();
-    let urls = (0..61).collect::<Vec<i32>>().iter().map(|i| {
+    let urls = (0..10).collect::<Vec<i32>>().iter().map(|i| {
         generate_grib_url(&model_time, i * 3)
     }).collect::<Vec<Url>>();
 
@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     
     // Parse out the data into data and metadata
     let all_grib_data: Vec<_> = results
-        .into_iter()
+        .iter()
         .filter_map(|b| {
             match b {
                 Some(b) => {
@@ -132,6 +132,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     wtr.flush()?;
 
     println!("Wrote Model Data: {:?}", start.elapsed());
+
+    println!("Parsing Map Frames {:?}", start.elapsed());
+
+    // For now we will just fuck around with one frame 
+    if let Some(Some(raw_first_message)) = results.first() {
+        let first_message_bytes = raw_first_message.clone();
+        let data: Vec<_> = gribberish::message::Message::parse_all(&first_message_bytes);
+        if let Some(wave_height_message) = data.iter().find(|d | {
+            match d.parameter() {
+                Ok(param) => param.abbrev == "HTSGW",
+                _ => false
+            }
+        }) {
+            let frame_wave_data = wave_height_message.data();
+            println!("Parsed wave data frame for map {:?}", start.elapsed());
+        } else {
+            println!("Failed to parse map frames {:?}", start.elapsed());
+        }
+    }
+
+    println!("Wrote Map Frames {:?}", start.elapsed());
 
     Ok(())
 }

@@ -58,7 +58,7 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
 		self.bit_count() as usize
     }
 	
-	fn unpack_range(&self, bits: Vec<u8>, range: Range<usize>) -> Result<Vec<f64>, String> {
+	fn unpack(&self, bits: Vec<u8>, range: Option<Range<usize>>) -> Result<Vec<f64>, String> {
         let mut v = Vec::new();
 
         let bits_per_val: usize = self.bit_count().into();
@@ -70,6 +70,8 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
 
         let mut raw_value: f64 = 0.0;
 		let mut val_bits: [u8; 32] = [0; 32];
+
+        let range = range.unwrap_or(0..(self.bit_count() as usize / bits_per_val));
 		
 		let start_index = range.start * bits_per_val;
 		let end_index = range.end * bits_per_val;
@@ -104,9 +106,4 @@ impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTe
 
         Ok(v)
 	}
-
-    fn unpack_all(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
-		let bit_count = bits.len();
-		self.unpack_range(bits, 0..bit_count)
-    }
 }

@@ -38,6 +38,8 @@ impl<'a> BitmapSection<'a> {
 
         for (i, mask) in bitmask.iter().enumerate() {
             data[i] = match mask {
+                // TODO: Breaking here for grabbing all data
+                // 'index out of bounds: the len is 16243 but the index is 16243', src/sections/bitmap.rs:47:22
                 1 => unmapped_data[i - nan_count],
                 _ => {
                     nan_count += 1;

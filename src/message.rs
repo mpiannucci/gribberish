@@ -371,7 +371,7 @@ impl<'a> Message<'a> {
         );
 
         let raw_packed_data = data_section.raw_bit_data();
-        let data = data_representation_template.unpack_range(raw_packed_data, data_index..data_index+1)?;
+        let data = data_representation_template.unpack(raw_packed_data, Some(data_index..data_index+1))?;
 
         Ok(data[0])
     }
