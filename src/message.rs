@@ -271,7 +271,6 @@ impl<'a> Message<'a> {
         );
 
         let raw_packed_data = data_section.raw_bit_data();
-        println!("data sectionln: {}", raw_packed_data.len());
 
         let data_representation_section = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
@@ -288,7 +287,7 @@ impl<'a> Message<'a> {
         );
 
         let scaled_unpacked_data = data_representation_template
-            .unpack_all(raw_packed_data)?;
+            .unpack(raw_packed_data, 0..data_representation_section.data_point_count())?;
 
         let bitmap_section = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
@@ -371,7 +370,7 @@ impl<'a> Message<'a> {
         );
 
         let raw_packed_data = data_section.raw_bit_data();
-        let data = data_representation_template.unpack(raw_packed_data, Some(data_index..data_index+1))?;
+        let data = data_representation_template.unpack(raw_packed_data, data_index..data_index+1)?;
 
         Ok(data[0])
     }

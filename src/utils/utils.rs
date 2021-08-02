@@ -131,7 +131,6 @@ pub fn positive_bit_count(data: &u8) -> u8 {
 
 pub fn bits_to_bytes(bits: Vec<u8>) -> Option<Vec<u8>> {
     if bits.len() % 8 != 0 {
-        println!("{}", bits.len());
         return None;
     }
 

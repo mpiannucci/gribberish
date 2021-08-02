@@ -68,7 +68,7 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
 		self.bit_count() as usize
     }
 	
-	fn unpack(&self, bits: Vec<u8>, range: Option<Range<usize>>) -> Result<Vec<f64>, String> {
+	fn unpack(&self, bits: Vec<u8>, range: Range<usize>) -> Result<Vec<f64>, String> {
         let bytes = bits_to_bytes(bits).unwrap();
 
         let bscale = grib_power(self.binary_scale_factor().into(), 2);
@@ -76,7 +76,7 @@ impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> 
         let reference_value: f64 = self.reference_value().into();
 
         let output_value: Vec<f64> = extract_jpeg_data(&bytes)?
-            [range.unwrap_or(0..bytes.len())]
+            [range]
             .iter()
             .map(|d| {
                 ((*d as f64) * bscale + reference_value) * dscale
