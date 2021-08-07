@@ -281,6 +281,22 @@ impl<'a> Message<'a> {
         }
     }
 
+    pub fn bitmap(&self) -> Result<Vec<bool>, String> {
+        let bitmap_section = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::Bitmap(bitmap_section) => Some(bitmap_section),
+                _ => None,
+            }),
+            "Bitmap section not found when reading message data".into()
+        );
+
+        Ok(bitmap_section
+            .bitmap()
+            .iter()
+            .map(|i| *i == 1)
+            .collect())
+    }
+
     pub fn data(&self) -> Result<Vec<f64>, String> {
         let data_section = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
