@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let location = (41.0, 288.5);
 
     let model_time = latest_model_time();
-    let urls = (0..60).collect::<Vec<i32>>().iter().map(|i| {
+    let urls = (0..10).collect::<Vec<i32>>().iter().map(|i| {
         generate_grib_url(&model_time, i * 3)
     }).collect::<Vec<Url>>();
 

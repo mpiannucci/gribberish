@@ -293,7 +293,7 @@ impl<'a> Message<'a> {
         Ok(bitmap_section
             .bitmap()
             .iter()
-            .map(|i| *i == 1)
+            .map(|i| *i == 1u8)
             .collect())
     }
 
@@ -355,16 +355,104 @@ impl<'a> Message<'a> {
     }
 
     pub fn data_at_location(&self, location: &(f64, f64)) -> Result<f64, String> {
-        let location_index = self.data_index_for_location(location)?;
-        let data = self.data()?;
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
 
-        Ok(data[location_index])
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        let location_index = grid_template.index_for_location(location.0, location.1)?;
+
+        let data_section = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::Data(data_section) => Some(data_section),
+                _ => None,
+            }),
+            "Data section not found when reading message data".into()
+        );
+
+        let data_representation_section = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::DataRepresentation(data_representation_section) =>
+                    Some(data_representation_section),
+                _ => None,
+            }),
+            "Data representation section not found when reading message data".into()
+        );
+
+        let data_representation_template = unwrap_or_return!(
+            data_representation_section.data_representation_template(),
+            "Failed to unpack the data representation template".into()
+        );
+
+        let bitmap_section = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::Bitmap(bitmap_section) => Some(bitmap_section),
+                _ => None,
+            }),
+            "Bitmap section not found when reading message data".into()
+        );
+
+        let data_index = unwrap_or_return!(
+            bitmap_section.data_index(location_index), 
+            format!("No data available at index {}", location_index).into()
+        );
+
+        let raw_packed_data = data_section.raw_bit_data();
+        let data = data_representation_template.unpack(raw_packed_data, data_index..data_index+1)?;
+
+        Ok(data[0])
     }
 
     pub fn data_in_region(&self, top_left: &(f64, f64), bottom_right: &(f64, f64)) -> Result<Vec<f64>, String> {
         let top_left_index = self.data_index_for_location(top_left)?;
         let bottom_right_index = self.data_index_for_location(bottom_right)?;
-        let data = self.data()?;
-        Ok(data[top_left_index..bottom_right_index].to_vec())
+
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        let data_section = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::Data(data_section) => Some(data_section),
+                _ => None,
+            }),
+            "Data section not found when reading message data".into()
+        );
+
+        let data_representation_section = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::DataRepresentation(data_representation_section) =>
+                    Some(data_representation_section),
+                _ => None,
+            }),
+            "Data representation section not found when reading message data".into()
+        );
+
+        let data_representation_template = unwrap_or_return!(
+            data_representation_section.data_representation_template(),
+            "Failed to unpack the data representation template".into()
+        );
+
+        let raw_packed_data = data_section.raw_bit_data();
+        let data = data_representation_template.unpack(raw_packed_data, top_left_index..bottom_right_index)?;
+
+        Ok(data)
     }
 }
