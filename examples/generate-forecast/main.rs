@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let location = (41.0, 288.5);
 
     let model_time = latest_model_time();
-    let urls = (0..60).collect::<Vec<i32>>().iter().map(|i| {
+    let urls = (0..10).collect::<Vec<i32>>().iter().map(|i| {
         generate_grib_url(&model_time, i * 3)
     }).collect::<Vec<Url>>();
 
@@ -76,60 +76,60 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Downloaded Data: {:?}", start.elapsed());
     
-    // // Parse out the data into data and metadata
-    // let all_grib_data: Vec<_> = results
-    //     .iter()
-    //     .filter_map(|b| {
-    //         match b {
-    //             Some(b) => {
-    //                 let data: Vec<_> = gribberish::message::Message::parse_all(b.clone().as_ref())
-    //                 .iter()
-    //                 .filter(|m| m.metadata().is_ok())    
-    //                 .map(|m| (m.metadata().unwrap(), m.data_at_location(&location)))
-    //                 .collect();
-    //                 Some(data)
-    //             },
-    //             None => None,
-    //         }
-    //     }).collect();
+    // Parse out the data into data and metadata
+    let all_grib_data: Vec<_> = results
+        .iter()
+        .filter_map(|b| {
+            match b {
+                Some(b) => {
+                    let data: Vec<_> = gribberish::message::Message::parse_all(b.clone().as_ref())
+                    .iter()
+                    .filter(|m| m.metadata().is_ok())    
+                    .map(|m| (m.metadata().unwrap(), m.data_at_location(&location)))
+                    .collect();
+                    Some(data)
+                },
+                None => None,
+            }
+        }).collect();
 
-    // println!("Parsed Model Data: {:?}", start.elapsed());
+    println!("Parsed Model Data: {:?}", start.elapsed());
 
-    // let mut wtr = csv::Writer::from_path("./ri_wave_data.csv")?;
+    let mut wtr = csv::Writer::from_path("./ri_wave_data.csv")?;
 
-    // // Collect the variables and write out the result as the header
-    // let mut vars: Vec<_> = all_grib_data[0]
-    //     .iter()
-    //     .map(|m| format!("{} ({})", (m.0).variable_abbreviation.clone(), (m.0).units ))
-    //     .collect();
-    // if vars.len() == 0 {
-    //     return Err(Box::from("No variables read"));
-    // }
-    // vars.insert(0, String::from("TIME"));
-    // wtr.write_record(vars)?;
+    // Collect the variables and write out the result as the header
+    let mut vars: Vec<_> = all_grib_data[0]
+        .iter()
+        .map(|m| format!("{} ({})", (m.0).variable_abbreviation.clone(), (m.0).units ))
+        .collect();
+    if vars.len() == 0 {
+        return Err(Box::from("No variables read"));
+    }
+    vars.insert(0, String::from("TIME"));
+    wtr.write_record(vars)?;
 
-    // // Then collect the value of grid point
-    // all_grib_data.iter().for_each(|dt| {
-    //     let mut point_data: Vec<_> = dt
-    //         .iter()
-    //         .map(|d| {
-    //             let value = match &d.1 {
-    //                 Ok(vals) => *vals,
-    //                 Err(err) => {
-    //                     println!("{}", err);
-    //                     std::f64::NAN
-    //                 }
-    //             };
-    //             format!("{:.2}", value)
-    //         }).collect();
-    //     if point_data.len() > 0 {
-    //         point_data.insert(0, dt[0].0.forecast_date.to_rfc3339());
-    //     }
+    // Then collect the value of grid point
+    all_grib_data.iter().for_each(|dt| {
+        let mut point_data: Vec<_> = dt
+            .iter()
+            .map(|d| {
+                let value = match &d.1 {
+                    Ok(vals) => *vals,
+                    Err(err) => {
+                        println!("{}", err);
+                        std::f64::NAN
+                    }
+                };
+                format!("{:.2}", value)
+            }).collect();
+        if point_data.len() > 0 {
+            point_data.insert(0, dt[0].0.forecast_date.to_rfc3339());
+        }
 
-    //     let _ = wtr.write_record(point_data);
-    // });
+        let _ = wtr.write_record(point_data);
+    });
 
-    // wtr.flush()?;
+    wtr.flush()?;
 
     println!("Wrote Model Data: {:?}", start.elapsed());
 
