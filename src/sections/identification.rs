@@ -62,14 +62,14 @@ pub enum GribDataType {
     Missing = 255,
 }
 
-pub struct IdentificationSection<'a>{
-    data: &'a[u8],
+pub struct IdentificationSection{
+    data: Vec<u8>,
 }
 
-impl<'a> IdentificationSection<'a> {
-    pub fn from_data(data: &[u8]) -> IdentificationSection {
+impl IdentificationSection {
+    pub fn from_data(data: Vec<u8>) -> IdentificationSection {
         IdentificationSection {
-            data: &data,
+            data: data,
         }
     }
  
@@ -78,7 +78,7 @@ impl<'a> IdentificationSection<'a> {
     }
 
     pub fn reference_date(&self) -> DateTime<Utc> {
-        let year = read_u16_from_bytes(self.data, 12 ).unwrap_or(0) as i32;
+        let year = read_u16_from_bytes(self.data.as_slice(), 12 ).unwrap_or(0) as i32;
         let month = self.data[14] as u32;
         let day = self.data[15] as u32;
         let hour = self.data[16] as u32;
@@ -97,7 +97,7 @@ impl<'a> IdentificationSection<'a> {
     }
 }
 
-impl <'a> GribSection for IdentificationSection<'a> {
+impl GribSection for IdentificationSection {
     fn len(&self) -> usize {
         read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
     }

@@ -2,18 +2,16 @@ use std::vec::Vec;
 use std::iter::Iterator;
 use crate::utils::bit_array_from_bytes;
 use crate::utils::read_u32_from_bytes;
-use crate::utils::positive_bit_count;
-use crate::utils::byte_to_bits;
 use super::grib_section::GribSection;
 
-pub struct BitmapSection<'a> {
-    data: &'a[u8],
+pub struct BitmapSection {
+    data: Vec<u8>,
 }
 
-impl<'a> BitmapSection<'a> {
-    pub fn from_data(data: &[u8]) -> BitmapSection {
+impl BitmapSection {
+    pub fn from_data(data: Vec<u8>) -> BitmapSection {
         BitmapSection {
-            data: &data,
+            data: data,
         }
     }
 
@@ -97,7 +95,7 @@ impl<'a> BitmapSection<'a> {
     }
 }
 
-impl <'a> GribSection for BitmapSection<'a> {
+impl GribSection for BitmapSection {
     fn len(&self) -> usize {
         read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
     }

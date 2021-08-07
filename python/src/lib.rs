@@ -1,10 +1,11 @@
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
+use gribberish::message::Message;
 
 
 #[pyclass]
-struct GribMessage {
-
+struct GribMessage{
+    inner: Message,
 }
 
 #[pymodule]

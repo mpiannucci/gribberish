@@ -5,13 +5,13 @@ use crate::unwrap_or_return;
 use crate::utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes};
 use std::ops::Range;
 
-pub struct SimpleGridPointDataRepresentationTemplate<'a> {
-    data: &'a [u8],
+pub struct SimpleGridPointDataRepresentationTemplate {
+    data: Vec<u8>,
 }
 
-impl<'a> Template for SimpleGridPointDataRepresentationTemplate<'a> {
+impl Template for SimpleGridPointDataRepresentationTemplate {
     fn data(&self) -> &[u8] {
-        self.data
+        self.data.as_slice()
     }
 
     fn template_number(&self) -> u16 {
@@ -27,21 +27,21 @@ impl<'a> Template for SimpleGridPointDataRepresentationTemplate<'a> {
     }
 }
 
-impl<'a> SimpleGridPointDataRepresentationTemplate<'a> {
-    pub fn new(data: &'a [u8]) -> SimpleGridPointDataRepresentationTemplate {
+impl SimpleGridPointDataRepresentationTemplate {
+    pub fn new(data: Vec<u8>) -> SimpleGridPointDataRepresentationTemplate {
         SimpleGridPointDataRepresentationTemplate { data }
     }
 
     pub fn reference_value(&self) -> f32 {
-        read_f32_from_bytes(self.data, 11).unwrap_or(0.0)
+        read_f32_from_bytes(self.data.as_slice(), 11).unwrap_or(0.0)
     }
 
     pub fn binary_scale_factor(&self) -> i16 {
-        read_i16_from_bytes(self.data, 15).unwrap_or(0)
+        read_i16_from_bytes(self.data.as_slice(), 15).unwrap_or(0)
     }
 
     pub fn decimal_scale_factor(&self) -> i16 {
-        read_i16_from_bytes(self.data, 17).unwrap_or(0)
+        read_i16_from_bytes(self.data.as_slice(), 17).unwrap_or(0)
     }
 
     pub fn bit_count(&self) -> u8 {
@@ -53,7 +53,7 @@ impl<'a> SimpleGridPointDataRepresentationTemplate<'a> {
     }
 }
 
-impl<'a> DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTemplate<'a> {
+impl DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTemplate {
 	fn bit_count_per_datapoint(&self) -> usize {
 		self.bit_count() as usize
     }

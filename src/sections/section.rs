@@ -10,24 +10,24 @@ use super::data::DataSection;
 use super::end::EndSection;
 use super::grib_section::GribSection;
 
-pub enum Section<'a> {
-	Indicator(IndicatorSection<'a>),
-	Identification(IdentificationSection<'a>),
-	LocalUse(LocalUseSection<'a>),
-	GridDefinition(GridDefinitionSection<'a>),
-	ProductDefinition(ProductDefinitionSection<'a>),
-	DataRepresentation(DataRepresentationSection<'a>),
-	Bitmap(BitmapSection<'a>),
-    Data(DataSection<'a>),
-	End(EndSection<'a>),
+pub enum Section {
+	Indicator(IndicatorSection),
+	Identification(IdentificationSection),
+	LocalUse(LocalUseSection),
+	GridDefinition(GridDefinitionSection),
+	ProductDefinition(ProductDefinitionSection),
+	DataRepresentation(DataRepresentationSection),
+	Bitmap(BitmapSection),
+    Data(DataSection),
+	End(EndSection),
 }
 
-impl<'a> Section<'a> {
-    pub fn from_data(data: &'a[u8], offset: usize) -> Result<Section<'a>, &'static str> {
+impl Section {
+    pub fn from_data(data: &[u8], offset: usize) -> Result<Section, &'static str> {
         let section_len = section_length(data, offset);
         let section_num = section_number(data, offset);
 
-        let section_data = &data[offset..offset+section_len];
+        let section_data = data[offset..offset+section_len].to_vec();
 
         match section_num { 
             0 => Ok(Section::Indicator(IndicatorSection::from_data(section_data))),

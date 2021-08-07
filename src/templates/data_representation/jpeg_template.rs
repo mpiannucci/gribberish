@@ -1,19 +1,17 @@
 use crate::{templates::template::{Template, TemplateType}, utils::{grib_power, extract_jpeg_data}};
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::{CompressionType, OriginalFieldValue};
-use crate::unwrap_or_return;
 use crate::utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes, bits_to_bytes};
-use openjpeg_sys::opj_stream_set_user_data;
 use std::{convert::TryInto, ops::Range, ptr::null_mut};
 use std::io::BufReader;
 
-pub struct JPEGDataRepresentationTemplate<'a> {
-    data: &'a [u8],
+pub struct JPEGDataRepresentationTemplate {
+    data: Vec<u8>,
 }
 
-impl<'a> Template for JPEGDataRepresentationTemplate<'a> {
+impl Template for JPEGDataRepresentationTemplate {
     fn data(&self) -> &[u8] {
-        self.data
+        self.data.as_slice()
     }
 
     fn template_number(&self) -> u16 {
@@ -29,21 +27,21 @@ impl<'a> Template for JPEGDataRepresentationTemplate<'a> {
     }
 }
 
-impl<'a> JPEGDataRepresentationTemplate<'a> {
-    pub fn new(data: &'a [u8]) -> JPEGDataRepresentationTemplate {
+impl JPEGDataRepresentationTemplate {
+    pub fn new(data: Vec<u8>) -> JPEGDataRepresentationTemplate {
         JPEGDataRepresentationTemplate { data }
     }
 
     pub fn reference_value(&self) -> f32 {
-        read_f32_from_bytes(self.data, 11).unwrap_or(0.0)
+        read_f32_from_bytes(self.data.as_slice(), 11).unwrap_or(0.0)
     }
 
     pub fn binary_scale_factor(&self) -> i16 {
-        read_i16_from_bytes(self.data, 15).unwrap_or(0)
+        read_i16_from_bytes(self.data.as_slice(), 15).unwrap_or(0)
     }
 
     pub fn decimal_scale_factor(&self) -> i16 {
-        read_i16_from_bytes(self.data, 17).unwrap_or(0)
+        read_i16_from_bytes(self.data.as_slice(), 17).unwrap_or(0)
     }
 
     pub fn bit_count(&self) -> u8 {
@@ -63,7 +61,7 @@ impl<'a> JPEGDataRepresentationTemplate<'a> {
     }
 }
 
-impl<'a> DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate<'a> {
+impl DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate {
 	fn bit_count_per_datapoint(&self) -> usize {
 		self.bit_count() as usize
     }

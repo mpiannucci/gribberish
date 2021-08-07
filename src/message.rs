@@ -17,13 +17,13 @@ pub struct MessageMetadata {
     pub data_point_count: usize,
 }
 
-pub struct Message<'a> {
-    pub sections: Vec<Section<'a>>,
+pub struct Message {
+    pub sections: Vec<Section>,
 }
 
-impl<'a> Message<'a> {
-    pub fn parse(data: &'a [u8], offset: usize) -> Result<Message<'a>, &'static str> {
-        let mut sections: Vec<Section<'a>> = Vec::new();
+impl Message {
+    pub fn parse(data: &[u8], offset: usize) -> Result<Message, &'static str> {
+        let mut sections: Vec<Section> = Vec::new();
 
         let mut current_offset = 0;
         loop {
@@ -41,7 +41,7 @@ impl<'a> Message<'a> {
         Ok(Message { sections })
     }
 
-    pub fn parse_all(data: &'a [u8]) -> Vec<Message<'a>> {
+    pub fn parse_all(data: &[u8]) -> Vec<Message> {
         let mut messages = Vec::new();
         let mut offset: usize = 0;
 
@@ -57,7 +57,7 @@ impl<'a> Message<'a> {
         messages
     }
 
-    pub fn variable_names(messages: Vec<Message<'a>>) -> Vec<Option<String>> {
+    pub fn variable_names(messages: Vec<Message>) -> Vec<Option<String>> {
         Message::parameters(messages)
             .iter()
             .map(|p| {
@@ -69,7 +69,7 @@ impl<'a> Message<'a> {
             .collect()
     }
 
-    pub fn variable_abbrevs(messages: Vec<Message<'a>>) -> Vec<Option<String>> {
+    pub fn variable_abbrevs(messages: Vec<Message>) -> Vec<Option<String>> {
         Message::parameters(messages)
             .iter()
             .map(|p| {
@@ -81,7 +81,7 @@ impl<'a> Message<'a> {
             .collect()
     }
 
-    pub fn units(messages: Vec<Message<'a>>) -> Vec<Option<String>> {
+    pub fn units(messages: Vec<Message>) -> Vec<Option<String>> {
         Message::parameters(messages)
             .iter()
             .map(|p| {
@@ -93,7 +93,7 @@ impl<'a> Message<'a> {
             .collect()
     }
 
-    pub fn parameters(messages: Vec<Message<'a>>) -> Vec<Option<Parameter>> {
+    pub fn parameters(messages: Vec<Message>) -> Vec<Option<Parameter>> {
         messages
             .iter()
             .map(|m| m.parameter())
@@ -106,7 +106,7 @@ impl<'a> Message<'a> {
             .collect()
     }
 
-    pub fn forecast_dates(messages: Vec<Message<'a>>) -> Vec<Option<DateTime<Utc>>> {
+    pub fn forecast_dates(messages: Vec<Message>) -> Vec<Option<DateTime<Utc>>> {
         messages
             .iter()
             .map(|m| m.forecast_date())
