@@ -12,6 +12,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 gribberish = { path = "../" }
+numpy = "0.14.1"
+ndarray = "0.15.1"
 
 [dependencies.pyo3]
 version = "0.13.2"
