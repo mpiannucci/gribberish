@@ -4,7 +4,7 @@ from setuptools_rust import RustExtension
 setup(
     name="gribberish",
     version="0.9.0",
-    rust_extensions=[RustExtension("gribberish.gribberish", "Cargo.toml")],
+    rust_extensions=[RustExtension("gribberish.gribberish", debug=False)],
     packages=["gribberish"],
     include_package_data=True,
     # rust extensions are not zip safe, just like C-extensions.
