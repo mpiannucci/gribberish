@@ -1,7 +1,7 @@
 use crate::{sections::{indicator::Discipline, section::Section}, templates::{product::ProductTemplate}};
 use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
-use std::vec::Vec;
+use std::{collections::HashMap, vec::Vec};
 
 pub struct MessageMetadata {
     pub discipline: Discipline,
@@ -15,6 +15,13 @@ pub struct MessageMetadata {
     pub units: String,
     pub data_template_number: u16,
     pub data_point_count: usize,
+}
+
+pub struct MessageSummary {
+    pub reference_date: DateTime<Utc>,
+    pub forecast_date: DateTime<Utc>,
+    pub location: (f64, f64), 
+    pub data: HashMap<String, (f64, String)>
 }
 
 pub struct Message {
