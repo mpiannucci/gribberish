@@ -5,11 +5,11 @@ def read_file(filename: str) -> bytes:
         raw_data = f.read()
         return raw_data
 
-def read_and_dump_grib(filename: str):
+def read_and_dump_grib_metadata(filename: str):
     raw_grib_data = read_file(filename)
     if not len(raw_grib_data):
         return
     
     messages = gribberish.parse_grib_messages(raw_grib_data)
     for message in messages:
-        print(f'Variable: {message.var_name}')
+        print(f'Message: {message.var_abbrev}: {message.var_name}')

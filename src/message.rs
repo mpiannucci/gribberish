@@ -184,6 +184,11 @@ impl Message {
         Ok(parameter.abbrev)
     }
 
+    pub fn unit(&self) -> Result<String, String> {
+        let parameter = self.parameter()?;
+        Ok(parameter.unit)
+    }
+
     pub fn reference_date(&self) -> Result<DateTime<Utc>, String> {
         let reference_date = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {

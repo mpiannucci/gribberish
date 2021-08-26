@@ -2,6 +2,7 @@ use gribberish::message::Message;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 use pyo3::exceptions::PyTypeError;
+use numpy::{PyArray, PyArray1, PyArrayDyn};
 
 #[pyclass]
 struct GribMessage {
@@ -17,6 +18,31 @@ impl GribMessage {
             Err(e) => Err(PyTypeError::new_err(e))
         }
     }
+
+    #[getter]
+    fn get_var_abbrev(&self) -> PyResult<String> {
+        match(self.inner.variable_abbrev()) {
+            Ok(v) => Ok(v), 
+            Err(e) => Err(PyTypeError::new_err(e))
+        }
+    }
+
+    #[getter]
+    fn get_units(&self) -> PyResult<String> {
+        match(self.inner.unit()) {
+            Ok(u) => Ok(u), 
+            Err(e) => Err(PyTypeError::new_err(e))
+        }
+    }
+
+    // fn raw_data_array(&self, py: Python) -> PyResult<PyArray1<f64>> {
+    //     // let data = self.inner.data().unwrap();
+    //     // PyArrayDyn<f64>::from_vec(d)
+    //     match(self.inner.data()) {
+    //         Ok(d) => Ok(PyArray<f64>::from_vec(py, d)), 
+    //         Err(e) => Err(PyTypeError::new_err(e))
+    //     }
+    // }
 }
 
 #[pyfunction]
