@@ -18,6 +18,28 @@ pub trait GridDefinitionTemplate {
     fn locations(&self) -> Vec<(f64, f64)>;
     fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str>;
     fn index_for_location(&self, latitude: f64, longitude: f64) -> Result<usize, &'static str>;
+
+    fn location_grid(&self) -> Vec<Vec<(f64, f64)>> {
+        let longitudes = self.longitudes();
+        self.latitudes()
+            .into_iter()
+            .map(|lat| longitudes
+                .iter()
+                .map(|lon| (lat, *lon))
+                .collect())
+            .collect()
+    }
+
+    fn zerod_location_grid(&self) -> Vec<Vec<f64>> {
+        let longitudes = self.longitudes();
+        self.latitudes()
+            .into_iter()
+            .map(|_| longitudes
+                .iter()
+                .map(|_| 0.)
+                .collect())
+            .collect()
+    }
 }
 
 #[repr(u8)]
