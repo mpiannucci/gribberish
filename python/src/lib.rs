@@ -35,14 +35,10 @@ impl GribMessage {
         }
     }
 
-    // fn raw_data_array(&self, py: Python) -> PyResult<PyArray1<f64>> {
-    //     // let data = self.inner.data().unwrap();
-    //     // PyArrayDyn<f64>::from_vec(d)
-    //     match(self.inner.data()) {
-    //         Ok(d) => Ok(PyArray<f64>::from_vec(py, d)), 
-    //         Err(e) => Err(PyTypeError::new_err(e))
-    //     }
-    // }
+    fn raw_data_array<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
+        let data = self.inner.data().unwrap();
+        PyArray1::from_vec(py, data)
+    }
 }
 
 #[pyfunction]
