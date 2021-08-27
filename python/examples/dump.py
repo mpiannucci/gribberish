@@ -23,8 +23,5 @@ if __name__ == '__main__':
     print(f'{messages[0].forecast_date}')
     for message in messages:
         raw_data = message.raw_data_array()
-        try:
-            fortyone_seventyone_data = message.data_at_location(lat=41.0, lon=289.0)
-        except:
-            fortyone_seventyone_data = float('nan')
+        fortyone_seventyone_data = message.data_at_location(lat=41.0, lon=289.0)
         print(f'{message.var_abbrev} ({message.var_name} - {message.units}): ({len(raw_data)} {numpy.nanmin(raw_data)} {numpy.nanmax(raw_data)} {fortyone_seventyone_data})')
