@@ -1,5 +1,6 @@
 use gribberish::message::Message;
-use pyo3::prelude::*;
+use pyo3::{prelude::*, types::PyTzInfo};
+use pyo3::types::PyDateTime;
 use pyo3::wrap_pyfunction;
 use pyo3::exceptions::PyTypeError;
 use numpy::{PyArray, PyArray1, PyArrayDyn};
@@ -13,7 +14,7 @@ struct GribMessage {
 impl GribMessage {
     #[getter]
     fn get_var_name(&self) -> PyResult<String> {
-        match(self.inner.variable_name()) {
+        match self.inner.variable_name() {
             Ok(v) => Ok(v), 
             Err(e) => Err(PyTypeError::new_err(e))
         }
@@ -21,7 +22,7 @@ impl GribMessage {
 
     #[getter]
     fn get_var_abbrev(&self) -> PyResult<String> {
-        match(self.inner.variable_abbrev()) {
+        match self.inner.variable_abbrev() {
             Ok(v) => Ok(v), 
             Err(e) => Err(PyTypeError::new_err(e))
         }
@@ -29,7 +30,30 @@ impl GribMessage {
 
     #[getter]
     fn get_units(&self) -> PyResult<String> {
-        match(self.inner.unit()) {
+        match self.inner.unit() {
+            Ok(u) => Ok(u), 
+            Err(e) => Err(PyTypeError::new_err(e))
+        }
+    }
+
+    #[getter]
+    fn get_forecast_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
+        match self.inner.forecast_date() {
+            Ok(d) => PyDateTime::from_timestamp(py, d.timestamp() as f64, None), 
+            Err(e) => Err(PyTypeError::new_err(e))
+        }
+    }
+
+    #[getter]
+    fn get_reference_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
+        match self.inner.reference_date() {
+            Ok(d) => PyDateTime::from_timestamp(py, d.timestamp() as f64, None), 
+            Err(e) => Err(PyTypeError::new_err(e))
+        }
+    }
+
+    fn location_data_index(&self, lat: f64, lon: f64) -> PyResult<usize> {
+        match self.inner.data_index_for_location(&(lat, lon)) {
             Ok(u) => Ok(u), 
             Err(e) => Err(PyTypeError::new_err(e))
         }
@@ -38,6 +62,13 @@ impl GribMessage {
     fn raw_data_array<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
         let data = self.inner.data().unwrap();
         PyArray1::from_vec(py, data)
+    }
+
+    fn data_at_location(&self, lat: f64, lon: f64) -> PyResult<f64> {
+        match self.inner.data_at_location(&(lat, lon)) {
+            Ok(u) => Ok(u), 
+            Err(e) => Err(PyTypeError::new_err(e))
+        }
     }
 }
 
