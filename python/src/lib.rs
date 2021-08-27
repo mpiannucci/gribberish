@@ -52,6 +52,14 @@ impl GribMessage {
         }
     }
 
+    #[getter]
+    fn get_array_index(&self) -> PyResult<Option<usize>> {
+        match self.inner.array_index() {
+            Ok(i) => Ok(i),
+            Err(e) => Err(PyTypeError::new_err(e)),
+        }
+    }
+
     fn location_data_index(&self, lat: f64, lon: f64) -> PyResult<usize> {
         match self.inner.data_index_for_location(&(lat, lon)) {
             Ok(u) => Ok(u),

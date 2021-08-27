@@ -1,7 +1,7 @@
 use crate::{sections::{indicator::Discipline, section::Section}, templates::{product::ProductTemplate}};
 use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
-use std::{collections::HashMap, vec::Vec};
+use std::vec::Vec;
 
 pub struct MessageMetadata {
     pub discipline: Discipline,
@@ -9,19 +9,13 @@ pub struct MessageMetadata {
     pub forecast_date: DateTime<Utc>,
     pub variable_name: String,
     pub variable_abbreviation: String,
+    pub array_index: Option<usize>,
     pub region: ((f64, f64), (f64, f64)),
     pub location_grid: (usize, usize),
     pub location_resolution: (f64, f64),
     pub units: String,
     pub data_template_number: u16,
     pub data_point_count: usize,
-}
-
-pub struct MessageSummary {
-    pub reference_date: DateTime<Utc>,
-    pub forecast_date: DateTime<Utc>,
-    pub location: (f64, f64), 
-    pub data: HashMap<String, (f64, String)>
 }
 
 pub struct Message {
@@ -223,6 +217,28 @@ impl Message {
         Ok(product_template.forecast_datetime(reference_date))
     }
 
+    pub fn array_index(&self) -> Result<Option<usize>, String> {
+        let discipline = self.discipline()?;
+
+        let product_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            match product_definition.product_definition_template(discipline.clone() as u8) {
+                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
+                _ => None,
+            },
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        Ok(product_template.array_index())
+    }
+
     pub fn metadata(&self) -> Result<MessageMetadata, String> {
         let discipline = self.discipline()?;
 
@@ -245,6 +261,8 @@ impl Message {
         let location_resolution = (grid_template.latitude_resolution(), grid_template.longitude_resolution());
 
         let parameter = self.parameter()?;
+
+        let array_index = self.array_index()?;
     
         let forecast_date = self.forecast_date()?;
 
@@ -264,6 +282,7 @@ impl Message {
             forecast_date,
             variable_name: parameter.name,
             variable_abbreviation: parameter.abbrev,
+            array_index,
             region,
             location_grid,
             location_resolution,

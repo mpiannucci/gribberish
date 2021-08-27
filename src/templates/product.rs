@@ -594,6 +594,13 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
         read_u32_from_bytes(self.data, 24).unwrap_or(0)
     }
 
+	pub fn array_index(&self) -> Option<usize> {
+		match self.first_fixed_surface_type() {
+			FixedSurfaceTypes::OrderedSequence => Some(self.first_fixed_surface_scaled_value() as usize), 
+			_ => None,
+		}
+	}
+
     pub fn second_fixed_surface_type(&self) -> FixedSurfaceTypes {
         self.data[28].into()
     }
