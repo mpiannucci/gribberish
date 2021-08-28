@@ -454,11 +454,6 @@ impl Message {
             "Grid definition section not found when reading variable data".into()
         );
 
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
         let data_section = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::Data(data_section) => Some(data_section),
