@@ -19,6 +19,30 @@ pub trait GridDefinitionTemplate {
     fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str>;
     fn index_for_location(&self, latitude: f64, longitude: f64) -> Result<usize, &'static str>;
 
+    fn latitudes_in_range(&self, range: (f64, f64)) -> Vec<f64> {
+        self.latitudes()
+            .into_iter()
+            .filter(|l| *l > range.0 && *l < range.1)
+            .collect()
+    }
+
+    fn longitudes_in_range(&self, range: (f64, f64)) -> Vec<f64> {
+        self.longitudes()
+            .into_iter()
+            .filter(|l| *l > range.0 && *l < range.1)
+            .collect()
+    }
+
+    fn locations_in_range(&self, latitude_range: (f64, f64), longitude_range: (f64, f64)) -> Vec<(f64, f64)> {
+        self.locations()
+            .into_iter()
+            .filter(|l| {
+                l.0 > latitude_range.0 && l.0 < latitude_range.1 &&
+                l.1 > longitude_range.0 && l.1 < longitude_range.1
+            })
+            .collect()
+    }
+
     fn location_grid(&self) -> Vec<Vec<(f64, f64)>> {
         let longitudes = self.longitudes();
         self.latitudes()
@@ -33,6 +57,28 @@ pub trait GridDefinitionTemplate {
     fn zerod_location_grid(&self) -> Vec<Vec<f64>> {
         let longitudes = self.longitudes();
         self.latitudes()
+            .into_iter()
+            .map(|_| longitudes
+                .iter()
+                .map(|_| 0.)
+                .collect())
+            .collect()
+    }
+
+    fn location_region_grid(&self, latitude_range: (f64, f64), longitude_range: (f64, f64)) -> Vec<Vec<(f64, f64)>> {
+        let longitudes = self.longitudes_in_range(longitude_range);
+        self.latitudes_in_range(latitude_range)
+            .into_iter()
+            .map(|lat| longitudes
+                .iter()
+                .map(|lon| (lat, *lon))
+                .collect())
+            .collect()
+    }
+
+    fn zerod_location_region_grid(&self, latitude_range: (f64, f64), longitude_range: (f64, f64)) -> Vec<Vec<f64>> {
+        let longitudes = self.longitudes_in_range(longitude_range);
+        self.latitudes_in_range(latitude_range)
             .into_iter()
             .map(|_| longitudes
                 .iter()
