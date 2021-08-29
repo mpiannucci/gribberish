@@ -18,6 +18,14 @@ pub trait GridDefinitionTemplate {
     fn locations(&self) -> Vec<(f64, f64)>;
     fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str>;
     fn index_for_location(&self, latitude: f64, longitude: f64) -> Result<usize, &'static str>;
+    fn indice_for_latitude(&self, latitude: f64) -> Result<usize, &'static str>;
+    fn indice_for_longitude(&self, longitude: f64) -> Result<usize, &'static str>;
+
+    fn indices_for_location(&self, latitude:f64, longitude: f64) -> Result<(usize, usize), &'static str> {
+        let j = self.indice_for_latitude(latitude)?;
+        let i = self.indice_for_longitude(longitude)?;
+        Ok((j, i))
+    }
 
     fn latitudes_in_range(&self, range: (f64, f64)) -> Vec<f64> {
         self.latitudes()
@@ -330,5 +338,31 @@ impl GridDefinitionTemplate for LatitudeLongitudeGridTemplate {
         let longitude = self.start_longitude() + self.longitude_resolution() * lon_index as f64;
 
         Ok((latitude, longitude))
+    }
+
+    fn indice_for_latitude(&self, latitude: f64) -> Result<usize, &'static str> {
+        let descending = self.is_descending_latitude();
+        if !descending && (latitude < self.start_latitude() || latitude > self.end_latitude()) {
+            return Err("Latitude is out of range");
+        } else if descending && (latitude > self.start_latitude() || latitude < self.end_latitude())
+        {
+            return Err("Latitude is out of range");
+        }
+
+        let lat_difference = (latitude - self.start_latitude()).abs();
+        let lat_index = (lat_difference / self.latitude_resolution().abs()) as usize;
+
+        Ok(lat_index)
+    }
+
+    fn indice_for_longitude(&self, longitude: f64) -> Result<usize, &'static str> {
+        if longitude < self.start_longitude() || longitude > self.end_longitude() {
+            return Err("Longitude is out of range");
+        }
+
+        let lon_difference = (longitude - self.start_longitude()).abs();
+        let lon_index = (lon_difference / self.longitude_resolution().abs()) as usize;
+
+        Ok(lon_index)
     }
 }
