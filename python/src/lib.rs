@@ -1,5 +1,5 @@
 use gribberish::message::Message;
-use numpy::{PyArray, PyArray1, PyArrayDyn};
+use numpy::{PyArray, PyArray1, PyArrayDyn, Ix2};
 use pyo3::exceptions::PyTypeError;
 use pyo3::types::PyDateTime;
 use pyo3::wrap_pyfunction;
@@ -72,16 +72,16 @@ impl GribMessage {
         PyArray1::from_vec(py, data)
     }
 
-    fn raw_data_in_region<'py>(&self, py: Python<'py>, top_left: (f64, f64), bottom_right: (f64, f64)) -> &'py PyArray1<f64> {
-        let region_data = self.inner.data_in_region(&top_left, &bottom_right).unwrap();
-        PyArray1::from_vec(py, region_data)
-    }
-
     fn data_at_location(&self, lat: f64, lon: f64) -> PyResult<f64> {
         match self.inner.data_at_location(&(lat, lon)) {
             Ok(u) => Ok(u),
             Err(_) => Ok(f64::NAN),
         }
+    }
+
+    fn data<'py>(&self, py: Python<'py>) -> &'py PyArray<f64, Ix2> {
+        let data = self.inner.data_grid().unwrap();
+        PyArray::from_vec2(py, &data).unwrap()
     }
 }
 

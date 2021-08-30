@@ -1,5 +1,6 @@
 import gribberish
 import numpy
+import matplotlib.pyplot as plt
 
 
 def read_file(filename: str) -> bytes:
@@ -25,3 +26,9 @@ if __name__ == '__main__':
         raw_data = message.raw_data_array()
         fortyone_seventyone_data = message.data_at_location(lat=41.0, lon=289.0)
         print(f'{message.var_abbrev} ({message.var_name} - {message.units}): ({len(raw_data)} {numpy.nanmin(raw_data)} {numpy.nanmax(raw_data)} {fortyone_seventyone_data})')
+
+        if message.var_abbrev == 'HTSGW':
+            data = message.data() 
+            plt.imshow(data)
+            plt.savefig('HTSGW.png')
+            numpy.savetxt('HTSGW.txt', data)
