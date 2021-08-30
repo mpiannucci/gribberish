@@ -35,6 +35,10 @@ pub trait GridDefinitionTemplate {
         Ok((j, i))
     }
 
+    fn index_for_indices(&self, indices: (usize, usize)) -> usize {
+        (indices.0 * self.longitude_count()) + indices.1
+    }
+
     fn latitudes_in_range(&self, range: (f64, f64)) -> Vec<f64> {
         self.latitudes()
             .into_iter()
@@ -81,9 +85,9 @@ pub trait GridDefinitionTemplate {
             .collect()
     }
 
-    fn location_region_grid(&self, latitude_range: (f64, f64), longitude_range: (f64, f64)) -> Vec<Vec<(f64, f64)>> {
-        let longitudes = self.longitudes_in_range(longitude_range);
-        self.latitudes_in_range(latitude_range)
+    fn location_region_grid(&self, top_left: (f64, f64), bottom_right: (f64, f64)) -> Vec<Vec<(f64, f64)>> {
+        let longitudes = self.longitudes_in_range((top_left.1, bottom_right.1));
+        self.latitudes_in_range((top_left.0, bottom_right.0))
             .into_iter()
             .map(|lat| longitudes
                 .iter()
@@ -92,9 +96,9 @@ pub trait GridDefinitionTemplate {
             .collect()
     }
 
-    fn zerod_location_region_grid(&self, latitude_range: (f64, f64), longitude_range: (f64, f64)) -> Vec<Vec<f64>> {
-        let longitudes = self.longitudes_in_range(longitude_range);
-        self.latitudes_in_range(latitude_range)
+    fn zerod_location_region_grid(&self, top_left: (f64, f64), bottom_right: (f64, f64)) -> Vec<Vec<f64>> {
+        let longitudes = self.longitudes_in_range((top_left.1, bottom_right.1));
+        self.latitudes_in_range((top_left.0, bottom_right.0))
             .into_iter()
             .map(|_| longitudes
                 .iter()
@@ -375,10 +379,18 @@ impl GridDefinitionTemplate for LatitudeLongitudeGridTemplate {
     }
 
     fn latitude_for_indice(&self, indice: usize) -> Result<f64, &'static str> {
-        Ok(0.)
+        if indice >= self.latitude_count() {
+            return Err("Indice is out of range");
+        }
+        
+        Ok(self.start_latitude() + self.latitude_resolution() * indice as f64)
     }
 
     fn longitude_for_indice(&self, indice: usize) -> Result<f64, &'static str> {
-        Ok(0.)
+        if indice >= self.longitude_count() {
+            return Err("Indice is out of range.");
+        }
+
+        Ok(self.start_longitude() + self.longitude_resolution() * indice as f64)
     }
 }
