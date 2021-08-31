@@ -73,28 +73,17 @@ pub trait GridDefinitionTemplate {
             .collect()
     }
 
-    fn location_grid(&self) -> Vec<Vec<(f64, f64)>> {
-        let longitudes = self.longitudes();
-        self.latitudes()
-            .into_iter()
-            .map(|lat| longitudes.iter().map(|lon| (lat, *lon)).collect())
-            .collect()
-    }
-
-    fn lat_lon_grid(&self) -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
+    fn location_grid(&self) -> Vec<Vec<Vec<f64>>> {
         let longitudes = self.longitudes();
         let latitudes = self.latitudes();
-        let lat_grid = latitudes
+        latitudes
             .iter()
-            .map(|lat| longitudes.iter().map(|_| *lat).collect())
-            .collect();
-
-        let lon_grid = latitudes
-            .iter()
-            .map(|_| longitudes.iter().map(|lon| *lon).collect())
-            .collect();
-
-        (lat_grid, lon_grid)
+            .map(|lat| longitudes
+                .iter()
+                .map(|lon| vec![*lat, *lon])
+                .collect()
+            )
+            .collect()
     }
 
     fn zerod_location_grid(&self) -> Vec<Vec<f64>> {
@@ -109,11 +98,15 @@ pub trait GridDefinitionTemplate {
         &self,
         top_left: (f64, f64),
         bottom_right: (f64, f64),
-    ) -> Vec<Vec<(f64, f64)>> {
+    ) -> Vec<Vec<Vec<f64>>> {
         let longitudes = self.longitudes_in_range((top_left.1, bottom_right.1));
         self.latitudes_in_range((top_left.0, bottom_right.0))
             .into_iter()
-            .map(|lat| longitudes.iter().map(|lon| (lat, *lon)).collect())
+            .map(|lat| longitudes
+                .iter()
+                .map(|lon| vec![lat, *lon])
+                .collect()
+            )
             .collect()
     }
 
@@ -126,6 +119,53 @@ pub trait GridDefinitionTemplate {
         self.latitudes_in_range((top_left.0, bottom_right.0))
             .into_iter()
             .map(|_| longitudes.iter().map(|_| 0.).collect())
+            .collect()
+    }
+
+    fn fill_data_location_grid(
+        &self, 
+        data: &Vec<f64>
+    ) -> Vec<Vec<Vec<f64>>> {
+        let longitudes = self.longitudes();
+        let latitudes = self.latitudes();
+        latitudes
+            .iter()
+            .enumerate()
+            .map(|lat| longitudes
+                .iter()
+                .enumerate()
+                .map(|lon| {
+                    let index = self.index_for_indices((lat.0, lon.0));
+                    vec![*lat.1, *lon.1, data[index]]
+                })
+                .collect()
+            )
+            .collect()
+    }
+
+    fn fill_data_location_region_grid(
+        &self, 
+        top_left: (f64, f64),
+        bottom_right: (f64, f64),
+        data: &Vec<f64>
+    ) -> Vec<Vec<Vec<f64>>> {
+        let top_left_indices = self.indices_for_location(top_left.0, top_left.1).unwrap();
+
+        let longitudes = self.longitudes_in_range((top_left.1, bottom_right.1));
+        self.latitudes_in_range((top_left.0, bottom_right.0))
+            .iter()
+            .enumerate()
+            .map(|lat| 
+                longitudes
+                .iter()
+                .enumerate()
+                .map(|lon| {
+                    let indices = (top_left_indices.0 + lat.0, top_left_indices.1 + lon.0);
+                    let index = self.index_for_indices(indices);
+                    vec![*lat.1, *lon.1, data[index]]
+                })
+                .collect()
+            )
             .collect()
     }
 }

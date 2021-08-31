@@ -61,6 +61,22 @@ impl GribMessage {
         }
     }
 
+    #[getter]
+    fn get_region(&self) -> PyResult<((f64, f64), (f64, f64))> {
+        match self.inner.location_region() {
+            Ok(i) => Ok(i),
+            Err(e) => Err(PyTypeError::new_err(e)),
+        }
+    }
+
+    #[getter]
+    fn get_grid_shape(&self) -> PyResult<(usize, usize)> {
+        match self.inner.location_grid_dimensions() {
+            Ok(i) => Ok(i),
+            Err(e) => Err(PyTypeError::new_err(e)),
+        }
+    }
+
     fn location_data_index(&self, lat: f64, lon: f64) -> PyResult<usize> {
         match self.inner.data_index_for_location(&(lat, lon)) {
             Ok(u) => Ok(u),
@@ -88,15 +104,18 @@ impl GribMessage {
     fn locations<'py>(&self, py: Python<'py>) -> &'py PyArray3<f64> {
         let locations: Vec<Vec<Vec<f64>>> = self.inner
             .location_grid()
-            .unwrap()
-            .iter()
-            .map(|r| r
-                .iter()
-                .map(|v| vec![v.0, v.1])
-                .collect()
-            )
-            .collect();
+            .unwrap();
         PyArray::from_vec3(py, &locations).unwrap()
+    }
+
+    fn lat_lon_data<'py>(&self, py: Python<'py>) -> &'py PyArray3<f64> {
+        let data = self.inner.lat_lon_data_grid().unwrap();
+        PyArray::from_vec3(py, &data).unwrap()
+    }
+
+    fn lat_lon_data_region<'py>(&self, py: Python<'py>, top_left: (f64, f64), bottom_right: (f64, f64)) -> &'py PyArray3<f64> {
+        let data = self.inner.lat_lon_data_region_grid(top_left, bottom_right).unwrap();
+        PyArray::from_vec3(py, &data).unwrap()
     }
 }
 

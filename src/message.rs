@@ -292,6 +292,40 @@ impl Message {
         })
     }
 
+    pub fn location_region(&self) -> Result<((f64, f64), (f64, f64)), String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        Ok((grid_template.start(), grid_template.end()))
+    }
+
+    pub fn location_grid_dimensions(&self) -> Result<(usize, usize), String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        Ok((grid_template.latitude_count(), grid_template.longitude_count()))
+    }
+
     pub fn data_index_for_location(&self, location: &(f64, f64)) -> Result<usize, String> {
         let grid_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
@@ -307,6 +341,26 @@ impl Message {
         );
 
         match grid_template.index_for_location(location.0, location.1) {
+            Ok(res) => Ok(res), 
+            Err(s) => Err(s.to_string())
+        }
+    }
+
+    pub fn data_indices_for_location(&self, location: &(f64, f64)) -> Result<(usize, usize), String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        match grid_template.indices_for_location(location.0, location.1) {
             Ok(res) => Ok(res), 
             Err(s) => Err(s.to_string())
         }
@@ -512,7 +566,7 @@ impl Message {
         Ok(data_grid)
     }
 
-    pub fn location_grid(&self) -> Result<Vec<Vec<(f64, f64)>>, String> {
+    pub fn location_grid(&self) -> Result<Vec<Vec<Vec<f64>>>, String> {
         let grid_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
@@ -529,7 +583,7 @@ impl Message {
         Ok(grid_template.location_grid())
     }
 
-    pub fn location_region_grid(&self, top_left: (f64, f64), bottom_right: (f64, f64)) -> Result<Vec<Vec<(f64, f64)>>, String> {
+    pub fn location_region_grid(&self, top_left: (f64, f64), bottom_right: (f64, f64)) -> Result<Vec<Vec<Vec<f64>>>, String> {
         let grid_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
@@ -544,5 +598,41 @@ impl Message {
         );
 
         Ok(grid_template.location_region_grid(top_left, bottom_right))
+    }
+
+    pub fn lat_lon_data_grid(&self) -> Result<Vec<Vec<Vec<f64>>>, String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        let data = self.data()?;
+        Ok(grid_template.fill_data_location_grid(&data))
+    }
+
+    pub fn lat_lon_data_region_grid(&self, top_left: (f64, f64), bottom_right: (f64, f64)) -> Result<Vec<Vec<Vec<f64>>>, String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        let data = self.data()?;
+        Ok(grid_template.fill_data_location_region_grid(top_left, bottom_right, &data))
     }
 }
