@@ -29,7 +29,11 @@ pub trait GridDefinitionTemplate {
 
     fn indice_for_latitude(&self, latitude: f64) -> Result<usize, &'static str>;
     fn indice_for_longitude(&self, longitude: f64) -> Result<usize, &'static str>;
-    fn indices_for_location(&self, latitude:f64, longitude: f64) -> Result<(usize, usize), &'static str> {
+    fn indices_for_location(
+        &self,
+        latitude: f64,
+        longitude: f64,
+    ) -> Result<(usize, usize), &'static str> {
         let j = self.indice_for_latitude(latitude)?;
         let i = self.indice_for_longitude(longitude)?;
         Ok((j, i))
@@ -53,12 +57,18 @@ pub trait GridDefinitionTemplate {
             .collect()
     }
 
-    fn locations_in_range(&self, latitude_range: (f64, f64), longitude_range: (f64, f64)) -> Vec<(f64, f64)> {
+    fn locations_in_range(
+        &self,
+        latitude_range: (f64, f64),
+        longitude_range: (f64, f64),
+    ) -> Vec<(f64, f64)> {
         self.locations()
             .into_iter()
             .filter(|l| {
-                l.0 > latitude_range.0 && l.0 < latitude_range.1 &&
-                l.1 > longitude_range.0 && l.1 < longitude_range.1
+                l.0 > latitude_range.0
+                    && l.0 < latitude_range.1
+                    && l.1 > longitude_range.0
+                    && l.1 < longitude_range.1
             })
             .collect()
     }
@@ -67,43 +77,55 @@ pub trait GridDefinitionTemplate {
         let longitudes = self.longitudes();
         self.latitudes()
             .into_iter()
-            .map(|lat| longitudes
-                .iter()
-                .map(|lon| (lat, *lon))
-                .collect())
+            .map(|lat| longitudes.iter().map(|lon| (lat, *lon)).collect())
             .collect()
+    }
+
+    fn lat_lon_grid(&self) -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
+        let longitudes = self.longitudes();
+        let latitudes = self.latitudes();
+        let lat_grid = latitudes
+            .iter()
+            .map(|lat| longitudes.iter().map(|_| *lat).collect())
+            .collect();
+
+        let lon_grid = latitudes
+            .iter()
+            .map(|_| longitudes.iter().map(|lon| *lon).collect())
+            .collect();
+
+        (lat_grid, lon_grid)
     }
 
     fn zerod_location_grid(&self) -> Vec<Vec<f64>> {
         let longitudes = self.longitudes();
         self.latitudes()
             .into_iter()
-            .map(|_| longitudes
-                .iter()
-                .map(|_| 0.)
-                .collect())
+            .map(|_| longitudes.iter().map(|_| 0.).collect())
             .collect()
     }
 
-    fn location_region_grid(&self, top_left: (f64, f64), bottom_right: (f64, f64)) -> Vec<Vec<(f64, f64)>> {
+    fn location_region_grid(
+        &self,
+        top_left: (f64, f64),
+        bottom_right: (f64, f64),
+    ) -> Vec<Vec<(f64, f64)>> {
         let longitudes = self.longitudes_in_range((top_left.1, bottom_right.1));
         self.latitudes_in_range((top_left.0, bottom_right.0))
             .into_iter()
-            .map(|lat| longitudes
-                .iter()
-                .map(|lon| (lat, *lon))
-                .collect())
+            .map(|lat| longitudes.iter().map(|lon| (lat, *lon)).collect())
             .collect()
     }
 
-    fn zerod_location_region_grid(&self, top_left: (f64, f64), bottom_right: (f64, f64)) -> Vec<Vec<f64>> {
+    fn zerod_location_region_grid(
+        &self,
+        top_left: (f64, f64),
+        bottom_right: (f64, f64),
+    ) -> Vec<Vec<f64>> {
         let longitudes = self.longitudes_in_range((top_left.1, bottom_right.1));
         self.latitudes_in_range((top_left.0, bottom_right.0))
             .into_iter()
-            .map(|_| longitudes
-                .iter()
-                .map(|_| 0.)
-                .collect())
+            .map(|_| longitudes.iter().map(|_| 0.).collect())
             .collect()
     }
 }
@@ -382,7 +404,7 @@ impl GridDefinitionTemplate for LatitudeLongitudeGridTemplate {
         if indice >= self.latitude_count() {
             return Err("Indice is out of range");
         }
-        
+
         Ok(self.start_latitude() + self.latitude_resolution() * indice as f64)
     }
 

@@ -1,9 +1,10 @@
 use gribberish::message::Message;
-use numpy::{PyArray, PyArray1, PyArrayDyn, Ix2};
+use numpy::{Ix2, PyArray, PyArray1, PyArray2, PyArray3, PyArrayDyn};
 use pyo3::exceptions::PyTypeError;
 use pyo3::types::PyDateTime;
 use pyo3::wrap_pyfunction;
 use pyo3::{prelude::*, types::PyTzInfo};
+use ndarray::array;
 
 #[pyclass]
 struct GribMessage {
@@ -82,6 +83,20 @@ impl GribMessage {
     fn data<'py>(&self, py: Python<'py>) -> &'py PyArray<f64, Ix2> {
         let data = self.inner.data_grid().unwrap();
         PyArray::from_vec2(py, &data).unwrap()
+    }
+
+    fn locations<'py>(&self, py: Python<'py>) -> &'py PyArray3<f64> {
+        let locations: Vec<Vec<Vec<f64>>> = self.inner
+            .location_grid()
+            .unwrap()
+            .iter()
+            .map(|r| r
+                .iter()
+                .map(|v| vec![v.0, v.1])
+                .collect()
+            )
+            .collect();
+        PyArray::from_vec3(py, &locations).unwrap()
     }
 }
 
