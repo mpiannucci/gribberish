@@ -28,7 +28,24 @@ if __name__ == '__main__':
         print(f'{message.var_abbrev} ({message.var_name} - {message.units}): ({len(raw_data)} {numpy.nanmin(raw_data)} {numpy.nanmax(raw_data)} {fortyone_seventyone_data})')
 
         if message.var_abbrev == 'HTSGW':
-            data = message.data() 
+            data = message.data()
+            lats = message.latitudes()
+            lons = message.longitudes()
+            print(message.region)
+            print(lats)
+            print(lons)
+
             plt.imshow(data)
             plt.savefig('HTSGW.png')
             numpy.savetxt('HTSGW.txt', data)
+
+            # print(message.region)
+            top_left = message.location_data_indices(41.6, 288.4)
+            bottom_right = message.location_data_indices(41.1, 288.8)
+            fortyy = message.location_data_indices(41.0, 289.0)
+            print(top_left)
+            print(bottom_right)
+            print(fortyy)
+            print(numpy.nanmean(data[top_left[0]:bottom_right[0], top_left[1]:bottom_right[1]]))
+            print(data[fortyy[0], fortyy[1]])
+            print(message.data_at_location(41.0, 289.0))

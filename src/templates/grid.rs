@@ -351,7 +351,10 @@ impl GridDefinitionTemplate for LatitudeLongitudeGridTemplate {
 
     fn latitudes(&self) -> Vec<f64> {
         let latitude_start = self.start_latitude();
-        let latitude_step = self.latitude_resolution();
+        let latitude_step = match self.is_descending_latitude() {
+            true => -1. * self.latitude_resolution(), 
+            false => self.latitude_resolution(),
+        };
         (0..self.latitude_count())
             .map(|i| latitude_start + i as f64 * latitude_step)
             .collect()

@@ -326,6 +326,57 @@ impl Message {
         Ok((grid_template.latitude_count(), grid_template.longitude_count()))
     }
 
+    pub fn locations(&self) -> Result<Vec<(f64, f64)>, String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        Ok(grid_template.locations())
+    }
+
+    pub fn latitudes(&self) -> Result<Vec<f64>, String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        Ok(grid_template.latitudes())
+    }
+
+    pub fn longitudes(&self) -> Result<Vec<f64>, String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        Ok(grid_template.longitudes())
+    }
+
     pub fn data_index_for_location(&self, location: &(f64, f64)) -> Result<usize, String> {
         let grid_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
