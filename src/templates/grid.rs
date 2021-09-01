@@ -394,10 +394,10 @@ impl GridDefinitionTemplate for LatitudeLongitudeGridTemplate {
         }
 
         let lat_difference = (latitude - self.start_latitude()).abs();
-        let lat_index = (lat_difference / self.latitude_resolution().abs()) as usize;
+        let lat_index = (lat_difference / self.latitude_resolution()).abs().round() as usize;
 
         let lon_difference = (longitude - self.start_longitude()).abs();
-        let lon_index = (lon_difference / self.longitude_resolution().abs()) as usize;
+        let lon_index = (lon_difference / self.longitude_resolution()).abs().round() as usize;
 
         let index = lat_index * self.longitude_count() as usize + lon_index;
         Ok(index)
@@ -427,7 +427,7 @@ impl GridDefinitionTemplate for LatitudeLongitudeGridTemplate {
         }
 
         let lat_difference = (latitude - self.start_latitude()).abs();
-        let lat_index = (lat_difference / self.latitude_resolution().abs()) as usize;
+        let lat_index = (lat_difference / self.latitude_resolution()).abs().round() as usize;
 
         Ok(lat_index)
     }
@@ -438,7 +438,7 @@ impl GridDefinitionTemplate for LatitudeLongitudeGridTemplate {
         }
 
         let lon_difference = (longitude - self.start_longitude()).abs();
-        let lon_index = (lon_difference / self.longitude_resolution().abs()) as usize;
+        let lon_index = (lon_difference / self.longitude_resolution()).abs().round() as usize;
 
         Ok(lon_index)
     }
