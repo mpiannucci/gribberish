@@ -290,6 +290,11 @@ impl LatitudeLongitudeGridTemplate {
     }
 
     pub fn i_direction_increment(&self) -> f64 {
+        let value = read_u32_from_bytes(self.data.as_slice(), 67).unwrap_or(0) as f64;
+        value * (10f64.powf(-6.0))
+    }
+
+    pub fn j_direction_increment(&self) -> f64 {
         let value = read_u32_from_bytes(self.data.as_slice(), 63).unwrap_or(0) as f64;
         let value = value * (10f64.powf(-6.0));
 
@@ -298,11 +303,6 @@ impl LatitudeLongitudeGridTemplate {
         } else {
             value
         }
-    }
-
-    pub fn j_direction_increment(&self) -> f64 {
-        let value = read_u32_from_bytes(self.data.as_slice(), 67).unwrap_or(0) as f64;
-        value * (10f64.powf(-6.0))
     }
 
     pub fn scanning_mode_flags(&self) -> u8 {
@@ -351,10 +351,7 @@ impl GridDefinitionTemplate for LatitudeLongitudeGridTemplate {
 
     fn latitudes(&self) -> Vec<f64> {
         let latitude_start = self.start_latitude();
-        let latitude_step = match self.is_descending_latitude() {
-            true => -1. * self.latitude_resolution(), 
-            false => self.latitude_resolution(),
-        };
+        let latitude_step = self.latitude_resolution();
         (0..self.latitude_count())
             .map(|i| latitude_start + i as f64 * latitude_step)
             .collect()
@@ -363,6 +360,7 @@ impl GridDefinitionTemplate for LatitudeLongitudeGridTemplate {
     fn longitudes(&self) -> Vec<f64> {
         let longitude_start = self.start_longitude();
         let longitude_step = self.longitude_resolution();
+        println!("lonstep: {}", longitude_step);
         (0..self.longitude_count())
             .map(|i| longitude_start + i as f64 * longitude_step)
             .collect()
