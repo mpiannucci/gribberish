@@ -360,7 +360,6 @@ impl GridDefinitionTemplate for LatitudeLongitudeGridTemplate {
     fn longitudes(&self) -> Vec<f64> {
         let longitude_start = self.start_longitude();
         let longitude_step = self.longitude_resolution();
-        println!("lonstep: {}", longitude_step);
         (0..self.longitude_count())
             .map(|i| longitude_start + i as f64 * longitude_step)
             .collect()
