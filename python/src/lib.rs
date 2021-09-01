@@ -108,18 +108,6 @@ impl GribMessage {
         PyArray::from_vec2(py, &data).unwrap()
     }
 
-    fn data_region<'py>(&self, py: Python<'py>, top_left: (f64, f64), bottom_right: (f64, f64)) -> &'py PyArray<f64, Ix2> {
-        let data = self.inner.data_region_grid(top_left, bottom_right).unwrap();
-        PyArray::from_vec2(py, &data).unwrap()
-    }
-
-    fn locations<'py>(&self, py: Python<'py>) -> &'py PyArray3<f64> {
-        let locations: Vec<Vec<Vec<f64>>> = self.inner
-            .location_grid()
-            .unwrap();
-        PyArray::from_vec3(py, &locations).unwrap()
-    }
-
     fn latitudes<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
         let latitudes: Vec<f64> = self.inner
             .latitudes()
@@ -132,16 +120,6 @@ impl GribMessage {
             .longitudes()
             .unwrap();
         PyArray::from_vec(py, longitudes)
-    }
-
-    fn lat_lon_data<'py>(&self, py: Python<'py>) -> &'py PyArray3<f64> {
-        let data = self.inner.lat_lon_data_grid().unwrap();
-        PyArray::from_vec3(py, &data).unwrap()
-    }
-
-    fn lat_lon_data_region<'py>(&self, py: Python<'py>, top_left: (f64, f64), bottom_right: (f64, f64)) -> &'py PyArray3<f64> {
-        let data = self.inner.lat_lon_data_region_grid(top_left, bottom_right).unwrap();
-        PyArray::from_vec3(py, &data).unwrap()
     }
 }
 
