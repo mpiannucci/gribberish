@@ -1,6 +1,7 @@
 mod utils;
 
 use wasm_bindgen::prelude::*;
+use gribberish::message::Message;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -9,11 +10,22 @@ use wasm_bindgen::prelude::*;
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen]
-extern {
-    fn alert(s: &str);
+pub struct GribMessage {
+    inner: Message,
 }
 
-#[wasm_bindgen]
-pub fn greet() {
-    alert("Hello, gribberish!");
+impl GribMessage {
+    pub fn var_name(&self) -> String {
+        self.inner.variable_name().unwrap()
+    }
+
+    pub fn var_abbrev(&self) -> String {
+        self.inner.variable_abbrev().unwrap()
+    }
+
+    pub fn units(&self) -> String {
+        self.inner.unit().unwrap()
+    }
+
+    
 }
