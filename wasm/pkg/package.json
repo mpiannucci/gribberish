@@ -1,0 +1,16 @@
+{
+  "name": "gribberish-wasm",
+  "collaborators": [
+    "Matthew Iannucci <mpiannucci@gmail.com>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "gribberish_wasm_bg.wasm",
+    "gribberish_wasm.js",
+    "gribberish_wasm_bg.js",
+    "gribberish_wasm.d.ts"
+  ],
+  "module": "gribberish_wasm.js",
+  "types": "gribberish_wasm.d.ts",
+  "sideEffects": false
+}
