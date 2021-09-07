@@ -1,6 +1,8 @@
 mod utils;
 
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+use js_sys::Array;
 use gribberish::message::Message;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -14,6 +16,7 @@ pub struct GribMessage {
     inner: Message,
 }
 
+#[wasm_bindgen]
 impl GribMessage {
     pub fn var_name(&self) -> String {
         self.inner.variable_name().unwrap()
@@ -37,22 +40,13 @@ pub fn parse_grib_message(data: &[u8], offset: usize) -> GribMessage {
 }
 
 #[wasm_bindgen]
-pub struct GribMessages {
-    messages: Vec<GribMessage>
-}
-
-impl GribMessages {
-    pub fn count(&self) -> usize {
-        self.messages.len()
-    }
-
-    pub fn message_at(&self, index: usize) -> &GribMessage {
-        &self.messages[index]
-    }
+extern "C" {
+    #[wasm_bindgen(typescript_type = "Array<GribMessage>")]
+    pub type GribMessageArray;
 }
 
 #[wasm_bindgen]
-pub fn pase_grib_messages(data: &[u8]) -> GribMessages {
+pub fn pase_grib_messages(data: &[u8]) -> GribMessageArray {
     let mut messages = Message::parse_all(data);
     let mut contained_messages = Vec::new();
     while messages.len() > 0 {
@@ -63,7 +57,9 @@ pub fn pase_grib_messages(data: &[u8]) -> GribMessages {
         contained_messages.push(grib_message);
     }
 
-    GribMessages {
-        messages: contained_messages
-    }
+    contained_messages
+        .into_iter()
+        .map(JsValue::from)
+        .collect::<Array>()
+        .unchecked_into::<GribMessageArray>()
 }

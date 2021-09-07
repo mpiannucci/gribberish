@@ -8,16 +8,23 @@
 export function parse_grib_message(data: Uint8Array, offset: number): GribMessage;
 /**
 * @param {Uint8Array} data
-* @returns {GribMessages}
+* @returns {Array<GribMessage>}
 */
-export function pase_grib_messages(data: Uint8Array): GribMessages;
+export function pase_grib_messages(data: Uint8Array): Array<GribMessage>;
 /**
 */
 export class GribMessage {
   free(): void;
-}
 /**
+* @returns {string}
 */
-export class GribMessages {
-  free(): void;
+  var_name(): string;
+/**
+* @returns {string}
+*/
+  var_abbrev(): string;
+/**
+* @returns {string}
+*/
+  units(): string;
 }
