@@ -220,7 +220,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     let data: Vec<_> = gribberish::message::Message::parse_all(b.clone().as_ref())
                     .iter()
                     .filter(|m| m.metadata().is_ok())    
-                    .map(|m| (m.metadata().unwrap(), m.data(), m.data_locations()))
+                    .map(|m| (m.metadata().unwrap(), m.data()))
                     .collect();
                     Some(data)
                 },
@@ -235,7 +235,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Collect the variables and write out the result as the header
     let mut vars: Vec<_> = all_grib_data[0]
         .iter()
-        .map(|m| format!("{} ({})", (m.0).variable_abbreviation.clone(), (m.0).units ))
+        .map(|m| format!("{} ({})", (m.0).variable_abbreviation.clone(), (m.0).units))
         .collect();
     if vars.len() == 0 {
         return Err(Box::from("No variables read"));
