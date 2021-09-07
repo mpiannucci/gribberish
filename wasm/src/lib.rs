@@ -18,10 +18,12 @@ pub struct GribMessage {
 
 #[wasm_bindgen]
 impl GribMessage {
+    #[wasm_bindgen(js_name = varName)]
     pub fn var_name(&self) -> String {
         self.inner.variable_name().unwrap()
     }
-
+    
+    #[wasm_bindgen(js_name = varAbbrev)]
     pub fn var_abbrev(&self) -> String {
         self.inner.variable_abbrev().unwrap()
     }
@@ -31,7 +33,7 @@ impl GribMessage {
     }    
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(js_name = parseGribMessage)]
 pub fn parse_grib_message(data: &[u8], offset: usize) -> GribMessage {
     let message = Message::parse(data, offset).unwrap();
     GribMessage {
@@ -45,8 +47,8 @@ extern "C" {
     pub type GribMessageArray;
 }
 
-#[wasm_bindgen]
-pub fn pase_grib_messages(data: &[u8]) -> GribMessageArray {
+#[wasm_bindgen(js_name = parseGribMessages)]
+pub fn parse_grib_messages(data: &[u8]) -> GribMessageArray {
     let mut messages = Message::parse_all(data);
     let mut contained_messages = Vec::new();
     while messages.len() > 0 {

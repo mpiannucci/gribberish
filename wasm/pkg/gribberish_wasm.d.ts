@@ -5,12 +5,12 @@
 * @param {number} offset
 * @returns {GribMessage}
 */
-export function parse_grib_message(data: Uint8Array, offset: number): GribMessage;
+export function parseGribMessage(data: Uint8Array, offset: number): GribMessage;
 /**
 * @param {Uint8Array} data
 * @returns {Array<GribMessage>}
 */
-export function pase_grib_messages(data: Uint8Array): Array<GribMessage>;
+export function parseGribMessages(data: Uint8Array): Array<GribMessage>;
 /**
 */
 export class GribMessage {
@@ -18,11 +18,11 @@ export class GribMessage {
 /**
 * @returns {string}
 */
-  var_name(): string;
+  varName(): string;
 /**
 * @returns {string}
 */
-  var_abbrev(): string;
+  varAbbrev(): string;
 /**
 * @returns {string}
 */

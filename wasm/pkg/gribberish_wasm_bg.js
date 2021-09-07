@@ -68,10 +68,10 @@ function passArray8ToWasm0(arg, malloc) {
 * @param {number} offset
 * @returns {GribMessage}
 */
-export function parse_grib_message(data, offset) {
+export function parseGribMessage(data, offset) {
     var ptr0 = passArray8ToWasm0(data, wasm.__wbindgen_malloc);
     var len0 = WASM_VECTOR_LEN;
-    var ret = wasm.parse_grib_message(ptr0, len0, offset);
+    var ret = wasm.parseGribMessage(ptr0, len0, offset);
     return GribMessage.__wrap(ret);
 }
 
@@ -79,10 +79,10 @@ export function parse_grib_message(data, offset) {
 * @param {Uint8Array} data
 * @returns {Array<GribMessage>}
 */
-export function pase_grib_messages(data) {
+export function parseGribMessages(data) {
     var ptr0 = passArray8ToWasm0(data, wasm.__wbindgen_malloc);
     var len0 = WASM_VECTOR_LEN;
-    var ret = wasm.pase_grib_messages(ptr0, len0);
+    var ret = wasm.parseGribMessages(ptr0, len0);
     return takeObject(ret);
 }
 
@@ -111,10 +111,10 @@ export class GribMessage {
     /**
     * @returns {string}
     */
-    var_name() {
+    varName() {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.gribmessage_var_name(retptr, this.ptr);
+            wasm.gribmessage_varName(retptr, this.ptr);
             var r0 = getInt32Memory0()[retptr / 4 + 0];
             var r1 = getInt32Memory0()[retptr / 4 + 1];
             return getStringFromWasm0(r0, r1);
@@ -126,10 +126,10 @@ export class GribMessage {
     /**
     * @returns {string}
     */
-    var_abbrev() {
+    varAbbrev() {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.gribmessage_var_abbrev(retptr, this.ptr);
+            wasm.gribmessage_varAbbrev(retptr, this.ptr);
             var r0 = getInt32Memory0()[retptr / 4 + 0];
             var r1 = getInt32Memory0()[retptr / 4 + 1];
             return getStringFromWasm0(r0, r1);
