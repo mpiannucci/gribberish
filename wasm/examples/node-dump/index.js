@@ -6,3 +6,7 @@ const gribData = fs.readFileSync('../../../python/examples/gfswave.20210826.t12z
 const gribMessages = gribberish.parseGribMessages(gribData);
 
 console.log(`Read ${gribMessages.length} grib messages`);
+
+gribMessages.forEach(gm => {
+    console.log(`${gm.varName()} (${gm.varAbbrev()}) - ${gm.units()}`);
+});
