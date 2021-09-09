@@ -16,6 +16,11 @@ sudo apt install clang-8
 
 ```bash
 CC=clang-8 wasm-pack build
+
+# add --target nodejs for node
+# add --target web for web
+# add --target bundler for webpack etc
+
 ```
 
 ## Publishing
