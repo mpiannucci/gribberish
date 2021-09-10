@@ -1,5 +1,5 @@
 import fs from 'fs';
-import gribberish from 'gribberish-wasm';
+import gribberish from 'gribberish';
 
 const gribData = fs.readFileSync('../../../python/examples/gfswave.20210826.t12z.atlocn.0p16.f000.grib2');
 

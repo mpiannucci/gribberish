@@ -11,6 +11,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "gribberish-wasm": "file:../../pkg"
+    "gribberish": "file:../../"
   }
 }
