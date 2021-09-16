@@ -4,13 +4,28 @@ JavaScript bindings to `gribberish`
 
 ## Dependencies
 
-First, install [`wasm-pack`](https://rustwasm.github.io/wasm-pack)
-
-Then, install `clang-8`
+Install `clang-8`
 
 ```bash
 sudo apt install clang-8
 ```
+
+Add the `wasm32-wasi` target
+
+```
+rustup target add wasm32-wasi
+```
+
+then build: 
+
+```
+cargo build --target wasm32-wasi
+```
+
+#### `wasm-pack` (not working yet)
+
+First, install [`wasm-pack`](https://rustwasm.github.io/wasm-pack)
+
 
 ## Building
 
