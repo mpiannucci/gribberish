@@ -35,7 +35,7 @@ class GribMessage {
      * Get the variable name of the data in the grib file
      * @returns {string}
      */
-    varName() {
+    get varName() {
         return gribberish_rust.gribMessageGetVarName.call(this.gm);
     }
 
@@ -43,7 +43,7 @@ class GribMessage {
      * Get the variable abbreviation of the data in the grib file
      * @returns {string}
      */
-    varAbbrev() {
+    get varAbbrev() {
         return gribberish_rust.gribMessageGetVarAbbrev.call(this.gm);
     }
 
@@ -51,7 +51,7 @@ class GribMessage {
      * Get the units of the grib message 
      * @returns {string}
      */
-    units() {
+    get units() {
         return gribberish_rust.gribMessageGetUnits.call(this.gm);
     }
 
@@ -59,7 +59,7 @@ class GribMessage {
      * Get the array index if available. If not availble -1 is returned
      * @returns {number}
      */
-    arrayIndex() {
+    get arrayIndex() {
         return gribberish_rust.gribMessageGetArrayIndex.call(this.gm);
     }
 
@@ -67,7 +67,7 @@ class GribMessage {
      * Get the region of the grib message in lat,lng bounding box
      * @returns {{topLeft: {lat: number, lon: number}, bottomRight: {lat: number, lon: number}}}
      */
-    region() {
+    get region() {
         return gribberish_rust.gribMessageGetRegion.call(this.gm);
     }
 
@@ -75,7 +75,7 @@ class GribMessage {
      * Get the shape of the data grid for the grib message
      * @returns {{rows: number, cols: number}}
      */
-    gridShape() {
+    get gridShape() {
         return gribberish_rust.gribMessageGetGridShape.call(this.gm);
     }
 
@@ -83,7 +83,7 @@ class GribMessage {
     * Get the forecast date for the grib message
     * @returns {Date}
     */
-    forecastDate() {
+    get forecastDate() {
         return gribberish_rust.gribMessageGetForecastDate.call(this.gm);
     }
 
@@ -91,7 +91,7 @@ class GribMessage {
      * Get the reference date for the grib message
      * @returns {Date}
      */
-    referenceDate() {
+    get referenceDate() {
         return gribberish_rust.gribMessageGetReferenceDate.call(this.gm);
     }
 

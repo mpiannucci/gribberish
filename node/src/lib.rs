@@ -162,7 +162,7 @@ impl GribMessage {
         let data = message
             .inner
             .data_at_location(&(lat, lon))
-            .or_else(|err| cx.throw_error(err))?;
+            .unwrap_or(f64::NAN);
 
         Ok(cx.number(data))
     }
