@@ -1,0 +1,16 @@
+{
+  "name": "dump",
+  "version": "1.0.0",
+  "description": "Read and dump girb data from node",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "gribberish": "file:../../"
+  }
+}
