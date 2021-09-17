@@ -7,7 +7,7 @@ const gribberish_rust = require('./index.node');
  * @returns {GribMessage}
  */
 function parseGribMessage(data, offset) {
-    const gmHandle =  gribberish_rust.parseGribMessage.call(data, offset);
+    const gmHandle = gribberish_rust.parseGribMessage.call(data, offset);
     return new GribMessage(gmHandle);
 }
 
@@ -23,6 +23,10 @@ function parseGribMessages(data) {
 }
 
 class GribMessage {
+    /**
+     * Creates a GribMessage JS wrapper around a rust GribMessage object
+     * @param {*} handle rust object handle to grib message
+     */
     constructor(handle) {
         this.gm = handle;
     }
@@ -50,10 +54,78 @@ class GribMessage {
     units() {
         return gribberish_rust.gribMessageGetUnits.call(this.gm);
     }
+
+    /**
+     * Get the array index if available. If not availble -1 is returned
+     * @returns {number}
+     */
+    arrayIndex() {
+        return gribberish_rust.gribMessageGetArrayIndex.call(this.gm);
+    }
+
+    /**
+     * Get the region of the grib message in lat,lng bounding box
+     * @returns {{topLeft: {lat: number, lon: number}, bottomRight: {lat: number, lon: number}}}
+     */
+    region() {
+        return gribberish_rust.gribMessageGetRegion.call(this.gm);
+    }
+
+    /**
+     * Get the shape of the data grid for the grib message
+     * @returns {{rows: number, cols: number}}
+     */
+    gridShape() {
+        return gribberish_rust.gribMessageGetGridShape.call(this.gm);
+    }
+
+    /**
+    * Get the forecast date for the grib message
+    * @returns {Date}
+    */
+    forecastDate() {
+        return gribberish_rust.gribMessageGetForecastDate.call(this.gm);
+    }
+
+    /**
+     * Get the reference date for the grib message
+     * @returns {Date}
+     */
+    referenceDate() {
+        return gribberish_rust.gribMessageGetReferenceDate.call(this.gm);
+    }
+
+    /**
+     * Reads and returns the full data matrix from the grib message
+     * data is lat*lon length and stored in row major order. It can be indexed with 
+     * data[lat_index * (lon * lat_index) + lon_index]
+     * @returns {Float64Array}
+     */
+    data() {
+        return gribberish_rust.gribMessageGetData.call(this.gm);
+    }
+
+    /**
+     * Get the data for a given latitude and longitude
+     * @param {{lat: number, lon: number}} location 
+     * @returns {number}
+     */
+    dataAtLocation(location) {
+        return gribberish_rust.gribMessageGetDataAtLocation.call(this.gm, location.lat, location.lon);
+    }
+
+    /**
+     * Get the data index for a given location 
+     * @param {{lat: number, lon: number}} location 
+     * @returns {number}
+     */
+    locationDataIndex(location) {
+        return gribberish_rust.gribMessageGetLocationDataIndex.call(this.gm, location.lat, location.lon);
+    }
 }
 
 module.exports = {
-    parseGribMessage, 
-    parseGribMessages, 
+    parseGribMessage,
+    parseGribMessages,
     GribMessage,
 };
