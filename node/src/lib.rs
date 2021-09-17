@@ -46,17 +46,16 @@ impl GribMessage {
 }
 
 fn parse_grib_message(mut cx: FunctionContext) -> JsResult<JsBox<GribMessage>> {
-    let raw_js_data: Handle<JsArray> = cx.argument(0)?;
+    let raw_js_data: Handle<JsBuffer> = cx.argument(0)?;
     let offset_js: Handle<JsNumber> = cx.argument(1)?;
 
-    let raw_data: Vec<u8> = raw_js_data
-        .to_vec(&mut cx)?
-        .into_iter()
-        .map(|v| {
-            let js_num: JsNumber = *v.downcast::<JsNumber, _>(&mut cx).unwrap();
-            js_num.value(&mut cx) as u8
-        })
-        .collect();
+    let guard = cx.lock();
+    let js_data_slice = raw_js_data
+        .borrow(&guard)
+        .as_slice::<u8>();
+
+    let mut raw_data: Vec<u8> = vec![0; js_data_slice.len()];
+    raw_data.copy_from_slice(js_data_slice);
 
     let offset = offset_js.value(&mut cx) as usize;
 
@@ -69,13 +68,12 @@ fn parse_grib_messages(mut cx: FunctionContext) -> JsResult<JsArray> {
     let raw_js_data: Handle<JsBuffer> = cx.argument(0)?;
 
     let guard = cx.lock();
-    let raw_data: Vec<u8> = raw_js_data
-        // .to_vec(&mut cx)?
+    let js_data_slice = raw_js_data
         .borrow(&guard)
-        .as_slice::<u8>()
-        .into_iter()
-        .map(|v| *v)
-        .collect();
+        .as_slice::<u8>();
+
+    let mut raw_data: Vec<u8> = vec![0; js_data_slice.len()];
+    raw_data.copy_from_slice(js_data_slice);
 
     let messages = Message::parse_all(&raw_data);
     let arr = JsArray::new(&mut cx, messages.len() as u32);
