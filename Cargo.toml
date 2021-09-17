@@ -10,7 +10,9 @@ edition = "2018"
 gribberish-types = { path = "./types" }
 gribberish-macros = { path = "./macros" }
 chrono = "0.4"
-openjpeg-sys = { git = "https://github.com/mpiannucci/openjpeg-sys" }
+#openjpeg-sys = { path = "./../openjpeg-sys" }
+#openjpeg-sys = { git = "https://github.com/mpiannucci/openjpeg-sys" }
+openjpeg-sys = "1.0.3"
 num = "0.2.1"
 ndarray = "0.15.3"
 

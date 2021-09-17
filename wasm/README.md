@@ -1,5 +1,7 @@
 # gribberish-wasm 
 
+## WIP: Not working or functional at all currently due to c interfacing issues with wasm32-unknown-unknown target 
+
 JavaScript bindings to `gribberish`
 
 ## Dependencies
