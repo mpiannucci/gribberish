@@ -91,7 +91,7 @@ class GribMessage {
      * Get the reference date for the grib message
      * @returns {Date}
      */
-    get referenceDate() {
+    getreferenceDate() {
         return gribberish_rust.gribMessageGetReferenceDate.call(this.gm);
     }
 
@@ -102,7 +102,10 @@ class GribMessage {
      * @returns {Float64Array}
      */
     data() {
-        return gribberish_rust.gribMessageGetData.call(this.gm);
+        const rawData = gribberish_rust.gribMessageGetData.call(this.gm);
+        // ArrayBuffer is just a buffer of bytes... each Float64 item is 8 bytes long
+        const data = new Float64Array(rawData, 0, rawData.byteLength / 8);
+        return data;
     }
 
     /**

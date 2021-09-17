@@ -141,7 +141,9 @@ impl GribMessage {
 
         let data = message.inner.data().unwrap();
 
-        let mut js_data = JsArrayBuffer::new(&mut cx, data.len() as u32)?;
+        let buffer_size = (data.len() as u32) * 8;
+
+        let mut js_data = JsArrayBuffer::new(&mut cx, buffer_size)?;
         let guard = cx.lock();
         js_data
             .borrow_mut(&guard)

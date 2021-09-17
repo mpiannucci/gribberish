@@ -8,9 +8,9 @@ console.log(`Read ${gribMessages.length} grib messages`);
 console.log(`Forecast Date: ${gribMessages[0].forecastDate.toLocaleString()}`);
 
 gribMessages.forEach(gm => {
-    //const data = gm.data();
+    const data = gm.data();
     const fortyone_seventyone_data = gm.dataAtLocation({lat: 41.0, lon: 289.0});
-    console.log(`${gm.varName} (${gm.varAbbrev}) - ${gm.units}: ${fortyone_seventyone_data}`);
+    console.log(`${gm.varName} (${gm.varAbbrev}) - ${gm.units}: ${data.length} ${fortyone_seventyone_data}`);
 
     // if (gm.varName === 'HTSGW') {
 
