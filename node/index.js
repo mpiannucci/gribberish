@@ -91,7 +91,7 @@ class GribMessage {
      * Get the reference date for the grib message
      * @returns {Date}
      */
-    getreferenceDate() {
+    getReferenceDate() {
         return gribberish_rust.gribMessageGetReferenceDate.call(this.gm);
     }
 
