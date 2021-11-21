@@ -162,7 +162,7 @@ impl Message {
 
         let parameter = unwrap_or_return!(
             product_template.parameter(),
-            "This Product and Parameter is currently not supported".into()
+            format!("This Product and Parameter is currently not supported: ({}, {})", product_template.category_value(), product_template.parameter_value()).into()
         );
 
         Ok(parameter)

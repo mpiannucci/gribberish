@@ -41,8 +41,10 @@ fn main() {
     println!("------------------------------------------------------------------------------------------------------------");
 
     messages.iter().enumerate().for_each(|m| {
-        if let Ok(metadata) = m.1.metadata() {
-            println!("{}\t{}\t{}\t{}\t{:?}\t{:?}\t{:?}\t{}\t{}", 
+        println!("Discipline {}", m.1.discipline().unwrap());
+        match m.1.metadata() {
+            Ok(metadata) => {
+                println!("{}\t{}\t{}\t{}\t{:?}\t{:?}\t{:?}\t{}\t{}", 
                 m.0, 
                 metadata.variable_abbreviation, 
                 metadata.units, 
@@ -52,6 +54,12 @@ fn main() {
                 metadata.location_grid,
                 metadata.data_template_number, 
                 metadata.data_point_count);
+            }, 
+            Err(e) => {
+                println!("{:?}", m.1.location_region().unwrap());
+                println!("{:?}", m.1.location_grid_dimensions().unwrap());
+                println!("Failed to read message metadata: {}", e)
+            }
         }
     });
 }
