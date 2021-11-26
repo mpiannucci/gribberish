@@ -1,3 +1,9 @@
+use std::ops::Range;
+
+use crate::{templates::template::{Template, TemplateType}, utils::{bits_to_bytes, grib_power, read_f32_from_bytes, read_i16_from_bytes, read_u16_from_bytes, read_u32_from_bytes}};
+use super::{DataRepresentationTemplate, tables::OriginalFieldValue};
+use png::Decoder;
+
 pub struct PNGDataRepresentationTemplate {
     data: Vec<u8>,
 }
@@ -51,5 +57,36 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
 		self.bit_count() as usize
     }
 
-    
+    fn unpack(&self, bits: Vec<u8>, range: Range<usize>) -> Result<Vec<f64>, String> {
+        let bytes = bits_to_bytes(bits).unwrap();
+        
+        let decoder = Decoder::new(bytes.as_slice());
+        let mut reader = decoder.read_info().unwrap();
+        
+        let mut image_data: Vec<u8> = vec![0; reader.output_buffer_size()];
+        let _ = reader.next_frame(&mut image_data).unwrap();
+
+        let bscale = grib_power(self.binary_scale_factor().into(), 2);
+        let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
+        let reference_value: f64 = self.reference_value().into();
+
+        let bytes_per_datapoint = self.bit_count_per_datapoint() / 8;
+        let start_byte = range.start * bytes_per_datapoint;
+        let end_byte = range.end * bytes_per_datapoint;
+
+        let mut out = Vec::new();
+
+        // TODO: support non greyscale imagery
+        for i in (start_byte..end_byte).step_by(bytes_per_datapoint) {
+            if let Some(data_point) = read_u16_from_bytes(&image_data, i) {
+                let scaled = ((data_point as f64) * bscale + reference_value) * dscale;
+                out.push(scaled);
+            } else {
+                println!("Failed to read data point from index: {}", i);
+                out.push(f64::NAN);
+            }
+        }
+
+        Ok(out)
+    }
 }

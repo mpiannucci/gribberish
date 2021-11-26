@@ -1,5 +1,5 @@
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
-use crate::templates::data_representation::{DataRepresentationTemplate, JPEGDataRepresentationTemplate, SimpleGridPointDataRepresentationTemplate};
+use crate::templates::data_representation::{DataRepresentationTemplate, JPEGDataRepresentationTemplate, PNGDataRepresentationTemplate, SimpleGridPointDataRepresentationTemplate};
 use super::grib_section::GribSection;
 
 pub struct DataRepresentationSection {
@@ -27,6 +27,7 @@ impl DataRepresentationSection {
         match template_number {
             0 => Some(Box::new(SimpleGridPointDataRepresentationTemplate::new(data))),
             40 => Some(Box::new(JPEGDataRepresentationTemplate::new(data))),
+            41 => Some(Box::new(PNGDataRepresentationTemplate::new(data))),
             _ => None,
         }
     }

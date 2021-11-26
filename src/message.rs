@@ -16,6 +16,7 @@ pub struct MessageMetadata {
     pub units: String,
     pub data_template_number: u16,
     pub data_point_count: usize,
+    pub data_point_size: usize,
 }
 
 pub struct Message {
@@ -240,9 +241,10 @@ impl Message {
     }
 
     pub fn metadata(&self) -> Result<MessageMetadata, String> {
-        let discipline = self.discipline()?;
-
-        let reference_date = self.reference_date()?;
+        let data = self.data();
+        if let Err(e) = data {
+            println!("Error unpacking data {}", e);
+        }
 
         let grid_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
@@ -256,6 +258,25 @@ impl Message {
             grid_definition.grid_definition_template(),
             "Only latitude longitude templates supported at this time".into()
         );
+
+        let data_representation = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::DataRepresentation(data_representation) => Some(data_representation),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+        let data_template_number = data_representation.data_representation_template_number();
+        let data_point_count = grid_definition.data_point_count();
+
+        let data_representation_template = data_representation.data_representation_template().unwrap();
+        let data_point_size = data_representation_template.bit_count_per_datapoint();
+        
+        println!("data point size {}", data_point_size);
+        let discipline = self.discipline()?;
+
+        let reference_date = self.reference_date()?;
+
         let region = (grid_template.start(), grid_template.end());
         let location_grid = (grid_template.latitude_count(), grid_template.longitude_count());
         let location_resolution = (grid_template.latitude_resolution(), grid_template.longitude_resolution());
@@ -276,6 +297,7 @@ impl Message {
         let data_template_number = data_representation.data_representation_template_number();
         let data_point_count = grid_definition.data_point_count();
 
+
         Ok(MessageMetadata {
             discipline,
             reference_date,
@@ -288,7 +310,8 @@ impl Message {
             location_resolution,
             units: parameter.unit,
             data_template_number,
-            data_point_count
+            data_point_count, 
+            data_point_size,
         })
     }
 

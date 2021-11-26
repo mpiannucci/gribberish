@@ -1,6 +1,6 @@
 [package]
 name = "gribberish"
-version = "0.9.1"
+version = "0.10.0"
 authors = ["Matthew Iannucci <mpiannucci@gmail.com>"]
 edition = "2018"
 
@@ -10,9 +10,8 @@ edition = "2018"
 gribberish-types = { path = "./types" }
 gribberish-macros = { path = "./macros" }
 chrono = "0.4"
-#openjpeg-sys = { path = "./../openjpeg-sys" }
-#openjpeg-sys = { git = "https://github.com/mpiannucci/openjpeg-sys" }
 openjpeg-sys = "1.0.3"
+png = "0.17.2"
 num = "0.2.1"
 ndarray = "0.15.3"
 
