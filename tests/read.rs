@@ -1,14 +1,9 @@
 extern crate gribberish;
 
 use gribberish::message::Message;
-use gribberish::sections::section::Section;
-use std::convert::TryFrom;
-use gribberish::sections::product_definition::ProductDefinitionSection;
-use std::path::Path;
 use std::fs::File;
 use std::io::Read;
 use std::vec::Vec;
-use std::error::Error;
 
 fn read_grib_messages(path: &str) -> Vec<u8> {
     let mut grib_file = File::open(path).expect("file not found");
@@ -29,13 +24,10 @@ fn read_multi() {
     for message in messages {
         //assert_eq!(message.sections.len(), 8);
 
-        let field = message.metadata();
+        let field = message.data_point_count();
         if let Err(_) = field {
             continue;
         }
-
-        let field = field.unwrap();
-        println!("{}: {} +{}", field.variable_abbreviation, field.forecast_date, field.reference_date);
 
         let data = message.data();
         if let Err(_) = data {

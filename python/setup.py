@@ -3,7 +3,7 @@ from setuptools_rust import RustExtension
 
 setup(
     name="gribberish",
-    version="0.9.0",
+    version="0.10.0",
     rust_extensions=[RustExtension("gribberish.gribberish", debug=False)],
     packages=["gribberish"],
     include_package_data=True,
