@@ -489,6 +489,43 @@ fn oceanographic_category(category: u8) -> &'static str {
 	}
 }
 
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum MRMSLightningProduct {
+	#[description = "CG Average Lightning Density 1-min"]
+	#[abbrev = "NLDN_CG_001min_AvgDensity"]
+	#[unit = "flashes/km^2/min"]
+	AverageFlashDensityOne = 0,
+	#[description = "CG Average Lightning Density 5-min"]
+	#[abbrev = "NLDN_CG_001min_AvgDensity"]
+	#[unit = "flashes/km^2/min"]
+	AverageFlashDensityFive = 1,
+	#[description = "CG Average Lightning Density 15-min"]
+	#[abbrev = "NLDN_CG_001min_AvgDensity"]
+	#[unit = "flashes/km^2/min"]
+	AverageFlashDensityFifteen = 2,
+	#[description = "CG Average Lightning Density 30-min"]
+	#[abbrev = "NLDN_CG_001min_AvgDensity"]
+	#[unit = "flashes/km^2/min"]
+	AverageFlashDensityThirty = 3,
+	#[description = "Lightning Probability 0-30 minutes"]
+	#[abbrev = "LightningProbabilityNext30minGrid"]
+	#[unit = "%"]
+	LightningProbabilityThirty = 5,
+	#[description = "Lightning Probability 0-60 minutes"]
+	#[abbrev = "LightningProbabilityNext60minGrid"]
+	#[unit = "%"]
+	LightningProbabilitySixty = 6,
+	#[description = "Rapid lightning increases and decreases"]
+	#[abbrev = "LightningJumpGrid"]
+	#[unit = "NonDim"]
+	LightningJumpGrid = 6,
+	#[description = "Rapid lightning increases and decreases over 5-minutes"]
+	#[abbrev = "LightningJumpGrid_Max_005min"]
+	#[unit = "NonDim"]
+	LightningJumpGridMax = 6,
+}
+
 pub enum ProductTemplate<'a> {
 	HorizontalAnalysisForecast(HorizontalAnalysisForecastTemplate<'a>),
 	Other,
