@@ -73,16 +73,15 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
         let bytes_per_datapoint = self.bit_count_per_datapoint() / 8;
         let start_byte = range.start * bytes_per_datapoint;
         let end_byte = range.end * bytes_per_datapoint;
+        let data_count = range.end - range.start;
 
-        let mut out = Vec::new();
+        let mut out = vec![f64::NAN; data_count];
 
         // TODO: support non greyscale imagery
-        for i in (start_byte..end_byte).step_by(bytes_per_datapoint) {
-            if let Some(data_point) = read_u16_from_bytes(&image_data, i) {
+        for (iter_index, byte_index) in (start_byte..end_byte).step_by(bytes_per_datapoint).enumerate() {
+            if let Some(data_point) = read_u16_from_bytes(&image_data, byte_index) {
                 let scaled = ((data_point as f64) * bscale + reference_value) * dscale;
-                out.push(scaled);
-            } else {
-                out.push(f64::NAN);
+                out[iter_index] = scaled;
             }
         }
 
