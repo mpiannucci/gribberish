@@ -82,7 +82,6 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
                 let scaled = ((data_point as f64) * bscale + reference_value) * dscale;
                 out.push(scaled);
             } else {
-                println!("Failed to read data point from index: {}", i);
                 out.push(f64::NAN);
             }
         }

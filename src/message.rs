@@ -425,8 +425,12 @@ impl Message {
             "Bitmap section not found when reading message data".into()
         );
 
-        let mapped_scaled_data = bitmap_section.map_data(scaled_unpacked_data);
-        Ok(mapped_scaled_data)
+        if bitmap_section.has_bitmap() {
+            let mapped_scaled_data = bitmap_section.map_data(scaled_unpacked_data);
+            Ok(mapped_scaled_data)
+        } else {
+            Ok(scaled_unpacked_data)
+        }
     }
 
     pub fn data_at_location(&self, location: &(f64, f64)) -> Result<f64, String> {
@@ -475,10 +479,15 @@ impl Message {
             "Bitmap section not found when reading message data".into()
         );
 
-        let data_index = unwrap_or_return!(
-            bitmap_section.data_index(location_index), 
-            format!("No data available at index {}", location_index).into()
-        );
+        let data_index;
+        if bitmap_section.has_bitmap() {
+            data_index = unwrap_or_return!(
+                bitmap_section.data_index(location_index), 
+                format!("No data available at index {}", location_index).into()
+            );    
+        } else {
+            data_index = location_index;
+        }
 
         let raw_packed_data = data_section.raw_bit_data();
         let data = data_representation_template.unpack(raw_packed_data, data_index..data_index+1)?;

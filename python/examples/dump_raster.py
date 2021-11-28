@@ -28,7 +28,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     input_filename = args.infile
-    print(input_filename)
 
     messages = read_gib_messages(input_filename)
     for index, message in enumerate(messages):
