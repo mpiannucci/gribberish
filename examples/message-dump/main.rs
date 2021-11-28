@@ -45,12 +45,11 @@ fn main() {
     println!("------------------------------------------------------------------------------------------------------------");
 
     messages.iter().enumerate().for_each(|m| {
-        let data = m.1.data();
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             m.0,
-            match m.1.parameter() { Ok(p) => p.abbrev, Err(_) => "--".into()},
-            match m.1.parameter() {Ok(p) => p.unit, Err(_) => "--".into()},
+            match m.1.variable_abbrev() { Ok(p) => p, Err(_) => m.1.parameter_index().unwrap_or("--".into())},
+            match m.1.unit() {Ok(p) => p, Err(_) => "--".into()},
             match m.1.forecast_date() { Ok(d) => format!("{}", d), Err(_) => "--".into()},
             match m.1.location_region() {Ok(r) => format!("{:?}", r), Err(_) => "--".into()},
             match m.1.location_grid_dimensions() {Ok(r) => format!("{:?}", r), Err(_) => "--".into()},

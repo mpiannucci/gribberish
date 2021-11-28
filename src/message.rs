@@ -1,4 +1,7 @@
-use crate::{sections::{indicator::Discipline, section::Section}, templates::{product::ProductTemplate}};
+use crate::{
+    sections::{indicator::Discipline, section::Section},
+    templates::product::ProductTemplate,
+};
 use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
 use std::vec::Vec;
@@ -46,11 +49,9 @@ impl Message {
     pub fn variable_names(messages: Vec<Message>) -> Vec<Option<String>> {
         Message::parameters(messages)
             .iter()
-            .map(|p| {
-                match p {
-                    Some(p) => Some(p.name.clone()),
-                    None => None,
-                }
+            .map(|p| match p {
+                Some(p) => Some(p.name.clone()),
+                None => None,
             })
             .collect()
     }
@@ -58,11 +59,9 @@ impl Message {
     pub fn variable_abbrevs(messages: Vec<Message>) -> Vec<Option<String>> {
         Message::parameters(messages)
             .iter()
-            .map(|p| {
-                match p {
-                    Some(p) => Some(p.abbrev.clone()),
-                    None => None,
-                }
+            .map(|p| match p {
+                Some(p) => Some(p.abbrev.clone()),
+                None => None,
             })
             .collect()
     }
@@ -70,11 +69,9 @@ impl Message {
     pub fn units(messages: Vec<Message>) -> Vec<Option<String>> {
         Message::parameters(messages)
             .iter()
-            .map(|p| {
-                match p {
-                    Some(p) => Some(p.unit.clone()),
-                    None => None,
-                }
+            .map(|p| match p {
+                Some(p) => Some(p.unit.clone()),
+                None => None,
             })
             .collect()
     }
@@ -83,11 +80,9 @@ impl Message {
         messages
             .iter()
             .map(|m| m.parameter())
-            .map(|r| {
-                match r {
-                    Ok(parameter) => Some(parameter),
-                    Err(_) => None,
-                }
+            .map(|r| match r {
+                Ok(parameter) => Some(parameter),
+                Err(_) => None,
             })
             .collect()
     }
@@ -96,11 +91,9 @@ impl Message {
         messages
             .iter()
             .map(|m| m.forecast_date())
-            .map(|r| {
-                match r {
-                    Ok(date) => Some(date),
-                    Err(_) => None,
-                }
+            .map(|r| match r {
+                Ok(date) => Some(date),
+                Err(_) => None,
             })
             .collect()
     }
@@ -123,7 +116,39 @@ impl Message {
         match self.sections.first().unwrap() {
             Section::Indicator(indicator) => Ok(indicator.discipline()),
             _ => Err("Indicator section not found when reading discipline".into()),
-        }.clone()
+        }
+        .clone()
+    }
+
+    pub fn parameter_index(&self) -> Result<String, String> {
+        let discipline = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::Indicator(indicator) => Some(indicator.discipline_value()),
+                _ => None,
+            }),
+            "Failed to read discipline value from indicator section".into()
+        );
+
+        let product_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            match product_definition.product_definition_template(discipline.clone() as u8) {
+                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
+                _ => None,
+            },
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        let category = product_template.category_value();
+        let parameter = product_template.parameter_value();
+
+        Ok(format!("({}, {}, {})", discipline, category, parameter))
     }
 
     pub fn parameter(&self) -> Result<Parameter, String> {
@@ -147,7 +172,12 @@ impl Message {
 
         let parameter = unwrap_or_return!(
             product_template.parameter(),
-            format!("This Product and Parameter is currently not supported: ({}, {})", product_template.category_value(), product_template.parameter_value()).into()
+            format!(
+                "This Product and Parameter is currently not supported: ({}, {})",
+                product_template.category_value(),
+                product_template.parameter_value()
+            )
+            .into()
         );
 
         Ok(parameter)
@@ -255,7 +285,10 @@ impl Message {
             "Only latitude longitude templates supported at this time".into()
         );
 
-        Ok((grid_template.latitude_count(), grid_template.longitude_count()))
+        Ok((
+            grid_template.latitude_count(),
+            grid_template.longitude_count(),
+        ))
     }
 
     pub fn locations(&self) -> Result<Vec<(f64, f64)>, String> {
@@ -324,12 +357,15 @@ impl Message {
         );
 
         match grid_template.index_for_location(location.0, location.1) {
-            Ok(res) => Ok(res), 
-            Err(s) => Err(s.to_string())
+            Ok(res) => Ok(res),
+            Err(s) => Err(s.to_string()),
         }
     }
 
-    pub fn data_indices_for_location(&self, location: &(f64, f64)) -> Result<(usize, usize), String> {
+    pub fn data_indices_for_location(
+        &self,
+        location: &(f64, f64),
+    ) -> Result<(usize, usize), String> {
         let grid_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
@@ -344,8 +380,8 @@ impl Message {
         );
 
         match grid_template.indices_for_location(location.0, location.1) {
-            Ok(res) => Ok(res), 
-            Err(s) => Err(s.to_string())
+            Ok(res) => Ok(res),
+            Err(s) => Err(s.to_string()),
         }
     }
 
@@ -382,11 +418,7 @@ impl Message {
             "Bitmap section not found when reading message data".into()
         );
 
-        Ok(bitmap_section
-            .bitmap()
-            .iter()
-            .map(|i| *i == 1u8)
-            .collect())
+        Ok(bitmap_section.bitmap().iter().map(|i| *i == 1u8).collect())
     }
 
     pub fn data(&self) -> Result<Vec<f64>, String> {
@@ -414,8 +446,10 @@ impl Message {
             "Failed to unpack the data representation template".into()
         );
 
-        let scaled_unpacked_data = data_representation_template
-            .unpack(raw_packed_data, 0..data_representation_section.data_point_count())?;
+        let scaled_unpacked_data = data_representation_template.unpack(
+            raw_packed_data,
+            0..data_representation_section.data_point_count(),
+        )?;
 
         let bitmap_section = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
@@ -482,15 +516,16 @@ impl Message {
         let data_index;
         if bitmap_section.has_bitmap() {
             data_index = unwrap_or_return!(
-                bitmap_section.data_index(location_index), 
+                bitmap_section.data_index(location_index),
                 format!("No data available at index {}", location_index).into()
-            );    
+            );
         } else {
             data_index = location_index;
         }
 
         let raw_packed_data = data_section.raw_bit_data();
-        let data = data_representation_template.unpack(raw_packed_data, data_index..data_index+1)?;
+        let data =
+            data_representation_template.unpack(raw_packed_data, data_index..data_index + 1)?;
 
         Ok(data[0])
     }

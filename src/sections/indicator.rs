@@ -18,6 +18,7 @@ pub enum Discipline {
 	LandSurface = 2,
 	Space = 3,
 	Oceanographic = 10,
+	MultiRadarMultiSensor = 209,
 	Missing = 255,
 }
 
@@ -40,6 +41,10 @@ impl IndicatorSection {
 	pub fn valid(&self) -> bool {
         validate_indicator_section(&self.data[0..4])
     }
+
+	pub fn discipline_value(&self) -> u8 {
+		self.data[6]
+	}
 
 	pub fn discipline(&self) -> Discipline {
 		self.data[6].into()
