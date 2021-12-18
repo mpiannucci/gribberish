@@ -1,9 +1,8 @@
 
 namespace gribberish {
-	Message? parse_grib_message(sequence<u8> data, u64 offset);
-	sequence<Message> parse_grib_messages(sequence<u8> data);
+	GribMessage? parse_grib_message(sequence<u8> data, u64 u64);
 };
 
-interface Message {
+interface GribMessage {
 	u64 section_count();
-}
+};
