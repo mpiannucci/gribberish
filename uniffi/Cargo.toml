@@ -1,0 +1,17 @@
+[package]
+name = "gribberish-uniffi"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "gribberish"
+crate-type = ["cdylib"]
+
+[dependencies]
+gribberish = { path = "../" }
+uniffi = "0.16"
+
+[build-dependencies]
+uniffi_build = { version = "0.16", features = [ "builtin-bindgen" ] }
