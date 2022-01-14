@@ -417,6 +417,23 @@ impl Message {
         Ok(data_representation.data_representation_template_number())
     }
 
+    pub fn data_template_name(&self) -> Result<String, String> {
+        let data_representation = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::DataRepresentation(data_representation) => Some(data_representation),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let data_representation_template = unwrap_or_return!(
+            data_representation.data_representation_template(),
+            "Failed to unpack the data representation template".into()
+        );
+
+        Ok(data_representation_template.compression_type())
+    }
+
     pub fn data_point_count(&self) -> Result<usize, String> {
         let data_representation = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {

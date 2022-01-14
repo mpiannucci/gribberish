@@ -54,6 +54,10 @@ impl SimpleGridPointDataRepresentationTemplate {
 }
 
 impl DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTemplate {
+    fn compression_type(&self) -> String {
+        "Simple Grid Packing".into()
+    }
+
 	fn bit_count_per_datapoint(&self) -> usize {
 		self.bit_count() as usize
     }

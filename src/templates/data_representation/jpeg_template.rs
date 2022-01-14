@@ -62,6 +62,10 @@ impl JPEGDataRepresentationTemplate {
 }
 
 impl DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate {
+    fn compression_type(&self) -> String {
+        "JPEG2000".into()
+    }
+
 	fn bit_count_per_datapoint(&self) -> usize {
 		self.bit_count() as usize
     }
