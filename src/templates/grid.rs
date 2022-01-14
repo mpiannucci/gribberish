@@ -138,7 +138,7 @@ impl Template for LatitudeLongitudeGridTemplate {
     }
 
     fn template_name(&self) -> &str {
-        "Latitude Longitude"
+        "Latitude Longitude: EPSG 4326"
     }
 }
 
@@ -216,12 +216,12 @@ impl LatitudeLongitudeGridTemplate {
     }
 
     pub fn i_direction_increment(&self) -> f64 {
-        let value = read_u32_from_bytes(self.data.as_slice(), 67).unwrap_or(0) as f64;
+        let value = read_u32_from_bytes(self.data.as_slice(), 63).unwrap_or(0) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn j_direction_increment(&self) -> f64 {
-        let value = read_u32_from_bytes(self.data.as_slice(), 63).unwrap_or(0) as f64;
+        let value = read_u32_from_bytes(self.data.as_slice(), 67).unwrap_or(0) as f64;
         let value = value * (10f64.powf(-6.0));
 
         if self.is_descending_latitude() {

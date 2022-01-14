@@ -32,6 +32,7 @@ if __name__ == '__main__':
     messages = read_gib_messages(input_filename)
     for index, message in enumerate(messages):
         data = message.data()
+        print(data.shape)
         plt.imshow(numpy.ma.masked_where(data < -98, data))
         plt.savefig(create_filename(input_filename, index))
         plt.clf()

@@ -291,6 +291,26 @@ impl Message {
         ))
     }
 
+    pub fn location_resolution(&self) -> Result<(f64, f64), String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        Ok((
+            grid_template.latitude_resolution(), 
+            grid_template.longitude_resolution(),
+        ))
+    }
+
     pub fn locations(&self) -> Result<Vec<(f64, f64)>, String> {
         let grid_definition = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
