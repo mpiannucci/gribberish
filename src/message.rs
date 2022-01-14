@@ -417,7 +417,7 @@ impl Message {
         Ok(data_representation.data_representation_template_number())
     }
 
-    pub fn data_template_name(&self) -> Result<String, String> {
+    pub fn data_compression_type(&self) -> Result<String, String> {
         let data_representation = unwrap_or_return!(
             self.sections.iter().find_map(|s| match s {
                 Section::DataRepresentation(data_representation) => Some(data_representation),
@@ -444,6 +444,18 @@ impl Message {
         );
 
         Ok(data_representation.data_point_count())
+    }
+
+    pub fn has_bitmap(&self) -> bool {
+        let bitmap_section = self.sections.iter().find_map(|s| match s {
+            Section::Bitmap(bitmap_section) => Some(bitmap_section),
+            _ => None,
+        });
+
+        match bitmap_section {
+            Some(b) => b.has_bitmap(), 
+            None => false,
+        }
     }
 
     pub fn bitmap(&self) -> Result<Vec<bool>, String> {
