@@ -183,7 +183,7 @@ impl Message {
         Ok(parameter)
     }
 
-    pub fn category(&self) -> String {
+    pub fn category(&self) -> Result<String, String> {
         let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(
@@ -202,7 +202,7 @@ impl Message {
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
-        product_template.category().into()
+        Ok(product_template.category().to_owned())
     }
 
     pub fn variable_name(&self) -> Result<String, String> {
