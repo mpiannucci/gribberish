@@ -183,6 +183,28 @@ impl Message {
         Ok(parameter)
     }
 
+    pub fn category(&self) -> String {
+        let discipline = self.discipline()?;
+
+        let product_definition = unwrap_or_return!(
+            self.sections.iter().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            match product_definition.product_definition_template(discipline.clone() as u8) {
+                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
+                _ => None,
+            },
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        product_template.category().into()
+    }
+
     pub fn variable_name(&self) -> Result<String, String> {
         let parameter = self.parameter()?;
         Ok(parameter.name)
