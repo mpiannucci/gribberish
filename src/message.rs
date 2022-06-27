@@ -22,9 +22,12 @@ impl Message {
                 }
             }
 
-            let next_section = Section::from_data(data, offset + current_offset)?;
-            current_offset += next_section.len();
-            sections.push(next_section);
+            if let Some(next_section) = Section::from_data(data, offset + current_offset) {
+                current_offset += next_section.len();
+                sections.push(next_section);
+            } else {
+                break;
+            }
         }
 
         Ok(Message { sections })

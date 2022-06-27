@@ -1,45 +1,55 @@
-use crate::utils::read_u32_from_bytes;
-use super::indicator::IndicatorSection;
-use super::identification::IdentificationSection;
-use super::local_use::LocalUseSection;
-use super::grid_definition::GridDefinitionSection;
-use super::product_definition::ProductDefinitionSection;
-use super::data_representation::DataRepresentationSection;
 use super::bitmap::BitmapSection;
 use super::data::DataSection;
+use super::data_representation::DataRepresentationSection;
 use super::end::EndSection;
 use super::grib_section::GribSection;
+use super::grid_definition::GridDefinitionSection;
+use super::identification::IdentificationSection;
+use super::indicator::IndicatorSection;
+use super::local_use::LocalUseSection;
+use super::product_definition::ProductDefinitionSection;
+use crate::utils::read_u32_from_bytes;
 
 pub enum Section {
-	Indicator(IndicatorSection),
-	Identification(IdentificationSection),
-	LocalUse(LocalUseSection),
-	GridDefinition(GridDefinitionSection),
-	ProductDefinition(ProductDefinitionSection),
-	DataRepresentation(DataRepresentationSection),
-	Bitmap(BitmapSection),
+    Indicator(IndicatorSection),
+    Identification(IdentificationSection),
+    LocalUse(LocalUseSection),
+    GridDefinition(GridDefinitionSection),
+    ProductDefinition(ProductDefinitionSection),
+    DataRepresentation(DataRepresentationSection),
+    Bitmap(BitmapSection),
     Data(DataSection),
-	End(EndSection),
+    End(EndSection),
 }
 
 impl Section {
-    pub fn from_data(data: &[u8], offset: usize) -> Result<Section, &'static str> {
-        let section_len = section_length(data, offset);
-        let section_num = section_number(data, offset);
+    pub fn from_data(data: &[u8], offset: usize) -> Option<Section> {
+        let section_len = section_length(data, offset)?;
+        let section_num = section_number(data, offset)?;
 
-        let section_data = data[offset..offset+section_len].to_vec();
+        let section_data = data[offset..offset + section_len].to_vec();
 
-        match section_num { 
-            0 => Ok(Section::Indicator(IndicatorSection::from_data(section_data))),
-            1 => Ok(Section::Identification(IdentificationSection::from_data(section_data))),
-            2 => Ok(Section::LocalUse(LocalUseSection::from_data(section_data))),
-            3 => Ok(Section::GridDefinition(GridDefinitionSection::from_data(section_data))),
-            4 => Ok(Section::ProductDefinition(ProductDefinitionSection::from_data(section_data))),
-            5 => Ok(Section::DataRepresentation(DataRepresentationSection::from_data(section_data))),
-            6 => Ok(Section::Bitmap(BitmapSection::from_data(section_data))),
-            7 => Ok(Section::Data(DataSection::from_data(section_data))),
-            8 => Ok(Section::End(EndSection::from_data(section_data))),
-            _ => Err("Invalid section number")
+        match section_num {
+            0 => Some(Section::Indicator(IndicatorSection::from_data(
+                section_data,
+            ))),
+            1 => Some(Section::Identification(IdentificationSection::from_data(
+                section_data,
+            ))),
+            2 => Some(Section::LocalUse(LocalUseSection::from_data(section_data))),
+            3 => Some(Section::GridDefinition(GridDefinitionSection::from_data(
+                section_data,
+            ))),
+            4 => Some(Section::ProductDefinition(
+                ProductDefinitionSection::from_data(section_data),
+            )),
+            5 => Some(Section::DataRepresentation(
+                DataRepresentationSection::from_data(section_data),
+            )),
+            6 => Some(Section::Bitmap(BitmapSection::from_data(section_data))),
+            7 => Some(Section::Data(DataSection::from_data(section_data))),
+            8 => Some(Section::End(EndSection::from_data(section_data))),
+            _ => None,
         }
     }
 
@@ -72,24 +82,70 @@ impl Section {
     }
 }
 
-// TODO: IMPL TRY FROMS FOR INNER TYPES HERE 
+// TODO: IMPL TRY FROMS FOR INNER TYPES HERE
 
-fn section_length(data: &[u8], offset: usize) -> usize {
-    if IndicatorSection::is_indicator_section(data, offset) {
-        16
+fn section_length(data: &[u8], offset: usize) -> Option<usize> {
+    if data.len() <= offset + 4 {
+        // TODO: Make this an optional 
+        None
+    } else if IndicatorSection::is_indicator_section(data, offset) {
+        Some(16)
     } else if EndSection::is_end_section(data, offset) {
-        4
+        Some(4)
     } else {
-        read_u32_from_bytes(data, offset).unwrap_or(0) as usize
+        Some(read_u32_from_bytes(data, offset).unwrap_or(0) as usize)
     }
 }
 
-fn section_number(data: &[u8], offset: usize) -> u8 {
-    if IndicatorSection::is_indicator_section(data, offset) {
-        0
+fn section_number(data: &[u8], offset: usize) -> Option<u8> {
+    if data.len() <= offset + 4 {
+        // TODO: Make this an optional 
+        None
+    } else if IndicatorSection::is_indicator_section(data, offset) {
+        Some(0)
     } else if EndSection::is_end_section(data, offset) {
-        8
+        Some(8)
     } else {
-        data[offset + 4]
+        Some(data[offset + 4])
+    }
+}
+
+pub struct SectionIterator<'a> {
+    data: &'a [u8],
+    offset: usize,
+}
+
+impl <'a> Iterator for SectionIterator<'a> {
+    type Item = Section;
+
+    fn next(&mut self) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
+        let section_len = section_length(self.data, self.offset)?;
+        let section_num = section_number(self.data, self.offset)?;
+
+        let section_data = self.data[self.offset..self.offset + section_len].to_vec();
+        self.offset += section_len;
+
+        match section_num {
+            0 => Some(Section::Indicator(IndicatorSection::from_data(
+                section_data,
+            ))),
+            1 => Some(Section::Identification(IdentificationSection::from_data(
+                section_data,
+            ))),
+            2 => Some(Section::LocalUse(LocalUseSection::from_data(section_data))),
+            3 => Some(Section::GridDefinition(GridDefinitionSection::from_data(
+                section_data,
+            ))),
+            4 => Some(Section::ProductDefinition(
+                ProductDefinitionSection::from_data(section_data),
+            )),
+            5 => Some(Section::DataRepresentation(
+                DataRepresentationSection::from_data(section_data),
+            )),
+            6 => Some(Section::Bitmap(BitmapSection::from_data(section_data))),
+            7 => Some(Section::Data(DataSection::from_data(section_data))),
+            8 => Some(Section::End(EndSection::from_data(section_data))),
+            _ => None,
+        }
     }
 }
