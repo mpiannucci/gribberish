@@ -58,10 +58,10 @@ impl <'a> GridDefinitionSection<'a> {
         read_u16_from_bytes(self.data, 12).unwrap_or(0)
     }
 
-    pub fn grid_definition_template(&self) -> Option<Box<dyn GridDefinitionTemplate>> {
+    pub fn grid_definition_template(&self) -> Option<impl GridDefinitionTemplate> {
         let template_number = self.grid_definition_template_number();
         match template_number {
-            0 => Some(Box::new(LatitudeLongitudeGridTemplate::new(self.data.to_vec()))),
+            0 => Some(LatitudeLongitudeGridTemplate::new(&self.data)),
             _ => None,
         }
     }

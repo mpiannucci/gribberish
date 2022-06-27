@@ -1,3 +1,4 @@
+use crate::templates::grid::GridDefinitionTemplate;
 use crate::{
     sections::{indicator::Discipline, section::Section, section::SectionIterator},
     templates::product::ProductTemplate,
