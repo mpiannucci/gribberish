@@ -8,48 +8,60 @@ use gribberish_types::Parameter;
 use std::vec::Vec;
 
 
-pub fn read_messages<'a>(data: &'a [u8]) -> MessageIterator<'a> {
+pub fn read_messages(data: Vec<u8>) -> MessageIterator {
     MessageIterator {
         data, 
         offset: 0,
     }
 }
 
-pub struct MessageIterator<'a> {
-    data: &'a [u8],
+pub struct MessageIterator {
+    data: Vec<u8>,
     offset: usize,
 }
 
-impl<'a> Iterator for MessageIterator<'a> {
-    type Item = Message<'a>;
+impl Iterator for MessageIterator {
+    type Item = Message;
 
     fn next(&mut self) -> std::option::Option<<Self as std::iter::Iterator>::Item> {  
         if self.offset >= self.data.len() {
             return None;
         }
 
-        match Message::parse(self.data, self.offset) {
-            Ok(m) => {
-                self.offset += m.len();
+        match Message::from_data(self.data, self.offset) {
+            Some(m) => {
+                self.offset += m.len(); 
                 Some(m)
             }, 
-            Err(_) => None,
+            None => None,
         }
     } 
 }
 
-pub struct Message<'a> {
-    pub sections: Vec<Section<'a>>,
+pub struct Message {
+    pub data: Vec<u8>
 }
 
-impl <'a> Message<'a> {
-    pub fn parse(data: &[u8], offset: usize) -> Result<Message, &'static str> {
-        let sections: Vec<Section> = SectionIterator {
-            data, 
+impl Message {
+    pub fn from_data(data: Vec<u8>, offset: usize) -> Option<Message> {
+        let sections = SectionIterator {
+            data: data.as_slice(), 
             offset,
-        }.collect();
-        
-        Ok(Message { sections })
+        };
+
+        match sections.next() {
+            Some(Section::Indicator(i)) => Some(Message {
+                data: data[offset..offset + i.total_length() as usize].to_vec(),
+            }), 
+            _ => None,
+        }
+    }
+
+    pub fn sections(&self) -> SectionIterator {
+        SectionIterator {
+            data: self.data.as_slice(), 
+            offset: 0,
+        }
     }
 
     pub fn variable_names(messages: Vec<Message>) -> Vec<Option<String>> {
@@ -105,21 +117,18 @@ impl <'a> Message<'a> {
     }
 
     pub fn len(&self) -> usize {
-        match self.sections.first() {
-            Some(section) => match &section {
-                Section::Indicator(indicator) => indicator.total_length() as usize,
-                _ => 0,
-            },
+        match self.sections().next() {
+            Some(Section::Indicator(i)) => i.total_length() as usize,
             None => 0,
         }
     }
 
     pub fn section_count(&self) -> usize {
-        self.sections.len()
+        self.sections().count()
     }
 
     pub fn discipline(&self) -> Result<Discipline, String> {
-        match self.sections.first().unwrap() {
+        match self.sections().next().unwrap() {
             Section::Indicator(indicator) => Ok(indicator.discipline()),
             _ => Err("Indicator section not found when reading discipline".into()),
         }
@@ -127,8 +136,10 @@ impl <'a> Message<'a> {
     }
 
     pub fn parameter_index(&self) -> Result<String, String> {
+        let sections = self.sections();
+
         let discipline = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            sections.find_map(|s| match s {
                 Section::Indicator(indicator) => Some(indicator.discipline_value()),
                 _ => None,
             }),
@@ -136,7 +147,7 @@ impl <'a> Message<'a> {
         );
 
         let product_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            sections.find_map(|s| match s {
                 Section::ProductDefinition(product_definition) => Some(product_definition),
                 _ => None,
             }),
