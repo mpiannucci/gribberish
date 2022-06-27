@@ -7,6 +7,37 @@ use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
 use std::vec::Vec;
 
+
+pub fn read_messages<'a>(data: &'a [u8]) -> MessageIterator<'a> {
+    MessageIterator {
+        data, 
+        offset: 0,
+    }
+}
+
+pub struct MessageIterator<'a> {
+    data: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> Iterator for MessageIterator<'a> {
+    type Item = Message<'a>;
+
+    fn next(&mut self) -> std::option::Option<<Self as std::iter::Iterator>::Item> {  
+        if self.offset >= self.data.len() {
+            return None;
+        }
+
+        match Message::parse(self.data, self.offset) {
+            Ok(m) => {
+                self.offset += m.len();
+                Some(m)
+            }, 
+            Err(_) => None,
+        }
+    } 
+}
+
 pub struct Message<'a> {
     pub sections: Vec<Section<'a>>,
 }
@@ -19,22 +50,6 @@ impl <'a> Message<'a> {
         }.collect();
         
         Ok(Message { sections })
-    }
-
-    pub fn parse_all(data: &[u8]) -> Vec<Message> {
-        let mut messages = Vec::new();
-        let mut offset: usize = 0;
-
-        while offset < data.len() {
-            if let Ok(message) = Message::parse(data, offset) {
-                offset += message.len();
-                messages.push(message);
-            } else {
-                break;
-            }
-        }
-
-        messages
     }
 
     pub fn variable_names(messages: Vec<Message>) -> Vec<Option<String>> {
@@ -644,3 +659,5 @@ impl <'a> Message<'a> {
         Ok(grid_template.location_grid())
     }
 }
+
+
