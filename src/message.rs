@@ -28,7 +28,7 @@ impl Iterator for MessageIterator {
             return None;
         }
 
-        match Message::from_data(self.data, self.offset) {
+        match Message::from_data(&self.data, self.offset) {
             Some(m) => {
                 self.offset += m.len(); 
                 Some(m)
@@ -43,8 +43,8 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn from_data(data: Vec<u8>, offset: usize) -> Option<Message> {
-        let sections = SectionIterator {
+    pub fn from_data(data: &Vec<u8>, offset: usize) -> Option<Message> {
+        let mut sections = SectionIterator {
             data: data.as_slice(), 
             offset,
         };
@@ -119,6 +119,7 @@ impl Message {
     pub fn len(&self) -> usize {
         match self.sections().next() {
             Some(Section::Indicator(i)) => i.total_length() as usize,
+            Some(_) => 0,
             None => 0,
         }
     }
@@ -136,7 +137,7 @@ impl Message {
     }
 
     pub fn parameter_index(&self) -> Result<String, String> {
-        let sections = self.sections();
+        let mut sections = self.sections();
 
         let discipline = unwrap_or_return!(
             sections.find_map(|s| match s {
@@ -172,7 +173,7 @@ impl Message {
         let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::ProductDefinition(product_definition) => Some(product_definition),
                 _ => None,
             }),
@@ -204,7 +205,7 @@ impl Message {
         let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::ProductDefinition(product_definition) => Some(product_definition),
                 _ => None,
             }),
@@ -239,7 +240,7 @@ impl Message {
 
     pub fn reference_date(&self) -> Result<DateTime<Utc>, String> {
         let reference_date = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::Identification(identification) => Some(identification.reference_date()),
                 _ => None,
             }),
@@ -252,7 +253,7 @@ impl Message {
         let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::ProductDefinition(product_definition) => Some(product_definition),
                 _ => None,
             }),
@@ -275,7 +276,7 @@ impl Message {
         let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::ProductDefinition(product_definition) => Some(product_definition),
                 _ => None,
             }),
@@ -295,7 +296,7 @@ impl Message {
 
     pub fn location_region(&self) -> Result<((f64, f64), (f64, f64)), String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
@@ -312,7 +313,7 @@ impl Message {
 
     pub fn location_grid_dimensions(&self) -> Result<(usize, usize), String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
@@ -332,7 +333,7 @@ impl Message {
 
     pub fn location_resolution(&self) -> Result<(f64, f64), String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
@@ -352,7 +353,7 @@ impl Message {
 
     pub fn locations(&self) -> Result<Vec<(f64, f64)>, String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
@@ -369,7 +370,7 @@ impl Message {
 
     pub fn latitudes(&self) -> Result<Vec<f64>, String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
@@ -386,7 +387,7 @@ impl Message {
 
     pub fn longitudes(&self) -> Result<Vec<f64>, String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
@@ -403,7 +404,7 @@ impl Message {
 
     pub fn data_index_for_location(&self, location: &(f64, f64)) -> Result<usize, String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
@@ -426,7 +427,7 @@ impl Message {
         location: &(f64, f64),
     ) -> Result<(usize, usize), String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
@@ -446,7 +447,7 @@ impl Message {
 
     pub fn data_template_number(&self) -> Result<u16, String> {
         let data_representation = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::DataRepresentation(data_representation) => Some(data_representation),
                 _ => None,
             }),
@@ -458,7 +459,7 @@ impl Message {
 
     pub fn data_compression_type(&self) -> Result<String, String> {
         let data_representation = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::DataRepresentation(data_representation) => Some(data_representation),
                 _ => None,
             }),
@@ -475,7 +476,7 @@ impl Message {
 
     pub fn data_point_count(&self) -> Result<usize, String> {
         let data_representation = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::DataRepresentation(data_representation) => Some(data_representation),
                 _ => None,
             }),
@@ -486,7 +487,7 @@ impl Message {
     }
 
     pub fn has_bitmap(&self) -> bool {
-        let bitmap_section = self.sections.iter().find_map(|s| match s {
+        let bitmap_section = self.sections().find_map(|s| match s {
             Section::Bitmap(bitmap_section) => Some(bitmap_section),
             _ => None,
         });
@@ -499,7 +500,7 @@ impl Message {
 
     pub fn bitmap(&self) -> Result<Vec<bool>, String> {
         let bitmap_section = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::Bitmap(bitmap_section) => Some(bitmap_section),
                 _ => None,
             }),
@@ -511,7 +512,7 @@ impl Message {
 
     pub fn data(&self) -> Result<Vec<f64>, String> {
         let data_section = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::Data(data_section) => Some(data_section),
                 _ => None,
             }),
@@ -521,7 +522,7 @@ impl Message {
         let raw_packed_data = data_section.raw_bit_data();
 
         let data_representation_section = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::DataRepresentation(data_representation_section) =>
                     Some(data_representation_section),
                 _ => None,
@@ -540,7 +541,7 @@ impl Message {
         )?;
 
         let bitmap_section = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::Bitmap(bitmap_section) => Some(bitmap_section),
                 _ => None,
             }),
@@ -557,7 +558,7 @@ impl Message {
 
     pub fn data_at_location(&self, location: &(f64, f64)) -> Result<f64, String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
@@ -572,7 +573,7 @@ impl Message {
         let location_index = grid_template.index_for_location(location.0, location.1)?;
 
         let data_section = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::Data(data_section) => Some(data_section),
                 _ => None,
             }),
@@ -580,7 +581,7 @@ impl Message {
         );
 
         let data_representation_section = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::DataRepresentation(data_representation_section) =>
                     Some(data_representation_section),
                 _ => None,
@@ -594,7 +595,7 @@ impl Message {
         );
 
         let bitmap_section = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::Bitmap(bitmap_section) => Some(bitmap_section),
                 _ => None,
             }),
@@ -620,7 +621,7 @@ impl Message {
 
     pub fn data_grid(&self) -> Result<Vec<Vec<f64>>, String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
@@ -655,7 +656,7 @@ impl Message {
 
     pub fn location_grid(&self) -> Result<Vec<Vec<Vec<f64>>>, String> {
         let grid_definition = unwrap_or_return!(
-            self.sections.iter().find_map(|s| match s {
+            self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
                 _ => None,
             }),
