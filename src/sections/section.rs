@@ -10,36 +10,30 @@ use super::local_use::LocalUseSection;
 use super::product_definition::ProductDefinitionSection;
 use crate::utils::read_u32_from_bytes;
 
-pub enum Section {
-    Indicator(IndicatorSection),
-    Identification(IdentificationSection),
-    LocalUse(LocalUseSection),
-    GridDefinition(GridDefinitionSection),
-    ProductDefinition(ProductDefinitionSection),
-    DataRepresentation(DataRepresentationSection),
-    Bitmap(BitmapSection),
-    Data(DataSection),
-    End(EndSection),
+pub enum Section<'a> {
+    Indicator(IndicatorSection<'a>),
+    Identification(IdentificationSection<'a>),
+    LocalUse(LocalUseSection<'a>),
+    GridDefinition(GridDefinitionSection<'a>),
+    ProductDefinition(ProductDefinitionSection<'a>),
+    DataRepresentation(DataRepresentationSection<'a>),
+    Bitmap(BitmapSection<'a>),
+    Data(DataSection<'a>),
+    End(EndSection<'a>),
 }
 
-impl Section {
+impl <'a> Section<'a> {
     pub fn from_data(data: &[u8], offset: usize) -> Option<Section> {
         let section_len = section_length(data, offset)?;
         let section_num = section_number(data, offset)?;
 
-        let section_data = data[offset..offset + section_len].to_vec();
+        let section_data = &data[offset..offset + section_len];
 
         match section_num {
-            0 => Some(Section::Indicator(IndicatorSection::from_data(
-                section_data,
-            ))),
-            1 => Some(Section::Identification(IdentificationSection::from_data(
-                section_data,
-            ))),
+            0 => Some(Section::Indicator(IndicatorSection::from_data(section_data))),
+            1 => Some(Section::Identification(IdentificationSection::from_data(section_data))),
             2 => Some(Section::LocalUse(LocalUseSection::from_data(section_data))),
-            3 => Some(Section::GridDefinition(GridDefinitionSection::from_data(
-                section_data,
-            ))),
+            3 => Some(Section::GridDefinition(GridDefinitionSection::from_data(section_data ))),
             4 => Some(Section::ProductDefinition(
                 ProductDefinitionSection::from_data(section_data),
             )),
@@ -85,8 +79,7 @@ impl Section {
 // TODO: IMPL TRY FROMS FOR INNER TYPES HERE
 
 fn section_length(data: &[u8], offset: usize) -> Option<usize> {
-    if data.len() <= offset + 4 {
-        // TODO: Make this an optional 
+    if data.len() <= offset + 4 { 
         None
     } else if IndicatorSection::is_indicator_section(data, offset) {
         Some(16)
@@ -99,7 +92,6 @@ fn section_length(data: &[u8], offset: usize) -> Option<usize> {
 
 fn section_number(data: &[u8], offset: usize) -> Option<u8> {
     if data.len() <= offset + 4 {
-        // TODO: Make this an optional 
         None
     } else if IndicatorSection::is_indicator_section(data, offset) {
         Some(0)
@@ -116,13 +108,13 @@ pub struct SectionIterator<'a> {
 }
 
 impl <'a> Iterator for SectionIterator<'a> {
-    type Item = Section;
+    type Item = Section<'a>;
 
     fn next(&mut self) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
         let section_len = section_length(self.data, self.offset)?;
         let section_num = section_number(self.data, self.offset)?;
 
-        let section_data = self.data[self.offset..self.offset + section_len].to_vec();
+        let section_data = &self.data[self.offset..self.offset + section_len];
         self.offset += section_len;
 
         match section_num {

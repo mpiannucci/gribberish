@@ -1,14 +1,14 @@
 use crate::utils::{bit_array_from_bytes, read_u32_from_bytes};
 use super::grib_section::GribSection;
 
-pub struct DataSection {
-    data: Vec<u8>,
+pub struct DataSection<'a> {
+    data: &'a [u8],
 }
 
-impl DataSection {
-    pub fn from_data(data: Vec<u8>) -> DataSection {
+impl <'a> DataSection<'a> {
+    pub fn from_data(data: &'a [u8]) -> Self {
         DataSection {
-            data: data,
+            data,
         }
     }
 
@@ -21,7 +21,7 @@ impl DataSection {
     }
 }
 
-impl GribSection for DataSection {
+impl <'a> GribSection for DataSection<'a> {
     fn len(&self) -> usize {
         read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
     }
