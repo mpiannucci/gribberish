@@ -103,8 +103,8 @@ fn section_number(data: &[u8], offset: usize) -> Option<u8> {
 }
 
 pub struct SectionIterator<'a> {
-    data: &'a [u8],
-    offset: usize,
+    pub data: &'a [u8],
+    pub offset: usize,
 }
 
 impl <'a> Iterator for SectionIterator<'a> {

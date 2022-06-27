@@ -1,35 +1,22 @@
 use crate::{
-    sections::{indicator::Discipline, section::Section},
+    sections::{indicator::Discipline, section::Section, section::SectionIterator},
     templates::product::ProductTemplate,
 };
 use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
 use std::vec::Vec;
 
-pub struct Message {
-    pub sections: Vec<Section>,
+pub struct Message<'a> {
+    pub sections: Vec<Section<'a>>,
 }
 
-impl Message {
+impl <'a> Message<'a> {
     pub fn parse(data: &[u8], offset: usize) -> Result<Message, &'static str> {
-        let mut sections: Vec<Section> = Vec::new();
-
-        let mut current_offset = 0;
-        loop {
-            if let Some(section) = sections.last() {
-                if let Section::End(_) = section {
-                    break;
-                }
-            }
-
-            if let Some(next_section) = Section::from_data(data, offset + current_offset) {
-                current_offset += next_section.len();
-                sections.push(next_section);
-            } else {
-                break;
-            }
-        }
-
+        let sections: Vec<Section> = SectionIterator {
+            data, 
+            offset,
+        }.collect();
+        
         Ok(Message { sections })
     }
 
