@@ -1,13 +1,13 @@
 use gribberish::message::{Message, read_messages};
-use neon::{prelude::*, result::Throw, types::JsDate};
+use neon::{prelude::*, types::JsDate};
 
-struct GribMessage {
-    inner: Message,
+struct GribMessage<'a> {
+    inner: Message<'a>,
 }
 
-impl Finalize for GribMessage {}
+impl <'a> Finalize for GribMessage<'a> {}
 
-impl GribMessage {
+impl <'a> GribMessage<'a> {
     fn get_var_name(mut cx: FunctionContext) -> JsResult<JsString> {
         let message = cx
             .this()
@@ -186,7 +186,7 @@ impl GribMessage {
     }
 }
 
-fn parse_grib_message(mut cx: FunctionContext) -> JsResult<JsBox<GribMessage>> {
+fn parse_grib_message<'a>(mut cx: FunctionContext) -> JsResult<JsBox<GribMessage<'a>>> {
     let raw_js_data: Handle<JsBuffer> = cx.argument(0)?;
     let offset_js: Handle<JsNumber> = cx.argument(1)?;
 
@@ -198,7 +198,7 @@ fn parse_grib_message(mut cx: FunctionContext) -> JsResult<JsBox<GribMessage>> {
 
     let offset = offset_js.value(&mut cx) as usize;
 
-    let message = match Message::from_data(&raw_data, offset) {
+    let message = match Message::from_data(raw_data.as_slice(), offset) {
         Some(m) => Ok(m), 
         None => cx.throw_error("Failed to read GribMessage"),
     }?;
@@ -206,7 +206,7 @@ fn parse_grib_message(mut cx: FunctionContext) -> JsResult<JsBox<GribMessage>> {
     Ok(cx.boxed(GribMessage { inner: message }))
 }
 
-fn parse_grib_messages(mut cx: FunctionContext) -> JsResult<JsArray> {
+fn parse_grib_messages<'a>(mut cx: FunctionContext) -> JsResult<JsArray> {
     let raw_js_data: Handle<JsBuffer> = cx.argument(0)?;
 
     let guard = cx.lock();
@@ -215,10 +215,10 @@ fn parse_grib_messages(mut cx: FunctionContext) -> JsResult<JsArray> {
     let mut raw_data: Vec<u8> = vec![0; js_data_slice.len()];
     raw_data.copy_from_slice(js_data_slice);
 
-    let messages = read_messages(raw_data.clone());
+    let messages = read_messages(raw_data.as_slice());
     let arr = JsArray::new(&mut cx, messages.count() as u32);
 
-    let messages = read_messages(raw_data);
+    let messages = read_messages(raw_data.as_slice());
     messages
         .map(|m| GribMessage { inner: m })
         .enumerate()
