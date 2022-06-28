@@ -8,20 +8,20 @@ use gribberish_types::Parameter;
 use std::vec::Vec;
 
 
-pub fn read_messages(data: Vec<u8>) -> MessageIterator {
+pub fn read_messages<'a>(data: &'a [u8]) -> MessageIterator<'a> {
     MessageIterator {
         data, 
         offset: 0,
     }
 }
 
-pub struct MessageIterator {
-    data: Vec<u8>,
+pub struct MessageIterator<'a> {
+    data: &'a [u8],
     offset: usize,
 }
 
-impl Iterator for MessageIterator {
-    type Item = Message;
+impl <'a> Iterator for MessageIterator<'a> {
+    type Item = Message<'a>;
 
     fn next(&mut self) -> std::option::Option<<Self as std::iter::Iterator>::Item> {  
         if self.offset >= self.data.len() {
@@ -38,20 +38,20 @@ impl Iterator for MessageIterator {
     } 
 }
 
-pub struct Message {
-    pub data: Vec<u8>
+pub struct Message<'a> {
+    pub data: &'a [u8],
 }
 
-impl Message {
-    pub fn from_data(data: &Vec<u8>, offset: usize) -> Option<Message> {
+impl <'a> Message<'a> {
+    pub fn from_data(data: &'a [u8], offset: usize) -> Option<Message> {
         let mut sections = SectionIterator {
-            data: data.as_slice(), 
+            data: data, 
             offset,
         };
 
         match sections.next() {
             Some(Section::Indicator(i)) => Some(Message {
-                data: data[offset..offset + i.total_length() as usize].to_vec(),
+                data: &data[offset..offset + i.total_length() as usize],
             }), 
             _ => None,
         }
@@ -59,7 +59,7 @@ impl Message {
 
     pub fn sections(&self) -> SectionIterator {
         SectionIterator {
-            data: self.data.as_slice(), 
+            data: self.data, 
             offset: 0,
         }
     }

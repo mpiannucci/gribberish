@@ -27,7 +27,7 @@ fn main() {
         .read_to_end(&mut raw_grib_data)
         .expect("failed to read raw grib2 data");
 
-    let messages = read_messages(raw_grib_data).collect::<Vec<Message>>();
+    let messages = read_messages(raw_grib_data.as_slice()).collect::<Vec<Message>>();
 
     println!("GRIB2 file read: {}", grib_path);
     println!("Message count: {}", messages.len());
