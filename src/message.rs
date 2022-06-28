@@ -20,6 +20,19 @@ pub struct MessageIterator<'a> {
     offset: usize,
 }
 
+impl <'a> MessageIterator<'a> {
+    pub fn from_data(data: &'a [u8], offset: usize) -> Self {
+        MessageIterator {
+            data, 
+            offset
+        }
+    }
+
+    pub fn current_offset(&self) -> usize {
+        self.offset
+    }
+}
+
 impl <'a> Iterator for MessageIterator<'a> {
     type Item = Message<'a>;
 
@@ -39,7 +52,8 @@ impl <'a> Iterator for MessageIterator<'a> {
 }
 
 pub struct Message<'a> {
-    pub data: &'a [u8],
+    data: &'a [u8],
+    offset: usize,
 }
 
 impl <'a> Message<'a> {
@@ -51,16 +65,25 @@ impl <'a> Message<'a> {
 
         match sections.next() {
             Some(Section::Indicator(i)) => Some(Message {
-                data: &data[offset..offset + i.total_length() as usize],
+                data: &data,
+                offset: offset,
             }), 
             _ => None,
         }
     }
 
+    pub fn byte_data(&self) -> &'a [u8] {
+        self.data
+    }
+
+    pub fn byte_offset(&self) -> usize {
+        self.offset
+    }
+
     pub fn sections(&self) -> SectionIterator {
         SectionIterator {
             data: self.data, 
-            offset: 0,
+            offset: self.offset,
         }
     }
 

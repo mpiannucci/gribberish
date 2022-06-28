@@ -5,6 +5,8 @@ extern crate gribberish_macros;
 mod macros;
 
 mod utils;
+pub mod dataset;
 pub mod sections;
 pub mod templates;
 pub mod message;
+
