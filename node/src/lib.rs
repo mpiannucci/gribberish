@@ -1,4 +1,4 @@
-use gribberish::message::Message;
+use gribberish::message::{Message, read_messages};
 use neon::{prelude::*, result::Throw, types::JsDate};
 
 struct GribMessage {
@@ -198,7 +198,10 @@ fn parse_grib_message(mut cx: FunctionContext) -> JsResult<JsBox<GribMessage>> {
 
     let offset = offset_js.value(&mut cx) as usize;
 
-    let message = Message::parse(&raw_data, offset).or_else(|err| cx.throw_error(err))?;
+    let message = match Message::from_data(&raw_data, offset) {
+        Some(m) => Ok(m), 
+        None => cx.throw_error("Failed to read GribMessage"),
+    }?;
 
     Ok(cx.boxed(GribMessage { inner: message }))
 }
@@ -212,10 +215,11 @@ fn parse_grib_messages(mut cx: FunctionContext) -> JsResult<JsArray> {
     let mut raw_data: Vec<u8> = vec![0; js_data_slice.len()];
     raw_data.copy_from_slice(js_data_slice);
 
-    let messages = Message::parse_all(&raw_data);
-    let arr = JsArray::new(&mut cx, messages.len() as u32);
+    let messages = read_messages(raw_data.clone());
+    let arr = JsArray::new(&mut cx, messages.count() as u32);
+
+    let messages = read_messages(raw_data);
     messages
-        .into_iter()
         .map(|m| GribMessage { inner: m })
         .enumerate()
         .for_each(|g| {
