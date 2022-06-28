@@ -1,6 +1,6 @@
 # gribberish
 
-Read [GRIB 2](https://en.wikipedia.org/wiki/GRIB) files with Rust. No `C` required.
+Read [GRIB 2](https://en.wikipedia.org/wiki/GRIB) files with Rust.
 
 ## Motivation
 
