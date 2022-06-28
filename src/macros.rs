@@ -1,4 +1,3 @@
-#[macro_use]
 
 #[macro_export]
 macro_rules! unwrap_or_return {

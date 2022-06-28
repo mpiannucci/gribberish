@@ -64,7 +64,7 @@ pub fn read_f64_from_bytes(data: &[u8], offset: usize) -> Option<f64> {
 pub fn read_signed_from_bytes(data: &[u8], offset: usize) -> Option<i32> {
     let mut bits = bit_array_from_bytes(&data[offset..offset + 4]);
 
-    let mut is_negative = false;
+    let is_negative;
     if bits[0] == 1 {
         bits[0] = 0;
         is_negative = true;

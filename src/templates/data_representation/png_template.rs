@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::{templates::template::{Template, TemplateType}, utils::{bits_to_bytes, grib_power, read_f32_from_bytes, read_i16_from_bytes, read_u16_from_bytes, read_u32_from_bytes}};
+use crate::{templates::template::{Template, TemplateType}, utils::{bits_to_bytes, grib_power, read_f32_from_bytes, read_i16_from_bytes, read_u16_from_bytes}};
 use super::{DataRepresentationTemplate, tables::OriginalFieldValue};
 use png::Decoder;
 

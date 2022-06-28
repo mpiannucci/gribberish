@@ -646,7 +646,7 @@ pub enum MRMSCompositeReflectivityProduct {
 	#[description = "Layer Composite Reflectivity Mosaic 0-24kft (low altitude)"]
 	#[abbrev = "LayerCompositeReflectivity_Low"]
 	#[unit = "dBZ"]
-	LayerCompositeReflectivity_Low = 4,
+	LayerCompositeReflectivityLow = 4,
 	#[description = "Layer Composite Reflectivity Mosaic 24-60kft (highest altitude)"]
 	#[abbrev = "LayerCompositeReflectivity_High"]
 	#[unit = "dBZ"]
@@ -658,11 +658,11 @@ pub enum MRMSCompositeReflectivityProduct {
 	#[description = "Composite Reflectivity Hourly Maximum"]
 	#[abbrev = "CREF_1HR_MAX"]
 	#[unit = "dBZ"]
-	CREF_1HR_MAX = 7,
+	CREF1HRMAX = 7,
 	#[description = "Base Reflectivity Hourly Maximum"]
 	#[abbrev = "BREF_1HR_MAX"]
 	#[unit = "dBZ"]
-	BREF_1HR_MAX = 10,
+	BREF1HRMAX = 10,
 }
 
 #[repr(u8)]

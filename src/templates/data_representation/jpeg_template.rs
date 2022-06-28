@@ -1,9 +1,8 @@
 use crate::{templates::template::{Template, TemplateType}, utils::{grib_power, extract_jpeg_data}};
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::{CompressionType, OriginalFieldValue};
-use crate::utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes, bits_to_bytes};
-use std::{convert::TryInto, ops::Range, ptr::null_mut};
-use std::io::BufReader;
+use crate::utils::{read_f32_from_bytes, read_i16_from_bytes, bits_to_bytes};
+use std::ops::Range;
 
 pub struct JPEGDataRepresentationTemplate {
     data: Vec<u8>,

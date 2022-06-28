@@ -72,8 +72,8 @@ impl DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTempla
 
         let bit_start_index: usize = 32 - bits_per_val;
 
-        let mut raw_value: f64 = 0.0;
-		let mut val_bits: [u8; 32] = [0; 32];
+        let mut raw_value: f64;
+		let mut val_bits: [u8; 32];
 		
 		let start_index = range.start * bits_per_val;
 		let end_index = range.end * bits_per_val;
