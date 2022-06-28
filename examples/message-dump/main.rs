@@ -2,7 +2,7 @@ extern crate chrono;
 extern crate gribberish;
 
 use chrono::prelude::*;
-use gribberish::message::Message;
+use gribberish::message::{Message, read_messages};
 use gribberish::templates::product::ProductDiscipline;
 use std::env;
 use std::error::Error;
@@ -27,7 +27,7 @@ fn main() {
         .read_to_end(&mut raw_grib_data)
         .expect("failed to read raw grib2 data");
 
-    let messages = Message::parse_all(raw_grib_data.as_slice());
+    let messages = read_messages(raw_grib_data).collect::<Vec<Message>>();
 
     println!("GRIB2 file read: {}", grib_path);
     println!("Message count: {}", messages.len());

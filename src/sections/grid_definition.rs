@@ -27,14 +27,14 @@ pub enum NumberListInterpretation {
     Missing = 255,
 }
 
-pub struct GridDefinitionSection{
-    data: Vec<u8>,
+pub struct GridDefinitionSection<'a> {
+    data: &'a [u8],
 }
 
-impl GridDefinitionSection {
-    pub fn from_data(data: Vec<u8>) -> GridDefinitionSection {
+impl <'a> GridDefinitionSection<'a> {
+    pub fn from_data(data: &'a [u8]) -> Self {
         GridDefinitionSection {
-            data: data,
+            data,
         }
     }
 
@@ -43,7 +43,7 @@ impl GridDefinitionSection {
     }
 
     pub fn data_point_count(&self) -> usize {
-        read_u32_from_bytes(self.data.as_slice(), 6).unwrap_or(0) as usize
+        read_u32_from_bytes(self.data, 6).unwrap_or(0) as usize
     }
 
     pub fn optional_defining_number(&self) -> u8 {
@@ -55,19 +55,19 @@ impl GridDefinitionSection {
     }
 
     pub fn grid_definition_template_number(&self) -> u16 {
-        read_u16_from_bytes(self.data.as_slice(), 12).unwrap_or(0)
+        read_u16_from_bytes(self.data, 12).unwrap_or(0)
     }
 
-    pub fn grid_definition_template(&self) -> Option<Box<dyn GridDefinitionTemplate>> {
+    pub fn grid_definition_template(&self) -> Option<impl GridDefinitionTemplate> {
         let template_number = self.grid_definition_template_number();
         match template_number {
-            0 => Some(Box::new(LatitudeLongitudeGridTemplate::new(self.data.clone()))),
+            0 => Some(LatitudeLongitudeGridTemplate::new(&self.data)),
             _ => None,
         }
     }
 }
 
-impl GribSection for GridDefinitionSection {
+impl <'a> GribSection for GridDefinitionSection<'a> {
     fn len(&self) -> usize {
         read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
     }

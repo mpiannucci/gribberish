@@ -1,4 +1,4 @@
-use gribberish::message::Message;
+use gribberish::message::{Message, read_messages};
 use numpy::{Ix2, PyArray, PyArray1, PyArray2, PyArray3, PyArrayDyn};
 use pyo3::exceptions::PyTypeError;
 use pyo3::types::PyDateTime;
@@ -124,17 +124,16 @@ impl GribMessage {
 }
 
 #[pyfunction]
-fn parse_grib_message(data: &[u8], offset: usize) -> PyResult<GribMessage> {
-    match Message::parse(data, offset) {
-        Ok(m) => Ok(GribMessage { inner: m }),
-        Err(e) => Err(PyTypeError::new_err(e)),
+fn parse_grib_message<'py>(data: &[u8], offset: usize) -> PyResult<GribMessage> {
+    match Message::from_data(&data.to_vec(), offset) {
+        Some(m) => Ok(GribMessage { inner: m }),
+        None => Err(PyTypeError::new_err("Failed to read GribMessage")),
     }
 }
 
 #[pyfunction]
 fn parse_grib_messages(data: &[u8]) -> PyResult<Vec<GribMessage>> {
-    let messages = Message::parse_all(data)
-        .into_iter()
+    let messages = read_messages(data.to_vec())
         .map(|m| GribMessage { inner: m })
         .collect();
 

@@ -4,14 +4,14 @@ use crate::utils::bit_array_from_bytes;
 use crate::utils::read_u32_from_bytes;
 use super::grib_section::GribSection;
 
-pub struct BitmapSection {
-    data: Vec<u8>,
+pub struct BitmapSection<'a> {
+    data: &'a [u8],
 }
 
-impl BitmapSection {
-    pub fn from_data(data: Vec<u8>) -> BitmapSection {
+impl <'a> BitmapSection<'a> {
+    pub fn from_data(data: &'a [u8]) -> Self {
         BitmapSection {
-            data: data,
+            data,
         }
     }
 
@@ -95,7 +95,7 @@ impl BitmapSection {
     }
 }
 
-impl GribSection for BitmapSection {
+impl <'a> GribSection for BitmapSection<'a> {
     fn len(&self) -> usize {
         read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
     }

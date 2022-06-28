@@ -8,14 +8,14 @@ fn validate_end_section(data: &[u8]) -> bool {
 	}
 }
 
-pub struct EndSection {
-    data: Vec<u8>,
+pub struct EndSection<'a> {
+    data: &'a [u8],
 }
 
-impl EndSection {
-    pub fn from_data(data: Vec<u8>) -> EndSection {
+impl <'a> EndSection<'a> {
+    pub fn from_data(data: &'a [u8]) -> Self {
         EndSection {
-            data: data,
+            data,
         }
     }
 
@@ -28,7 +28,7 @@ impl EndSection {
     }
 }
 
-impl GribSection for EndSection {
+impl <'a> GribSection for EndSection<'a> {
     fn len(&self) -> usize {
         4
     }

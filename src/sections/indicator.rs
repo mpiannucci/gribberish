@@ -22,15 +22,15 @@ pub enum Discipline {
 	Missing = 255,
 }
 
-pub struct IndicatorSection{
-    data: Vec<u8>,
+pub struct IndicatorSection<'a> {
+    data: &'a [u8],
 }
 
-impl IndicatorSection {
+impl <'a> IndicatorSection<'a> {
 
-	pub fn from_data(data: Vec<u8>) -> IndicatorSection {
+	pub fn from_data(data: &'a [u8]) -> Self {
 		IndicatorSection {
-            data: data,
+            data,
 		}
 	}
 
@@ -55,11 +55,11 @@ impl IndicatorSection {
 	}
 
 	pub fn total_length(&self) -> u64 {
-		read_u64_from_bytes(self.data.as_slice(), 8).unwrap_or(0) as u64
+		read_u64_from_bytes(self.data, 8).unwrap_or(0) as u64
 	}
 }
 
-impl GribSection for IndicatorSection {
+impl <'a> GribSection for IndicatorSection<'a> {
     fn len(&self) -> usize {
         16
     }
@@ -75,8 +75,8 @@ mod tests {
 
     #[test]
     fn read_indicator() {
-		let raw = [0x47u8, 0x52, 0x49, 0x42, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb3].to_vec();
-		let indicator = IndicatorSection::from_data(raw);
+		let raw = [0x47u8, 0x52, 0x49, 0x42, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb3];
+		let indicator = IndicatorSection::from_data(&raw);
         assert!(indicator.valid());
 		assert!(indicator.discipline() == Discipline::Meteorological);
 	}
