@@ -5,8 +5,25 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
+use std::collections::HashMap;
 use std::vec::Vec;
 
+pub fn map_messages<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize)> {
+    let message_iter = MessageIterator::from_data (
+        data, 
+        0,
+    );
+
+    message_iter
+        .enumerate()
+        .map(|(index, m)| {
+            match m.variable_abbrev().or(m.parameter_index()) {
+                Ok(var) => (var, (index, m.byte_offset())), 
+                Err(_) => ("unknown".into(), (index, m.byte_offset()))
+            }
+        })
+        .collect()
+}
 
 pub fn read_messages<'a>(data: &'a [u8]) -> MessageIterator<'a> {
     MessageIterator {
@@ -14,6 +31,10 @@ pub fn read_messages<'a>(data: &'a [u8]) -> MessageIterator<'a> {
         offset: 0,
     }
 }
+
+pub fn read_message<'a>(data: &'a [u8], offset: usize) -> Option<Message<'a>> {
+    Message::from_data(data, offset)
+} 
 
 pub struct MessageIterator<'a> {
     data: &'a [u8],
