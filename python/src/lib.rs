@@ -1,3 +1,6 @@
+use std::convert::TryFrom;
+
+use gribberish::data_message::DataMessage;
 use gribberish::message::{Message, read_messages};
 use numpy::{Ix2, PyArray, PyArray1, PyArray2, PyArray3, PyArrayDyn};
 use pyo3::exceptions::PyTypeError;
@@ -8,133 +11,61 @@ use ndarray::array;
 
 #[pyclass]
 struct GribMessage {
-    inner: Message,
+    inner: DataMessage,
 }
 
 #[pymethods]
 impl GribMessage {
     #[getter]
-    fn get_var_name(&self) -> PyResult<String> {
-        match self.inner.variable_name() {
-            Ok(v) => Ok(v),
-            Err(e) => Err(PyTypeError::new_err(e)),
-        }
+    fn get_var_name(&self) -> &str {
+        self.inner.name.as_str()
     }
 
     #[getter]
-    fn get_var_abbrev(&self) -> PyResult<String> {
-        match self.inner.variable_abbrev() {
-            Ok(v) => Ok(v),
-            Err(e) => Err(PyTypeError::new_err(e)),
-        }
+    fn get_var_abbrev(&self) -> &str {
+        self.inner.var.as_str()
     }
 
     #[getter]
-    fn get_units(&self) -> PyResult<String> {
-        match self.inner.unit() {
-            Ok(u) => Ok(u),
-            Err(e) => Err(PyTypeError::new_err(e)),
-        }
+    fn get_units(&self) -> &str {
+        self.inner.units.as_str()
     }
 
     #[getter]
     fn get_forecast_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
-        match self.inner.forecast_date() {
-            Ok(d) => PyDateTime::from_timestamp(py, d.timestamp() as f64, None),
-            Err(e) => Err(PyTypeError::new_err(e)),
-        }
+        PyDateTime::from_timestamp(py, self.inner.forecast_date.timestamp() as f64, None)
     }
 
     #[getter]
     fn get_reference_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
-        match self.inner.reference_date() {
-            Ok(d) => PyDateTime::from_timestamp(py, d.timestamp() as f64, None),
-            Err(e) => Err(PyTypeError::new_err(e)),
-        }
-    }
-
-    #[getter]
-    fn get_array_index(&self) -> PyResult<Option<usize>> {
-        match self.inner.array_index() {
-            Ok(i) => Ok(i),
-            Err(e) => Err(PyTypeError::new_err(e)),
-        }
-    }
-
-    #[getter]
-    fn get_region(&self) -> PyResult<((f64, f64), (f64, f64))> {
-        match self.inner.location_region() {
-            Ok(i) => Ok(i),
-            Err(e) => Err(PyTypeError::new_err(e)),
-        }
-    }
-
-    #[getter]
-    fn get_grid_shape(&self) -> PyResult<(usize, usize)> {
-        match self.inner.location_grid_dimensions() {
-            Ok(i) => Ok(i),
-            Err(e) => Err(PyTypeError::new_err(e)),
-        }
-    }
-
-    fn location_data_index(&self, lat: f64, lon: f64) -> PyResult<usize> {
-        match self.inner.data_index_for_location(&(lat, lon)) {
-            Ok(u) => Ok(u),
-            Err(e) => Err(PyTypeError::new_err(e)),
-        }
-    }
-
-    fn location_data_indices(&self, lat: f64, lon: f64) -> PyResult<(usize, usize)> {
-        match self.inner.data_indices_for_location(&(lat, lon)) {
-            Ok(u) => Ok(u),
-            Err(e) => Err(PyTypeError::new_err(e)),
-        }
-    }
-
-    fn raw_data_array<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        let data = self.inner.data().unwrap();
-        PyArray1::from_vec(py, data)
-    }
-
-    fn data_at_location(&self, lat: f64, lon: f64) -> PyResult<f64> {
-        match self.inner.data_at_location(&(lat, lon)) {
-            Ok(u) => Ok(u),
-            Err(_) => Ok(f64::NAN),
-        }
+        PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
     }
 
     fn data<'py>(&self, py: Python<'py>) -> &'py PyArray<f64, Ix2> {
-        let data = self.inner.data_grid().unwrap();
-        PyArray::from_vec2(py, &data).unwrap()
+        PyArray::from_vec2(py, &self.inner.data).unwrap()
     }
 
     fn latitudes<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        let latitudes: Vec<f64> = self.inner
-            .latitudes()
-            .unwrap();
-        PyArray::from_vec(py, latitudes)
+        PyArray::from_slice(py, &self.inner.latitude)
     }
 
     fn longitudes<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        let longitudes: Vec<f64> = self.inner
-            .longitudes()
-            .unwrap();
-        PyArray::from_vec(py, longitudes)
+        PyArray::from_slice(py, &self.inner.longitude)
     }
 }
 
 #[pyfunction]
 fn parse_grib_message<'py>(data: &[u8], offset: usize) -> PyResult<GribMessage> {
     match Message::from_data(&data.to_vec(), offset) {
-        Some(m) => Ok(GribMessage { inner: m }),
+        Some(m) => Ok(GribMessage { inner: DataMessage::try_from(m).unwrap() }),
         None => Err(PyTypeError::new_err("Failed to read GribMessage")),
     }
 }
 
 #[pyfunction]
 fn parse_grib_messages(data: &[u8]) -> PyResult<Vec<GribMessage>> {
-    let messages = read_messages(data.to_vec())
-        .map(|m| GribMessage { inner: m })
+    let messages = read_messages(data)
+        .map(|m| GribMessage { inner: DataMessage::try_from(m).unwrap() })
         .collect();
 
     Ok(messages)
