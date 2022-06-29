@@ -1,22 +1,23 @@
-use gribberish::message::{Message, read_messages};
+use std::convert::TryFrom;
+
+use gribberish::{message::{Message, read_messages}, data_message::DataMessage};
 use neon::{prelude::*, types::JsDate};
 
-struct GribMessage<'a> {
-    inner: Message<'a>,
+struct GribMessage {
+    inner: DataMessage,
 }
 
-impl <'a> Finalize for GribMessage<'a> {}
+impl Finalize for GribMessage {}
 
-impl <'a> GribMessage<'a> {
+impl GribMessage {
     fn get_var_name(mut cx: FunctionContext) -> JsResult<JsString> {
         let message = cx
             .this()
             .downcast_or_throw::<JsBox<GribMessage>, _>(&mut cx)?;
 
-        let var_name = message
+        let var_name = &message
             .inner
-            .variable_name()
-            .or_else(|err| cx.throw_error(err))?;
+            .name;
 
         Ok(cx.string(var_name))
     }
@@ -26,10 +27,9 @@ impl <'a> GribMessage<'a> {
             .this()
             .downcast_or_throw::<JsBox<GribMessage>, _>(&mut cx)?;
 
-        let var_abbrev = message
+        let var_abbrev = &message
             .inner
-            .variable_abbrev()
-            .or_else(|err| cx.throw_error(err))?;
+            .var;
 
         Ok(cx.string(var_abbrev))
     }
@@ -39,7 +39,7 @@ impl <'a> GribMessage<'a> {
             .this()
             .downcast_or_throw::<JsBox<GribMessage>, _>(&mut cx)?;
 
-        let units = message.inner.unit().or_else(|err| cx.throw_error(err))?;
+        let units = &message.inner.units;
 
         Ok(cx.string(units))
     }
@@ -51,8 +51,7 @@ impl <'a> GribMessage<'a> {
 
         let array_index = message
             .inner
-            .array_index()
-            .or_else(|err| cx.throw_error(err))?;
+            .array_index;
 
         match array_index {
             Some(array_index) => Ok(cx.number(array_index as u32)),
@@ -60,42 +59,12 @@ impl <'a> GribMessage<'a> {
         }
     }
 
-    fn get_region(mut cx: FunctionContext) -> JsResult<JsObject> {
-        let message = cx
-            .this()
-            .downcast_or_throw::<JsBox<GribMessage>, _>(&mut cx)?;
-
-        let region = message
-            .inner
-            .location_region()
-            .or_else(|err| cx.throw_error(err))?;
-
-        let region_obj = cx.empty_object();
-
-        let top_left_obj = cx.empty_object();
-        let top_left_lat = cx.number(region.0 .0);
-        let top_left_lon = cx.number(region.0 .1);
-        top_left_obj.set(&mut cx, "lat", top_left_lat)?;
-        top_left_obj.set(&mut cx, "lon", top_left_lon)?;
-        region_obj.set(&mut cx, "topLeft", top_left_obj)?;
-
-        let bottom_right_obj = cx.empty_object();
-        let bottom_right_lat = cx.number(region.1 .0);
-        let bottom_right_lon = cx.number(region.1 .1);
-        bottom_right_obj.set(&mut cx, "lat", bottom_right_lat)?;
-        bottom_right_obj.set(&mut cx, "lon", bottom_right_lon)?;
-        region_obj.set(&mut cx, "bottomRight", bottom_right_obj)?;
-
-        Ok(region_obj)
-    }
-
     fn get_forecast_date(mut cx: FunctionContext) -> JsResult<JsDate> {
         let message = cx
             .this()
             .downcast_or_throw::<JsBox<GribMessage>, _>(&mut cx)?;
 
-        let date = message.inner.forecast_date()
-            .or_else(|err| cx.throw_error(err))?;
+        let date = message.inner.forecast_date;
         
         let timestamp = date.timestamp_millis() as f64;
         JsDate::new(&mut cx, timestamp)
@@ -107,8 +76,7 @@ impl <'a> GribMessage<'a> {
             .this()
             .downcast_or_throw::<JsBox<GribMessage>, _>(&mut cx)?;
 
-        let date = message.inner.reference_date()
-            .or_else(|err| cx.throw_error(err))?;
+        let date = message.inner.reference_date;
         
         let timestamp = date.timestamp_millis() as f64;
         JsDate::new(&mut cx, timestamp)
@@ -122,8 +90,7 @@ impl <'a> GribMessage<'a> {
 
         let shape = message
             .inner
-            .location_grid_dimensions()
-            .or_else(|err| cx.throw_error(err))?;
+            .grid_shape();
 
         let shape_obj = cx.empty_object();
         let rows = cx.number(shape.0 as u32);
@@ -139,7 +106,7 @@ impl <'a> GribMessage<'a> {
             .this()
             .downcast_or_throw::<JsBox<GribMessage>, _>(&mut cx)?;
 
-        let data = message.inner.data().unwrap();
+        let data = message.inner.flattened_data();
 
         let buffer_size = (data.len() as u32) * 8;
 
@@ -148,45 +115,13 @@ impl <'a> GribMessage<'a> {
         js_data
             .borrow_mut(&guard)
             .as_mut_slice::<f64>()
-            .copy_from_slice(&data);
+            .copy_from_slice(data.as_slice());
 
         Ok(js_data)
     }
-
-    fn get_data_at_location(mut cx: FunctionContext) -> JsResult<JsNumber> {
-        let message = cx
-            .this()
-            .downcast_or_throw::<JsBox<GribMessage>, _>(&mut cx)?;
-
-        let lat = cx.argument::<JsNumber>(0)?.value(&mut cx);
-        let lon = cx.argument::<JsNumber>(1)?.value(&mut cx);
-
-        let data = message
-            .inner
-            .data_at_location(&(lat, lon))
-            .unwrap_or(f64::NAN);
-
-        Ok(cx.number(data))
-    }
-
-    fn get_location_data_index(mut cx: FunctionContext) -> JsResult<JsNumber> {
-        let message = cx
-            .this()
-            .downcast_or_throw::<JsBox<GribMessage>, _>(&mut cx)?;
-
-        let lat = cx.argument::<JsNumber>(0)?.value(&mut cx);
-        let lon = cx.argument::<JsNumber>(1)?.value(&mut cx);
-
-        let index = message
-            .inner
-            .data_index_for_location(&(lat, lon))
-            .or_else(|err| cx.throw_error(err))?;
-
-        Ok(cx.number(index as u32))
-    }
 }
 
-fn parse_grib_message<'a>(mut cx: FunctionContext) -> JsResult<JsBox<GribMessage<'a>>> {
+fn parse_grib_message<'a>(mut cx: FunctionContext) -> JsResult<JsBox<GribMessage>> {
     let raw_js_data: Handle<JsBuffer> = cx.argument(0)?;
     let offset_js: Handle<JsNumber> = cx.argument(1)?;
 
@@ -203,7 +138,7 @@ fn parse_grib_message<'a>(mut cx: FunctionContext) -> JsResult<JsBox<GribMessage
         None => cx.throw_error("Failed to read GribMessage"),
     }?;
 
-    Ok(cx.boxed(GribMessage { inner: message }))
+    Ok(cx.boxed(GribMessage { inner: DataMessage::try_from(message).unwrap() }))
 }
 
 fn parse_grib_messages<'a>(mut cx: FunctionContext) -> JsResult<JsArray> {
@@ -220,7 +155,7 @@ fn parse_grib_messages<'a>(mut cx: FunctionContext) -> JsResult<JsArray> {
 
     let messages = read_messages(raw_data.as_slice());
     messages
-        .map(|m| GribMessage { inner: m })
+        .map(|m| GribMessage { inner: DataMessage::try_from(m).unwrap() })
         .enumerate()
         .for_each(|g| {
             let boxed = cx.boxed(g.1).as_value(&mut cx);
@@ -239,13 +174,10 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("gribMessageGetVarAbbrev", GribMessage::get_var_abbrev)?;
     cx.export_function("gribMessageGetUnits", GribMessage::get_units)?;
     cx.export_function("gribMessageGetArrayIndex", GribMessage::get_array_index)?;
-    cx.export_function("gribMessageGetRegion", GribMessage::get_region)?;
     cx.export_function("gribMessageGetGridShape", GribMessage::get_grid_shape)?;
     cx.export_function("gribMessageGetForecastDate", GribMessage::get_forecast_date)?;
     cx.export_function("gribMessageGetReferenceDate", GribMessage::get_reference_date)?;
     cx.export_function("gribMessageGetData", GribMessage::get_data)?;
-    cx.export_function("gribMessageGetDataAtLocation", GribMessage::get_data_at_location)?;
-    cx.export_function("gribMessageGetLocationDataIndex", GribMessage::get_location_data_index)?;
 
     Ok(())
 }

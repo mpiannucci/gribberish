@@ -32,6 +32,11 @@ impl GribMessage {
     }
 
     #[getter]
+    fn get_array_index(&self) -> Option<usize> {
+        self.inner.array_index
+    }
+
+    #[getter]
     fn get_forecast_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
         PyDateTime::from_timestamp(py, self.inner.forecast_date.timestamp() as f64, None)
     }
