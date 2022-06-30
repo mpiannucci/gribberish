@@ -3,3 +3,4 @@ target/
 *.so
 *__pycache__/
 env/
+*.png
