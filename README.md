@@ -11,7 +11,7 @@ See [`node`](node/README.md) for usage with `nodejs`
 Add the package in `Cargo.toml` unser `[dependencies]`:
 
 ```toml
-gribberish = { git = "https://github.com/mpiannucci/gribberish"
+gribberish = { git = "https://github.com/mpiannucci/gribberish" }
 ```
 
 See [read.rs](tests/read.rs) for example usage for simple reading, or [message-dump](examples/message-dump/main.rs) for an example of dumping grib metadata to stdout. 
