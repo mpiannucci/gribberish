@@ -1,7 +1,8 @@
 import os
+import numpy as np
 import xarray as xr
 
-import gribberish
+from .gribberish import parse_grib_mapping, parse_grib_message
 from xarray.backends import BackendEntrypoint
 
 
@@ -11,9 +12,11 @@ def read_binary_data(filename: str):
 
 
 def extract_variable_data(grib_message):
+    data = np.expand_dims(grib_message.data, axis=0)
+
     return (
         ['time', 'lat', 'lon'],
-        grib_message.data(), 
+        data, 
         {
             'standard_name': grib_message.var_abbrev, 
             'long_name': grib_message.var_name,
@@ -41,7 +44,7 @@ class GribberishBackend(BackendEntrypoint):
 
         # Read the message mapping from the metadata that gives the byte offset for
         # each variables message
-        var_mapping = gribberish.parse_grib_mapping(raw_data)
+        var_mapping = parse_grib_mapping(raw_data)
 
         # If there are variabels specified to drop, do so now
         if drop_variables:
@@ -49,16 +52,31 @@ class GribberishBackend(BackendEntrypoint):
                 var_mapping.pop(var, None)
 
         # Extract each variables metadata
-        data_vars = {var: extract_variable_data(gribberish.read_grib_message(
+        data_vars = {var: extract_variable_data(parse_grib_message(
             raw_data, lookup[1])) for (var, lookup) in var_mapping}
 
         # Get the coordinate arrays
         # TODO: This can be optimized
-        first_message = gribberish.read_grib_message(raw_data, var_mapping.values()[0][1])
+        first_message = parse_grib_message(raw_data, var_mapping.values()[0][1])
         coords = {
-            'time': (['time'], [first_message.forecast_date]),
-            'lat': (['lat'], first_message.latitudes()), 
-            'lon': (['lon'], first_message.longitudes()),
+            'time': (['time'], [first_message.forecast_date], {
+                'standard_name': 'time', 
+                'long_name': 'time',
+                'units': 'seconds since 2010-01-01 00:00:00',
+                'axis': 'T'
+            }),
+            'lat': (['lat'], first_message.latitudes(), {
+                'standard_name': 'latitude',
+                'long_name': 'latitude',
+                'units': 'degrees_north', 
+                'axis': 'Y'
+            }), 
+            'lon': (['lon'], first_message.longitudes(), {
+                'standard_name': 'longitude', 
+                'long_name': 'longitude',
+                'units': 'degrees_east', 
+                'axis': 'X'
+            }),
         }
 
         # Finally put it all together and create the xarray dataset

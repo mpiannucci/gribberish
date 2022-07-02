@@ -1,3 +1,5 @@
 numpy 
 matplotlib
-rasterio
+xarray
+rio_xarray
+cf_xarray

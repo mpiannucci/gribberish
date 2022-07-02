@@ -9,4 +9,7 @@ setup(
     include_package_data=True,
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,
+     entry_points={
+        "xarray.backends": ["gribberish=gribberish.gribberish_backend:GribberishBackend"],
+    },
 )
