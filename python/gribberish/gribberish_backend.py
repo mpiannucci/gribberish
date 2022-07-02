@@ -12,7 +12,7 @@ def read_binary_data(filename: str):
 
 
 def extract_variable_data(grib_message):
-    data = np.expand_dims(grib_message.data, axis=0)
+    data = np.expand_dims(grib_message.data(), axis=0)
 
     return (
         ['time', 'lat', 'lon'],
@@ -53,11 +53,11 @@ class GribberishBackend(BackendEntrypoint):
 
         # Extract each variables metadata
         data_vars = {var: extract_variable_data(parse_grib_message(
-            raw_data, lookup[1])) for (var, lookup) in var_mapping}
+            raw_data, lookup[1])) for (var, lookup) in var_mapping.items()}
 
         # Get the coordinate arrays
         # TODO: This can be optimized
-        first_message = parse_grib_message(raw_data, var_mapping.values()[0][1])
+        first_message = parse_grib_message(raw_data, list(var_mapping.values())[0][1])
         coords = {
             'time': (['time'], [first_message.forecast_date], {
                 'standard_name': 'time', 
