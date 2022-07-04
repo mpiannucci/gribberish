@@ -4,3 +4,5 @@ target/
 *__pycache__/
 env/
 *.png
+.ipynb_checkpoints
+*.ipynb
