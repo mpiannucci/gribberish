@@ -243,7 +243,7 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
 
 impl <'a> GridDefinitionTemplate<'a> for LatitudeLongitudeGridTemplate<'a> {
     fn proj_string(&self) -> String {
-        format!("+proj=latlon +a=6367470 +b=6367470 +units=degrees")
+        format!("+proj=latlon +a=6367470 +b=6367470")
     }
 
     fn grid_point_count(&self) -> usize {
