@@ -47,6 +47,11 @@ impl GribMessage {
         PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
     }
 
+    #[getter]
+    fn proj(&self) -> &str {
+        self.inner.proj.as_str()
+    }
+
     fn data<'py>(&self, py: Python<'py>) -> &'py PyArray<f64, Ix2> {
         PyArray::from_vec2(py, &self.inner.data).unwrap()
     }

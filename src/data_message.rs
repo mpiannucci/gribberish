@@ -9,6 +9,7 @@ pub struct DataMessage {
     pub array_index: Option<usize>, 
     pub forecast_date: DateTime<Utc>,
     pub reference_date: DateTime<Utc>, 
+    pub proj: String,
     pub latitude: Vec<f64>, 
     pub longitude: Vec<f64>,
     pub data: Vec<Vec<f64>>
@@ -35,6 +36,7 @@ impl <'a> TryFrom<Message<'a>> for DataMessage {
             array_index: message.array_index()?,
             forecast_date: message.forecast_date()?, 
             reference_date: message.reference_date()?, 
+            proj: message.proj_string()?,
             latitude: message.latitudes()?, 
             longitude: message.longitudes()?, 
             data: message.data_grid()?,

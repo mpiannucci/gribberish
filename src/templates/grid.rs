@@ -5,6 +5,7 @@ use std::iter::Iterator;
 use std::vec::Vec;
 
 pub trait GridDefinitionTemplate<'a> {
+    fn proj_string(&self) -> String;
     fn grid_point_count(&self) -> usize;
     fn start(&self) -> (f64, f64);
     fn origin(&self) -> (f64, f64);
@@ -241,6 +242,10 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
 }
 
 impl <'a> GridDefinitionTemplate<'a> for LatitudeLongitudeGridTemplate<'a> {
+    fn proj_string(&self) -> String {
+        format!("+proj=latlon +a=6367470 +b=6367470 +units=degrees")
+    }
+
     fn grid_point_count(&self) -> usize {
         (self.parallel_point_count() * self.meridian_point_count()) as usize
     }

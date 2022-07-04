@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import xarray as xr
+import rasterio.crs as rio_crs
 
 from .gribberish import parse_grib_mapping, parse_grib_message
 from xarray.backends import BackendEntrypoint
@@ -79,12 +80,15 @@ class GribberishBackend(BackendEntrypoint):
             }),
         }
 
+        crs = rio_crs.CRS.from_proj4(first_message.proj)
+
         # Finally put it all together and create the xarray dataset
         return xr.Dataset(
             data_vars=data_vars,
             coords=coords,
             attrs={
-                'meta': 'created with gribberish'
+                'meta': 'created with gribberish',
+                'crs': crs,
             }
         )
 
