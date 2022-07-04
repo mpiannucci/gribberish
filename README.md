@@ -2,7 +2,7 @@
 
 Read [GRIB 2](https://en.wikipedia.org/wiki/GRIB) files with Rust.
 
-See [`python`](python/README.md) for usage with `python`
+See [`python`](python/README.md) for usage with `python` and `xarray`
 
 See [`node`](node/README.md) for usage with `nodejs`
 

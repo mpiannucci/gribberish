@@ -14,6 +14,7 @@ def read_binary_data(filename: str):
 
 def extract_variable_data(grib_message):
     data = np.expand_dims(grib_message.data(), axis=0)
+    crs = rio_crs.CRS.from_proj4(grib_message.proj)
 
     return (
         ['time', 'lat', 'lon'],
@@ -22,6 +23,7 @@ def extract_variable_data(grib_message):
             'standard_name': grib_message.var_abbrev, 
             'long_name': grib_message.var_name,
             'units': grib_message.units, 
+            'crs': crs, 
         }
     )
 
@@ -80,15 +82,12 @@ class GribberishBackend(BackendEntrypoint):
             }),
         }
 
-        crs = rio_crs.CRS.from_proj4(first_message.proj)
-
         # Finally put it all together and create the xarray dataset
         return xr.Dataset(
             data_vars=data_vars,
             coords=coords,
             attrs={
                 'meta': 'created with gribberish',
-                'crs': crs,
             }
         )
 
