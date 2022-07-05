@@ -16,6 +16,20 @@ gribberish = { git = "https://github.com/mpiannucci/gribberish" }
 
 See [read.rs](tests/read.rs) for example usage for simple reading, or [message-dump](examples/message-dump/main.rs) for an example of dumping grib metadata to stdout. 
 
+## Building
+
+Download the vendored `spec` dependencies: 
+
+```bash
+git submodule update --init
+```
+
+Then build normally
+
+```bash
+cargo build
+```
+
 ## License
 
 [MIT](LICENSE) -  2022 Matthew Iannucci
