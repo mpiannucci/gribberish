@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 
+use core::num::dec2flt::parse;
 use std::collections::HashMap; 
 use std::sync::RwLock;
 
@@ -38,16 +39,36 @@ pub fn to_lookup_id(discipline: u8, category: u8, parameter: u8) -> String {
 
 #[derive(Clone, Debug)]
 pub struct Parameter {
-    discipline: u8, 
-    category: u8, 
-    parameter: u8, 
-    name: String, 
-    description: String, 
-    units: String, 
+    pub discipline: u8, 
+    pub category: u8, 
+    pub parameter: u8, 
+    pub name: String, 
+    pub description: String, 
+    pub units: String, 
 }
 
 impl Parameter {
     pub fn id(&self) -> String {
         to_lookup_id(self.discipline, self.category, self.parameter)
     }
+}
+
+pub fn parse_wmo_parameters(data: &str) -> Result<HashMap<String, Parameter>, String> {
+    let mut reader = csv::Reader::from_reader(data.as_bytes());
+    let mut parameters = HashMap::new();
+
+    for record in reader.records() {
+        if let Ok(record) = record {
+            let cols: Vec<&str> = record.iter().collect();
+
+            let codeflag: u8 = cols[2].parse().map_err(|e| format!("Failed to parse codeflag"))?;
+
+            // let parameter = Parameter {
+                
+            // };
+            // parameters.insert(parameter.id(), parameter);
+        }
+    }
+
+    Ok(parameters)
 }
