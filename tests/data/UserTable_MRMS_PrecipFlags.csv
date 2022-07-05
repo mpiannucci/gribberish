@@ -1,0 +1,10 @@
+Flag,Description
+-3,no coverage
+0,no precipitation
+1,warm stratiform rain
+3,snow
+6,convective rain
+7,rain mixed with hail
+10,cold stratiform rain
+91,tropical/stratiform rain mix
+96,tropical/convective rain mix
