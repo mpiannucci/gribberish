@@ -5,4 +5,3 @@ target/
 env/
 *.png
 .ipynb_checkpoints
-*.ipynb
