@@ -237,6 +237,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { sum } = nativeBinding
+const { GribMessage, parseMessagesFromBuffer } = nativeBinding
 
-module.exports.sum = sum
+module.exports.GribMessage = GribMessage
+module.exports.parseMessagesFromBuffer = parseMessagesFromBuffer
