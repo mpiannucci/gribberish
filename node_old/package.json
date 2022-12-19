@@ -1,0 +1,26 @@
+{
+  "name": "gribberish-node",
+  "version": "0.10.0",
+  "description": "Read GRIB2 files with node",
+  "main": "./index",
+  "scripts": {
+    "build": "cargo-cp-artifact -nc index.node -- cargo build --message-format=json-render-diagnostics",
+    "build-debug": "npm run build --",
+    "build-release": "npm run build -- --release",
+    "install": "npm run build-release",
+    "test": "cargo test"
+  },
+  "author": "Matthew Iannucci",
+  "license": "ISC",
+  "devDependencies": {
+    "cargo-cp-artifact": "^0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mpiannucci/gribberish.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mpiannucci/gribberish/issues"
+  },
+  "homepage": "https://github.com/mpiannucci/gribberish#readme"
+}

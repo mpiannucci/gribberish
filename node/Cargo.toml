@@ -1,21 +1,18 @@
 [package]
-name = "gribberish-node"
-version = "0.9.0"
-description = "Read GRIB2 files with node"
-authors = ["Matthew Iannucci"]
-license = "ISC"
-edition = "2018"
-exclude = ["index.node"]
+edition = "2021"
+name = "gribberish"
+version = "0.0.0"
 
 [lib]
 crate-type = ["cdylib"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-gribberish = { path = "../" }
+# Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
+napi = { version = "2.5.0", default-features = false, features = ["napi4"] }
+napi-derive = "2.5.0"
 
-[dependencies.neon]
-version = "0.9"
-default-features = false
-features = ["napi-6"]
+[build-dependencies]
+napi-build = "2.0.1"
+
+[profile.release]
+lto = true
