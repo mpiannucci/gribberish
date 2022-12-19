@@ -1,5 +1,6 @@
 pub trait GridDefinitionTemplate<'a> {
     fn proj_string(&self) -> String;
+    fn crs(&self) -> String;
     fn grid_point_count(&self) -> usize;
     fn start(&self) -> (f64, f64);
     fn origin(&self) -> (f64, f64);

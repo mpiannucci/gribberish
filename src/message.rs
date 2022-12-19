@@ -9,44 +9,35 @@ use std::collections::HashMap;
 use std::vec::Vec;
 
 pub fn map_messages<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize)> {
-    let message_iter = MessageIterator::from_data (
-        data, 
-        0,
-    );
+    let message_iter = MessageIterator::from_data(data, 0);
 
     message_iter
         .enumerate()
-        .map(|(index, m)| {
-            match m.variable_abbrev().or(m.parameter_index()) {
-                Ok(var) => (var, (index, m.byte_offset())), 
-                Err(_) => ("unknown".into(), (index, m.byte_offset()))
-            }
-        })
+        .map(
+            |(index, m)| match m.variable_abbrev().or(m.parameter_index()) {
+                Ok(var) => (var, (index, m.byte_offset())),
+                Err(_) => ("unknown".into(), (index, m.byte_offset())),
+            },
+        )
         .collect()
 }
 
 pub fn read_messages<'a>(data: &'a [u8]) -> MessageIterator<'a> {
-    MessageIterator {
-        data, 
-        offset: 0,
-    }
+    MessageIterator { data, offset: 0 }
 }
 
 pub fn read_message<'a>(data: &'a [u8], offset: usize) -> Option<Message<'a>> {
     Message::from_data(data, offset)
-} 
+}
 
 pub struct MessageIterator<'a> {
     data: &'a [u8],
     offset: usize,
 }
 
-impl <'a> MessageIterator<'a> {
+impl<'a> MessageIterator<'a> {
     pub fn from_data(data: &'a [u8], offset: usize) -> Self {
-        MessageIterator {
-            data, 
-            offset
-        }
+        MessageIterator { data, offset }
     }
 
     pub fn current_offset(&self) -> usize {
@@ -54,22 +45,22 @@ impl <'a> MessageIterator<'a> {
     }
 }
 
-impl <'a> Iterator for MessageIterator<'a> {
+impl<'a> Iterator for MessageIterator<'a> {
     type Item = Message<'a>;
 
-    fn next(&mut self) -> std::option::Option<<Self as std::iter::Iterator>::Item> {  
+    fn next(&mut self) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
         if self.offset >= self.data.len() {
             return None;
         }
 
         match Message::from_data(&self.data, self.offset) {
             Some(m) => {
-                self.offset += m.len(); 
+                self.offset += m.len();
                 Some(m)
-            }, 
+            }
             None => None,
         }
-    } 
+    }
 }
 
 pub struct Message<'a> {
@@ -77,18 +68,15 @@ pub struct Message<'a> {
     offset: usize,
 }
 
-impl <'a> Message<'a> {
+impl<'a> Message<'a> {
     pub fn from_data(data: &'a [u8], offset: usize) -> Option<Message> {
-        let mut sections = SectionIterator {
-            data: data, 
-            offset,
-        };
+        let mut sections = SectionIterator { data: data, offset };
 
         match sections.next() {
             Some(Section::Indicator(i)) => Some(Message {
                 data: &data,
                 offset: offset,
-            }), 
+            }),
             _ => None,
         }
     }
@@ -103,7 +91,7 @@ impl <'a> Message<'a> {
 
     pub fn sections(&self) -> SectionIterator {
         SectionIterator {
-            data: self.data, 
+            data: self.data,
             offset: self.offset,
         }
     }
@@ -355,6 +343,23 @@ impl <'a> Message<'a> {
         Ok(grid_template.proj_string())
     }
 
+    pub fn crs(&self) -> Result<String, String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        Ok(grid_template.crs())
+    }
+
     pub fn location_region(&self) -> Result<((f64, f64), (f64, f64)), String> {
         let grid_definition = unwrap_or_return!(
             self.sections().find_map(|s| match s {
@@ -407,7 +412,7 @@ impl <'a> Message<'a> {
         );
 
         Ok((
-            grid_template.latitude_resolution(), 
+            grid_template.latitude_resolution(),
             grid_template.longitude_resolution(),
         ))
     }
@@ -511,7 +516,7 @@ impl <'a> Message<'a> {
         });
 
         match bitmap_section {
-            Some(b) => b.has_bitmap(), 
+            Some(b) => b.has_bitmap(),
             None => false,
         }
     }
@@ -626,5 +631,3 @@ impl <'a> Message<'a> {
         Ok(grid_template.location_grid())
     }
 }
-
-

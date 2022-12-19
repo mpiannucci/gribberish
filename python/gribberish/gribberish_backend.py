@@ -1,9 +1,8 @@
 import os
 import numpy as np
 import xarray as xr
-import rasterio.crs as rio_crs
 
-from .gribberish import parse_grib_mapping, parse_grib_message
+from .gribberishpy import parse_grib_mapping, parse_grib_message
 from xarray.backends import BackendEntrypoint
 
 
@@ -14,16 +13,16 @@ def read_binary_data(filename: str):
 
 def extract_variable_data(grib_message):
     data = np.expand_dims(grib_message.data(), axis=0)
-    crs = rio_crs.CRS.from_proj4(grib_message.proj)
 
+    crs = grib_message.crs
     return (
         ['time', 'lat', 'lon'],
-        data, 
+        data,
         {
-            'standard_name': grib_message.var_abbrev, 
+            'standard_name': grib_message.var_abbrev,
             'long_name': grib_message.var_name,
-            'units': grib_message.units, 
-            'crs': crs, 
+            'units': grib_message.units,
+            'crs': crs,
         }
     )
 
@@ -45,8 +44,8 @@ class GribberishBackend(BackendEntrypoint):
     ):
         raw_data = read_binary_data(filename_or_obj)
 
-        # Read the message mapping from the metadata that gives the byte offset for
-        # each variables message
+        # Read the message mapping from the metadata that gives the byte offset
+        # for each variables message
         var_mapping = parse_grib_mapping(raw_data)
 
         # If there are variabels specified to drop, do so now
@@ -60,10 +59,14 @@ class GribberishBackend(BackendEntrypoint):
 
         # Get the coordinate arrays
         # TODO: This can be optimized
-        first_message = parse_grib_message(raw_data, list(var_mapping.values())[0][1])
+        first_message = parse_grib_message(
+            raw_data,
+            list(var_mapping.values())[0][1]
+        )
+
         coords = {
             'time': (['time'], [first_message.forecast_date], {
-                'standard_name': 'time', 
+                'standard_name': 'time',
                 'long_name': 'time',
                 'units': 'seconds since 2010-01-01 00:00:00',
                 'axis': 'T'
@@ -71,13 +74,13 @@ class GribberishBackend(BackendEntrypoint):
             'lat': (['lat'], first_message.latitudes(), {
                 'standard_name': 'latitude',
                 'long_name': 'latitude',
-                'units': 'degrees_north', 
+                'units': 'degrees_north',
                 'axis': 'Y'
-            }), 
+            }),
             'lon': (['lon'], first_message.longitudes(), {
-                'standard_name': 'longitude', 
+                'standard_name': 'longitude',
                 'long_name': 'longitude',
-                'units': 'degrees_east', 
+                'units': 'degrees_east',
                 'axis': 'X'
             }),
         }

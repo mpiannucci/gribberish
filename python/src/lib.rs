@@ -51,6 +51,11 @@ impl GribMessage {
         self.inner.proj.as_str()
     }
 
+    #[getter]
+    fn crs(&self) -> &str {
+        self.inner.crs.as_str()
+    }
+
     fn data<'py>(&self, py: Python<'py>) -> &'py PyArray<f64, Ix2> {
         PyArray::from_vec2(py, &self.inner.data).unwrap()
     }
@@ -87,7 +92,7 @@ fn parse_grib_mapping(data: &[u8]) -> HashMap<String, (usize, usize)> {
 }
 
 #[pymodule]
-fn gribberish(py: Python, m: &PyModule) -> PyResult<()> {
+fn gribberishpy(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<GribMessage>()?;
     m.add_function(wrap_pyfunction!(parse_grib_message, m)?)?;
     m.add_function(wrap_pyfunction!(parse_grib_messages, m)?)?;

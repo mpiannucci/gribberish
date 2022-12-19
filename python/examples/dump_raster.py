@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 
 def read_file(filename: str) -> bytes:
-    with open(filename, 'rb') as f: 
+    with open(filename, 'rb') as f:
         raw_data = f.read()
         return raw_data
 
@@ -14,7 +14,6 @@ def read_gib_messages(filename: str):
     raw_grib_data = read_file(filename)
     if not len(raw_grib_data):
         return []
-    
     return gribberish.parse_grib_messages(raw_grib_data)
 
 
@@ -32,7 +31,7 @@ if __name__ == '__main__':
     messages = read_gib_messages(input_filename)
     for index, message in enumerate(messages):
         data = message.data()
-        print(data.shape)
+        print(message.proj)
         plt.imshow(numpy.ma.masked_where(data < -98, data))
         plt.savefig(create_filename(input_filename, index))
         plt.clf()

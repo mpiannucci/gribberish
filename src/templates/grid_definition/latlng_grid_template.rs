@@ -132,6 +132,10 @@ impl <'a> GridDefinitionTemplate<'a> for LatLngGridTemplate<'a> {
         format!("+proj=latlon +a=6367470 +b=6367470")
     }
 
+    fn crs(&self) -> String {
+        "EPSG:4326".to_string()
+    }
+
     fn grid_point_count(&self) -> usize {
         (self.parallel_point_count() * self.meridian_point_count()) as usize
     }
