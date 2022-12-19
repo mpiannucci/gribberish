@@ -196,27 +196,6 @@ impl <'a> GridDefinitionTemplate<'a> for LatLngGridTemplate<'a> {
         return locations;
     }
 
-    fn index_for_location(&self, latitude: f64, longitude: f64) -> Result<usize, &'static str> {
-        let descending = self.is_descending_latitude();
-        if !descending && (latitude < self.start_latitude() || latitude > self.end_latitude()) {
-            return Err("Latitude is out of range");
-        } else if descending && (latitude > self.start_latitude() || latitude < self.end_latitude())
-        {
-            return Err("Latitude is out of range");
-        } else if longitude < self.start_longitude() || longitude > self.end_longitude() {
-            return Err("Longitude is out of range");
-        }
-
-        let lat_difference = (latitude - self.start_latitude()).abs();
-        let lat_index = (lat_difference / self.latitude_resolution()).abs().round() as usize;
-
-        let lon_difference = (longitude - self.start_longitude()).abs();
-        let lon_index = (lon_difference / self.longitude_resolution()).abs().round() as usize;
-
-        let index = lat_index * self.longitude_count() as usize + lon_index;
-        Ok(index)
-    }
-
     fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str> {
         if index >= self.grid_point_count() {
             return Err("Index out of range");
@@ -231,45 +210,4 @@ impl <'a> GridDefinitionTemplate<'a> for LatLngGridTemplate<'a> {
         Ok((latitude, longitude))
     }
 
-    fn indice_for_latitude(&self, latitude: f64) -> Result<usize, &'static str> {
-        let descending = self.is_descending_latitude();
-        if !descending && (latitude < self.start_latitude() || latitude > self.end_latitude()) {
-            return Err("Latitude is out of range");
-        } else if descending && (latitude > self.start_latitude() || latitude < self.end_latitude())
-        {
-            return Err("Latitude is out of range");
-        }
-
-        let lat_difference = (latitude - self.start_latitude()).abs();
-        let lat_index = (lat_difference / self.latitude_resolution()).abs().round() as usize;
-
-        Ok(lat_index)
-    }
-
-    fn indice_for_longitude(&self, longitude: f64) -> Result<usize, &'static str> {
-        if longitude < self.start_longitude() || longitude > self.end_longitude() {
-            return Err("Longitude is out of range");
-        }
-
-        let lon_difference = (longitude - self.start_longitude()).abs();
-        let lon_index = (lon_difference / self.longitude_resolution()).abs().round() as usize;
-
-        Ok(lon_index)
-    }
-
-    fn latitude_for_indice(&self, indice: usize) -> Result<f64, &'static str> {
-        if indice >= self.latitude_count() {
-            return Err("Indice is out of range");
-        }
-
-        Ok(self.start_latitude() + self.latitude_resolution() * indice as f64)
-    }
-
-    fn longitude_for_indice(&self, indice: usize) -> Result<f64, &'static str> {
-        if indice >= self.longitude_count() {
-            return Err("Indice is out of range.");
-        }
-
-        Ok(self.start_longitude() + self.longitude_resolution() * indice as f64)
-    }
 }
