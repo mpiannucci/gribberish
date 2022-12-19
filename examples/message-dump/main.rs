@@ -3,10 +3,7 @@ extern crate gribberish;
 
 use chrono::prelude::*;
 use gribberish::message::{Message, read_messages};
-use gribberish::templates::product::ProductDiscipline;
 use std::env;
-use std::error::Error;
-use std::fmt::Display;
 use std::fs::File;
 use std::io::Read;
 use std::process;
