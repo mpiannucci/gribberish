@@ -1,4 +1,4 @@
-use crate::templates::grid::GridDefinitionTemplate;
+use crate::templates::grid_definition::GridDefinitionTemplate;
 use crate::{
     sections::{indicator::Discipline, section::Section, section::SectionIterator},
     templates::product::ProductTemplate,
@@ -463,49 +463,6 @@ impl <'a> Message<'a> {
         Ok(grid_template.longitudes())
     }
 
-    pub fn data_index_for_location(&self, location: &(f64, f64)) -> Result<usize, String> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data".into()
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
-        match grid_template.index_for_location(location.0, location.1) {
-            Ok(res) => Ok(res),
-            Err(s) => Err(s.to_string()),
-        }
-    }
-
-    pub fn data_indices_for_location(
-        &self,
-        location: &(f64, f64),
-    ) -> Result<(usize, usize), String> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data".into()
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
-        match grid_template.indices_for_location(location.0, location.1) {
-            Ok(res) => Ok(res),
-            Err(s) => Err(s.to_string()),
-        }
-    }
-
     pub fn data_template_number(&self) -> Result<u16, String> {
         let data_representation = unwrap_or_return!(
             self.sections().find_map(|s| match s {
@@ -615,69 +572,6 @@ impl <'a> Message<'a> {
         } else {
             Ok(scaled_unpacked_data)
         }
-    }
-
-    pub fn data_at_location(&self, location: &(f64, f64)) -> Result<f64, String> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data".into()
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
-        let location_index = grid_template.index_for_location(location.0, location.1)?;
-
-        let data_section = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::Data(data_section) => Some(data_section),
-                _ => None,
-            }),
-            "Data section not found when reading message data".into()
-        );
-
-        let data_representation_section = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::DataRepresentation(data_representation_section) =>
-                    Some(data_representation_section),
-                _ => None,
-            }),
-            "Data representation section not found when reading message data".into()
-        );
-
-        let data_representation_template = unwrap_or_return!(
-            data_representation_section.data_representation_template(),
-            "Failed to unpack the data representation template".into()
-        );
-
-        let bitmap_section = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::Bitmap(bitmap_section) => Some(bitmap_section),
-                _ => None,
-            }),
-            "Bitmap section not found when reading message data".into()
-        );
-
-        let data_index;
-        if bitmap_section.has_bitmap() {
-            data_index = unwrap_or_return!(
-                bitmap_section.data_index(location_index),
-                format!("No data available at index {}", location_index).into()
-            );
-        } else {
-            data_index = location_index;
-        }
-
-        let raw_packed_data = data_section.raw_bit_data();
-        let data =
-            data_representation_template.unpack(raw_packed_data, data_index..data_index + 1)?;
-
-        Ok(data[0])
     }
 
     pub fn data_grid(&self) -> Result<Vec<Vec<f64>>, String> {

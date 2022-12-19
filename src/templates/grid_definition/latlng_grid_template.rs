@@ -1,131 +1,17 @@
-use super::template::{Template, TemplateType};
+use super::grid_definition_template::GridDefinitionTemplate;
+use super::tables::EarthShape;
+use crate::templates::template::{Template, TemplateType};
 use crate::utils::{bit_array_from_bytes, read_signed_from_bytes, read_u32_from_bytes};
-use gribberish_macros::{DisplayDescription, FromValue};
+
 use std::iter::Iterator;
 use std::vec::Vec;
 
-pub trait GridDefinitionTemplate<'a> {
-    fn proj_string(&self) -> String;
-    fn grid_point_count(&self) -> usize;
-    fn start(&self) -> (f64, f64);
-    fn origin(&self) -> (f64, f64);
-    fn end(&self) -> (f64, f64);
-    fn latitude_count(&self) -> usize;
-    fn longitude_count(&self) -> usize;
-    fn latitude_resolution(&self) -> f64;
-    fn longitude_resolution(&self) -> f64;
-    fn latitudes(&self) -> Vec<f64>;
-    fn longitudes(&self) -> Vec<f64>;
-    fn locations(&self) -> Vec<(f64, f64)>;
-    fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str>;
-    fn index_for_location(&self, latitude: f64, longitude: f64) -> Result<usize, &'static str>;
 
-    fn latitude_for_indice(&self, indice: usize) -> Result<f64, &'static str>;
-    fn longitude_for_indice(&self, indice: usize) -> Result<f64, &'static str>;
-    fn location_for_indices(&self, indices: (usize, usize)) -> Result<(f64, f64), &'static str> {
-        let lat = self.latitude_for_indice(indices.0)?;
-        let lon = self.longitude_for_indice(indices.1)?;
-        Ok((lat, lon))
-    }
-
-    fn indice_for_latitude(&self, latitude: f64) -> Result<usize, &'static str>;
-    fn indice_for_longitude(&self, longitude: f64) -> Result<usize, &'static str>;
-    fn indices_for_location(
-        &self,
-        latitude: f64,
-        longitude: f64,
-    ) -> Result<(usize, usize), &'static str> {
-        let j = self.indice_for_latitude(latitude)?;
-        let i = self.indice_for_longitude(longitude)?;
-        Ok((j, i))
-    }
-
-    fn index_for_indices(&self, indices: (usize, usize)) -> usize {
-        (indices.0 * self.longitude_count()) + indices.1
-    }
-
-    fn latitudes_in_range(&self, range: (f64, f64)) -> Vec<f64> {
-        self.latitudes()
-            .into_iter()
-            .filter(|l| *l > range.0 && *l < range.1)
-            .collect()
-    }
-
-    fn longitudes_in_range(&self, range: (f64, f64)) -> Vec<f64> {
-        self.longitudes()
-            .into_iter()
-            .filter(|l| *l > range.0 && *l < range.1)
-            .collect()
-    }
-
-    fn locations_in_range(
-        &self,
-        latitude_range: (f64, f64),
-        longitude_range: (f64, f64),
-    ) -> Vec<(f64, f64)> {
-        self.locations()
-            .into_iter()
-            .filter(|l| {
-                l.0 > latitude_range.0
-                    && l.0 < latitude_range.1
-                    && l.1 > longitude_range.0
-                    && l.1 < longitude_range.1
-            })
-            .collect()
-    }
-
-    fn location_grid(&self) -> Vec<Vec<Vec<f64>>> {
-        let longitudes = self.longitudes();
-        let latitudes = self.latitudes();
-        latitudes
-            .iter()
-            .map(|lat| longitudes
-                .iter()
-                .map(|lon| vec![*lat, *lon])
-                .collect()
-            )
-            .collect()
-    }
-
-    fn zerod_location_grid(&self) -> Vec<Vec<f64>> {
-        let longitudes = self.longitudes();
-        self.latitudes()
-            .into_iter()
-            .map(|_| longitudes.iter().map(|_| 0.).collect())
-            .collect()
-    }
-
-}
-
-#[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
-pub enum EarthShape {
-    #[description = "Earth assumed spherical with radius = 6,367,470.0 m"]
-    Spherical = 0,
-    #[description = "Earth assumed spherical with radius specified (in m) by data producer"]
-    SpecifiedRadiusSpherical = 1,
-    #[description = "Earth assumed oblate spheroid with size as determined by IAU in 1965 (major axis = 6,378,160.0 m, minor axis = 6,356,775.0 m, f = 1/297.0) "]
-    OblateIAU = 2,
-    #[description = "Earth assumed oblate spheroid with major and minor axes specified (in km) by data producer"]
-    OblateKM = 3,
-    #[description = "Earth assumed oblate spheroid as defined in IAG-GRS80 model (major axis = 6,378,137.0 m, minor axis = 6,356,752.314 m, f = 1/298.257222101) "]
-    OblateIAGGRS80 = 4,
-    #[description = "Earth assumed represented by WGS84 (as used by ICAO since 1998) "]
-    WGS84 = 5,
-    #[description = "Earth assumed spherical with radius of 6,371,229.0 m"]
-    Spherical2 = 6,
-    #[description = "Earth assumed oblate spheroid with major and minor axes specified (in m) by data producer "]
-    OblateM = 7,
-    #[description = "Earth model assumed spherical with radius 6371200 m, but the horizontal datum of the resulting latitude/longitude field is the WGS84 reference frame"]
-    OblateWGS84 = 8,
-    Missing = 255,
-}
-
-pub struct LatitudeLongitudeGridTemplate<'a> {
+pub struct LatLngGridTemplate<'a> {
     data: &'a [u8],
 }
 
-impl <'a> Template for LatitudeLongitudeGridTemplate<'a> {
+impl <'a> Template for LatLngGridTemplate<'a> {
     fn template_type(&self) -> TemplateType {
         TemplateType::Grid
     }
@@ -143,9 +29,9 @@ impl <'a> Template for LatitudeLongitudeGridTemplate<'a> {
     }
 }
 
-impl <'a> LatitudeLongitudeGridTemplate<'a> {
+impl <'a> LatLngGridTemplate<'a> {
     pub fn new(data: &'a [u8]) -> Self {
-        LatitudeLongitudeGridTemplate { data }
+        LatLngGridTemplate { data }
     }
 
     pub fn earth_shape(&self) -> EarthShape {
@@ -241,7 +127,7 @@ impl <'a> LatitudeLongitudeGridTemplate<'a> {
     }
 }
 
-impl <'a> GridDefinitionTemplate<'a> for LatitudeLongitudeGridTemplate<'a> {
+impl <'a> GridDefinitionTemplate<'a> for LatLngGridTemplate<'a> {
     fn proj_string(&self) -> String {
         format!("+proj=latlon +a=6367470 +b=6367470")
     }
