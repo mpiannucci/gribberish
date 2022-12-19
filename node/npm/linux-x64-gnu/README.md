@@ -1,3 +1,3 @@
-# `gribberish-linux-x64-gnu`
+# `gribberishjs-linux-x64-gnu`
 
-This is the **x86_64-unknown-linux-gnu** binary for `gribberish`
+This is the **x86_64-unknown-linux-gnu** binary for `gribberishjs`

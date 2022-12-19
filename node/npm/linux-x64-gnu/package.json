@@ -1,5 +1,5 @@
 {
-  "name": "gribberish-linux-x64-gnu",
+  "name": "gribberishjs-linux-x64-gnu",
   "version": "0.0.0",
   "os": [
     "linux"
@@ -7,9 +7,9 @@
   "cpu": [
     "x64"
   ],
-  "main": "gribberish.linux-x64-gnu.node",
+  "main": "gribberishjs.linux-x64-gnu.node",
   "files": [
-    "gribberish.linux-x64-gnu.node"
+    "gribberishjs.linux-x64-gnu.node"
   ],
   "license": "MIT",
   "engines": {

@@ -1,5 +1,5 @@
 {
-  "name": "gribberish-darwin-x64",
+  "name": "gribberishjs-darwin-x64",
   "version": "0.0.0",
   "os": [
     "darwin"
@@ -7,9 +7,9 @@
   "cpu": [
     "x64"
   ],
-  "main": "gribberish.darwin-x64.node",
+  "main": "gribberishjs.darwin-x64.node",
   "files": [
-    "gribberish.darwin-x64.node"
+    "gribberishjs.darwin-x64.node"
   ],
   "license": "MIT",
   "engines": {

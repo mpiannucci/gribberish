@@ -903,9 +903,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"gribberish@workspace:.":
+"gribberishjs@workspace:.":
   version: 0.0.0-use.local
-  resolution: "gribberish@workspace:."
+  resolution: "gribberishjs@workspace:."
   dependencies:
     "@napi-rs/cli": ^2.10.0
     ava: ^4.3.0

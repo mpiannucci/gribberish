@@ -1,3 +1,3 @@
-# `gribberish-linux-arm64-gnu`
+# `gribberishjs-linux-arm64-gnu`
 
-This is the **aarch64-unknown-linux-gnu** binary for `gribberish`
+This is the **aarch64-unknown-linux-gnu** binary for `gribberishjs`

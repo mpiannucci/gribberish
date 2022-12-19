@@ -1,3 +1,3 @@
-# `gribberish-darwin-x64`
+# `gribberishjs-darwin-x64`
 
-This is the **x86_64-apple-darwin** binary for `gribberish`
+This is the **x86_64-apple-darwin** binary for `gribberishjs`
