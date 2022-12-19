@@ -8,7 +8,6 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::types::PyDateTime;
 use pyo3::wrap_pyfunction;
 use pyo3::{prelude::*, types::PyTzInfo};
-use ndarray::array;
 
 #[pyclass]
 struct GribMessage {
