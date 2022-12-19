@@ -12,6 +12,6 @@
   "license": "ISC",
   "dependencies": {
     "gribberish": "file:../../",
-    "sharp": "^0.29.1"
+    "sharp": "^0.30.5"
   }
 }
