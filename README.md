@@ -17,6 +17,7 @@ gribberish = { git = "https://github.com/mpiannucci/gribberish" }
 The following `features` are available: 
 
 `png`: Allows unpacking PNG encoded data messages
+
 `jpeg`: Allows unpacking JPEG2000 encoded data messages
 
 By default, both `png` and `jpeg` are enabled.
