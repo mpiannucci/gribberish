@@ -18,7 +18,9 @@ export class GribMessage {
   get referenceDate(): Date
   get proj(): string
   get crs(): string
+  get bbox(): Array<number>
   get gridShape(): GridShape
+  get gridResolution(): GridShape
   get latitudes(): Float64Array
   get longitudes(): Float64Array
   get data(): Float64Array

@@ -75,8 +75,23 @@ impl GribMessage {
   }
 
   #[napi(getter)]
+  pub fn bbox(&self) -> Vec<f64> {
+    let bbox = &self.inner.bbox;
+    vec![bbox.0, bbox.1, bbox.2, bbox.3]
+  }
+
+  #[napi(getter)]
   pub fn grid_shape(&self) -> GridShape {
     let (rows, cols) = self.inner.grid_shape();
+    GridShape {
+      rows: rows as u32, 
+      cols: cols as u32
+    }
+  }
+
+  #[napi(getter)]
+  pub fn grid_resolution(&self) -> GridShape {
+    let (rows, cols) = self.inner.grid_resolution;
     GridShape {
       rows: rows as u32, 
       cols: cols as u32
@@ -104,7 +119,7 @@ pub fn parse_messages_from_buffer(buffer: Buffer, env: Env) -> Array {
   let buf: Vec<u8> = buffer.into();
   let messages = read_messages(&buf).collect::<Vec<_>>();
 
-  let mut arr = env.create_array(messages.len() as u32).unwrap();
+  let mut arr = env.create_array(0).unwrap();
   messages.into_iter().for_each(|gm| {
     let grib_message = GribMessage {
       inner: DataMessage::try_from(gm).unwrap(),

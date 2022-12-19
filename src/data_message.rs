@@ -11,6 +11,8 @@ pub struct DataMessage {
     pub reference_date: DateTime<Utc>, 
     pub proj: String,
     pub crs: String,
+    pub bbox: (f64, f64, f64, f64),
+    pub grid_resolution: (f64, f64),
     pub latitude: Vec<f64>, 
     pub longitude: Vec<f64>,
     pub data: Vec<Vec<f64>>
@@ -39,6 +41,8 @@ impl <'a> TryFrom<Message<'a>> for DataMessage {
             reference_date: message.reference_date()?, 
             proj: message.proj_string()?,
             crs: message.crs()?,
+            bbox: message.location_bbox()?,
+            grid_resolution: message.location_resolution()?,
             latitude: message.latitudes()?, 
             longitude: message.longitudes()?, 
             data: message.data_grid()?,
