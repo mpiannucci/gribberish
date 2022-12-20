@@ -28,11 +28,11 @@ impl DataMessage {
     }
 
     pub fn coords(&self) -> Vec<(f64, f64)> {
-        let lat = self.latitude.iter();
-        self.longitude
+        let lng_iter = self.latitude.iter();
+        self.latitude
             .iter()
-            .zip(lat)
-            .map(|(lng, lat)| (*lng, *lat))
+            .zip(lng_iter)
+            .map(|(lat, lng)| (*lat, *lng))
             .collect()
     }
 }
