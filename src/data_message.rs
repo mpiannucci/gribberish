@@ -27,12 +27,19 @@ impl DataMessage {
         (self.latitude.len(), self.longitude.len())
     }
 
+    pub fn data_point_count(&self) -> usize {
+        self.latitude.len() * self.longitude.len()
+    }
+
     pub fn coords(&self) -> Vec<(f64, f64)> {
-        let lng_iter = self.longitude.iter();
-        self.latitude
-            .iter()
-            .zip(lng_iter)
-            .map(|(lat, lng)| (*lat, *lng))
+        let (_, cols) = self.grid_shape();
+        (0..self.data_point_count())
+            .map(|i| {
+                let lat_i = i / cols;
+                let lng_i = i % cols;
+
+                (self.latitude[lat_i], self.longitude[lng_i])
+            })
             .collect()
     }
 }
