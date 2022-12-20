@@ -379,7 +379,7 @@ impl<'a> Message<'a> {
 
     pub fn location_bbox(&self) -> Result<(f64, f64, f64, f64), String> {
         let region = self.location_region()?;
-        Ok((region.0.0, region.0.1, region.1.0, region.1.1))
+        Ok((region.0.1, region.0.0, region.1.1, region.1.0))
     }
 
     pub fn location_grid_dimensions(&self) -> Result<(usize, usize), String> {
