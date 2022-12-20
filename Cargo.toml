@@ -10,7 +10,7 @@ gribberish-macros = { path = "./macros" }
 chrono = "0.4"
 openjpeg-sys = { version = "1.0.3", optional = true }
 png = { version = "0.17.2", optional = true }
-num = { version = "0.2", features = [] }
+num = { version = "0.2", default-features = false }
 
 [profile.release]
 debug = true
