@@ -91,7 +91,7 @@ pub fn read_signed_from_bytes(data: &[u8], offset: usize) -> Option<i32> {
 
 pub fn from_bits<T>(bits: &[u8]) -> Option<T>
 where
-    T: num::integer::Integer + From<u8>,
+    T: num::Integer + From<u8>,
 {
     if bits.len() != (std::mem::size_of::<T>() * 8) {
         return None;
