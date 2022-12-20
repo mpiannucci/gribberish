@@ -1,26 +1,32 @@
 {
-  "name": "gribberish-node",
-  "version": "0.10.0",
-  "description": "Read GRIB2 files with node",
-  "main": "./index",
-  "scripts": {
-    "build": "cargo-cp-artifact -nc index.node -- cargo build --message-format=json-render-diagnostics",
-    "build-debug": "npm run build --",
-    "build-release": "npm run build -- --release",
-    "install": "npm run build-release",
-    "test": "cargo test"
+  "name": "gribberishjs",
+  "version": "0.0.0",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "name": "gribberishjs",
+    "triples": {
+      "additional": [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu"
+      ]
+    }
   },
-  "author": "Matthew Iannucci",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
-    "cargo-cp-artifact": "^0.1"
+    "@napi-rs/cli": "^2.10.0",
+    "ava": "^4.3.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mpiannucci/gribberish.git"
+  "engines": {
+    "node": ">= 10"
   },
-  "bugs": {
-    "url": "https://github.com/mpiannucci/gribberish/issues"
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "prepublishOnly": "napi prepublish -t npm",
+    "test": "ava",
+    "version": "napi version"
   },
-  "homepage": "https://github.com/mpiannucci/gribberish#readme"
+  "packageManager": "yarn@3.3.0"
 }
