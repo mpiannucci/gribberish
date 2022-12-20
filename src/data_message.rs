@@ -28,7 +28,7 @@ impl DataMessage {
     }
 
     pub fn coords(&self) -> Vec<(f64, f64)> {
-        let lng_iter = self.latitude.iter();
+        let lng_iter = self.longitude.iter();
         self.latitude
             .iter()
             .zip(lng_iter)
