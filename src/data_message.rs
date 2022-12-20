@@ -26,6 +26,15 @@ impl DataMessage {
     pub fn grid_shape(&self) -> (usize, usize) {
         (self.latitude.len(), self.longitude.len())
     }
+
+    pub fn coords(&self) -> Vec<(f64, f64)> {
+        let lat = self.latitude.iter();
+        self.longitude
+            .iter()
+            .zip(lat)
+            .map(|(lng, lat)| (*lng, *lat))
+            .collect()
+    }
 }
 
 impl <'a> TryFrom<Message<'a>> for DataMessage {
