@@ -3,17 +3,21 @@ use crate::message::Message;
 use chrono::{DateTime, Utc};
 
 pub struct DataMessage {
-    pub var: String, 
-    pub name: String, 
+    pub var: String,
+    pub name: String,
     pub units: String,
-    pub array_index: Option<usize>, 
+    pub array_index: Option<usize>,
+    pub discipline: String, 
+    pub category: String, 
+    pub data_compression: String,
+    pub has_bitmap: bool,
     pub forecast_date: DateTime<Utc>,
-    pub reference_date: DateTime<Utc>, 
+    pub reference_date: DateTime<Utc>,
     pub proj: String,
     pub crs: String,
     pub bbox: (f64, f64, f64, f64),
     pub grid_resolution: (f64, f64),
-    pub latitude: Vec<f64>, 
+    pub latitude: Vec<f64>,
     pub longitude: Vec<f64>,
     pub data: Vec<Vec<f64>>
 }
@@ -53,6 +57,10 @@ impl <'a> TryFrom<Message<'a>> for DataMessage {
             name: message.variable_name()?, 
             units: message.unit()?, 
             array_index: message.array_index()?,
+            discipline: message.discipline()?.to_string(),
+            category: message.category()?,
+            data_compression: format!("{}: {}", message.data_template_number().unwrap_or(99), message.data_compression_type().unwrap_or("Unknown".to_string())),
+            has_bitmap: message.has_bitmap(),
             forecast_date: message.forecast_date()?, 
             reference_date: message.reference_date()?, 
             proj: message.proj_string()?,
