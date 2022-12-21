@@ -31,7 +31,7 @@ impl DataMessage {
         self.latitude.len() * self.longitude.len()
     }
 
-    pub fn coords(&self) -> Vec<(f64, f64)> {
+    pub fn flattened_coords(&self) -> Vec<(f64, f64)> {
         let (_, cols) = self.grid_shape();
         (0..self.data_point_count())
             .map(|i| {
