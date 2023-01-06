@@ -1,7 +1,7 @@
 {
   "name": "gfsnap",
   "version": "1.0.0",
-  "description": "Create GFS model run snapshots",
+  "description": "Create grib data snapshots",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "canvas": "^2.10.2",
+    "@resvg/resvg-js": "^2.2.0",
     "d3": "^7.8.0",
     "d3-array": "^3.2.1",
     "d3-contour": "^4.0.0",

@@ -1,33 +1,32 @@
 import fs from 'fs';
 import { parseMessagesFromBuffer } from 'gribberishjs';
 import { createCanvas, Image } from 'canvas';
+import { Resvg } from '@resvg/resvg-js';
 import * as d3 from 'd3';
 
-const gribData = fs.readFileSync('./data/gfswave.20221222.t18z.atlocn.0p16.f064.grib2');
+const gribData = fs.readFileSync('/Users/matthewiannucci/Downloads/MRMS_MergedReflectivityQCComposite_00.50_20230106-000439.grib2');
 const gribMessages = parseMessagesFromBuffer(gribData);
+const message = gribMessages.find(g => g.varAbbrev === 'MergedReflectivityQCComposite');
 
-const swhMessage = gribMessages.find(g => g.varAbbrev === 'HTSGW');
+// const gribData = fs.readFileSync('./data/gfswave.20221222.t18z.atlocn.0p16.f064.grib2');
+// const gribMessages = parseMessagesFromBuffer(gribData);
+// const message = gribMessages.find(g => g.varAbbrev === 'HTSGW');
 
-if (swhMessage !== undefined) {
-  console.log('Found grib message for significant wave height, contouring...');
+if (message !== undefined) {
+  console.log('Found matching grib message, contouring...');
 } else {
-  console.error('Failed to find significant wave height message. Exiting.');
+  console.error('Failed to find matching message. Exiting.');
   process.exit(0);
 }
 
-console.log(swhMessage.bbox)
-
-const bbox = swhMessage.bbox;
+const bbox = message.bbox;
 const lngRange = bbox[2] - bbox[0];
 const latRange = bbox[3] - bbox[1];
 
-console.log(lngRange);
-console.log(latRange);
+const height = message.latitudes.length;
+const width = message.longitudes.length;
 
-const height = swhMessage.latitudes.length;
-const width = swhMessage.longitudes.length;
-
-const values = swhMessage.data;
+const values = message.data;
 for (let i = 0; i < values.length; ++i) {
   if (isNaN(values[i])) {
     values[i] = -99999;
@@ -40,7 +39,7 @@ const max = d3.max(values);
 const contours = d3
   .contours()
   .size([width, height])
-  .thresholds(Array.from({ length: 50 }, (_, i) => i / 50 * max));
+  .thresholds(Array.from({ length: 10 }, (_, i) => i / 10 * max));
 
 const color = d3.scaleSequential([max, 0], d3.interpolateRdBu);
 
@@ -63,22 +62,22 @@ const path = d3.geoPath(d3.geoIdentity());
 
 // const polys = contours(blurredValues);
 
+console.log('Rendering to SVG...');
 const svgout = `
 <svg style="width: 100%; height: auto; display: block;" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink'">
   ${Array.from(contours(values), d => `<path d="${path(d)}" fill="${color(d.value)}" />`).join('\n')}
 </svg>
 `;
 
-fs.writeFileSync('swh.svg', svgout);
+console.log('Writing to SVG file...');
+fs.writeFileSync('vector.svg', svgout);
 
-const canvas = createCanvas(width, height)
-const ctx = canvas.getContext("2d");
-ctx.fillStyle = '#FFFFFF';
-ctx.fillRect(0, 0, width, height);
+console.log('Rendering svg to image...');
+const resvg = new Resvg(svgout)
+const pngData = resvg.render()
+const pngBuffer = pngData.asPng()
 
-// Draw the svg image to the canvas
-const img = new Image();
-img.src = "data:image/svg+xml," + svgout;
-ctx.drawImage(img, 0, 0, width, height);
+console.log('Writing to PNG file...');
+fs.writeFileSync("./rendered.png", pngBuffer);
 
-canvas.createPNGStream().pipe(fs.createWriteStream("./swh.png"));
+console.log('Operation Successful!');
