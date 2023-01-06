@@ -103,6 +103,14 @@ where
     )
 }
 
+pub fn filled_bit_array<const N: usize>(bits: &[u8]) -> [u8; N] {
+    let mut new = [0; N];
+    for i in 0..bits.len() {
+        new[i] = bits[i];
+    }
+    new
+}
+
 pub fn bit_array_from_bytes(data: &[u8]) -> Vec<u8> {
     data.iter()
         .map(|r| format!("{:08b}", r))

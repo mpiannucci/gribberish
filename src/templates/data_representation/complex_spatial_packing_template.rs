@@ -1,10 +1,17 @@
+use itertools::izip;
+
 use crate::{
     templates::template::{Template, TemplateType},
-    utils::{read_f32_from_bytes, read_i16_from_bytes, read_u32_from_bytes},
+    utils::{
+        filled_bit_array, from_bits, grib_power, read_f32_from_bytes, read_i16_from_bytes,
+        read_u32_from_bytes,
+    },
 };
 
 use super::{
-    tables::{GroupSplittingMethod, MissingValueManagement, OriginalFieldValue, SpatialDifferencingOrder},
+    tables::{
+        GroupSplittingMethod, MissingValueManagement, OriginalFieldValue, SpatialDifferencingOrder,
+    },
     DataRepresentationTemplate,
 };
 
@@ -118,6 +125,108 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
     }
 
     fn unpack(&self, bits: Vec<u8>, range: std::ops::Range<usize>) -> Result<Vec<f64>, String> {
-        todo!()
+        let ng = self.number_of_groups() as usize;
+        let nbits = self.bit_count() as usize;
+
+        let d1 = unwrap_or_return!(
+            from_bits::<u16>(&filled_bit_array::<16>(&bits[0..16])),
+            "failed to convert value to u32".into()
+        );
+        let d2 = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
+            unwrap_or_return!(
+                from_bits::<u16>(&filled_bit_array::<16>(&bits[16..32])),
+                "failed to convert value to u32".into()
+            )
+        } else {
+            0
+        };
+
+        let dmin_start = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
+            32
+        } else {
+            16
+        };
+        let dmin = unwrap_or_return!(
+            from_bits::<u16>(&filled_bit_array::<16>(&bits[dmin_start..dmin_start + 16])),
+            "failed to convert value to u32".into()
+        );
+
+        let group_reference_start = self.number_of_octets_for_differencing() as usize;
+        let group_references = (0..ng).map(|ig| {
+            let start = group_reference_start + ig * nbits;
+            let mut temp_container: [u8; 32] = [0; 32];
+            for i in 0..nbits {
+                temp_container[i] = bits[start + i];
+            }
+
+            from_bits::<u32>(&temp_container).unwrap()
+        });
+
+        let group_widths_start = ng * nbits;
+        let n_width_bits = self.group_width_bits() as usize;
+        let group_widths = (0..ng).map(|ig| {
+            let start = group_widths_start + ig * n_width_bits;
+            let mut temp_container: [u8; 32] = [0; 32];
+            for i in 0..nbits {
+                temp_container[i] = bits[start + i];
+            }
+
+            from_bits::<u32>(&temp_container).unwrap() + self.group_width_reference() as u32
+        });
+
+        let group_lengths_start = group_widths_start + n_width_bits * ng;
+        let n_length_bits = self.group_length_bits() as usize;
+        let group_lengths = (0..ng).map(|ig| {
+            let start = group_lengths_start + ig * n_length_bits;
+            let mut temp_container: [u8; 32] = [0; 32];
+            for i in 0..nbits {
+                temp_container[i] = bits[start + i];
+            }
+
+            from_bits::<u32>(&temp_container).unwrap() * self.group_length_increment() as u32
+                + self.group_length_reference()
+        });
+
+        let mut pos = group_lengths_start + n_length_bits * ng;
+        let mut raw_values = Vec::with_capacity(ng);
+        for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
+            let n_bits = (width * length) as usize;
+            let mut temp_container: [u8; 32] = [0; 32];
+            for i in 0..nbits {
+                temp_container[i] = bits[pos + i];
+            }
+            pos += n_bits;
+
+            let raw_value: i32 = unwrap_or_return!(
+                from_bits::<i32>(&temp_container),
+                "failed to convert value to u32".into()
+            ) + reference as i32;
+            raw_values.push(raw_value);
+        }
+
+        let mut values = Vec::with_capacity(raw_values.len());
+        match self.spatial_differencing_order() {
+            SpatialDifferencingOrder::First => {
+                values[0] = d1 as f64; 
+                for i in 2..raw_values.len() {
+                    values[i] = raw_values[i] as f64 + raw_values[i - 1] as f64 + dmin as f64;
+                }
+            },
+            SpatialDifferencingOrder::Second => {
+                values[0] = d1 as f64; 
+                values[1] = d2 as f64;
+                for i in 2..raw_values.len() {
+                    values[i] = raw_values[i] as f64 + (2.0 * raw_values[i - 1] as f64) - raw_values[i - 2] as f64 + dmin as f64;
+                }
+            },
+        };
+
+        let bscale = grib_power(self.binary_scale_factor().into(), 2);
+        let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
+        let reference_value: f64 = self.reference_value().into();
+
+        values.iter_mut().for_each(|v| *v = (*v * bscale + reference_value) * dscale);
+
+        Ok(values)
     }
 }
