@@ -1,4 +1,4 @@
-use itertools::izip;
+use itertools::{izip};
 
 use crate::{
     templates::template::{Template, TemplateType},
@@ -151,7 +151,11 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             "failed to convert value to u32".into()
         );
 
-        let group_reference_start = self.number_of_octets_for_differencing() as usize;
+        let group_reference_start = self.number_of_octets_for_differencing() as usize * 8 * match self.spatial_differencing_order() {
+            SpatialDifferencingOrder::First => 2,
+            SpatialDifferencingOrder::Second => 3,
+        };
+
         let group_references = (0..ng).map(|ig| {
             let start = group_reference_start + ig * nbits;
             let mut temp_container: [u8; 32] = [0; 32];
@@ -162,12 +166,12 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             from_bits::<u32>(&temp_container).unwrap()
         });
 
-        let group_widths_start = ng * nbits;
+        let group_widths_start = group_reference_start + ng * nbits;
         let n_width_bits = self.group_width_bits() as usize;
         let group_widths = (0..ng).map(|ig| {
             let start = group_widths_start + ig * n_width_bits;
             let mut temp_container: [u8; 32] = [0; 32];
-            for i in 0..nbits {
+            for i in 0..n_width_bits {
                 temp_container[i] = bits[start + i];
             }
 
@@ -179,7 +183,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let group_lengths = (0..ng).map(|ig| {
             let start = group_lengths_start + ig * n_length_bits;
             let mut temp_container: [u8; 32] = [0; 32];
-            for i in 0..nbits {
+            for i in 0..n_length_bits {
                 temp_container[i] = bits[start + i];
             }
 
@@ -187,22 +191,35 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                 + self.group_length_reference()
         });
 
-        let mut pos = group_lengths_start + n_length_bits * ng;
+        println!("Unpacking {ng} groups");
+
+        let mut pos = group_lengths_start + ng * n_length_bits;
         let mut raw_values = Vec::with_capacity(ng);
         for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
+            println!("{length}");
+            if width == 0 {
+                raw_values.push(vec![0; length as usize]);
+                continue;
+            }
+
+            println!("width: {width}");
             let n_bits = (width * length) as usize;
             let mut temp_container: [u8; 32] = [0; 32];
-            for i in 0..nbits {
-                temp_container[i] = bits[pos + i];
-            }
+            let group_values: Vec<i32> = (0..length)
+                .map(|i| {
+                    for bit in 0..width as usize {
+                        temp_container[bit as usize] = bits[pos + (i * width) as usize + bit];
+                    }
+
+                    from_bits::<i32>(&temp_container).unwrap() + reference as i32
+                })
+                .collect();
+
             pos += n_bits;
 
-            let raw_value: i32 = unwrap_or_return!(
-                from_bits::<i32>(&temp_container),
-                "failed to convert value to u32".into()
-            ) + reference as i32;
-            raw_values.push(raw_value);
+            raw_values.push(group_values);
         }
+        let raw_values: Vec<i32> = raw_values.iter().flatten().map(|v| *v).collect();
 
         let mut values = Vec::with_capacity(raw_values.len());
         match self.spatial_differencing_order() {
@@ -227,6 +244,6 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         values.iter_mut().for_each(|v| *v = (*v * bscale + reference_value) * dscale);
 
-        Ok(values)
+        Ok(values[range].to_vec())
     }
 }

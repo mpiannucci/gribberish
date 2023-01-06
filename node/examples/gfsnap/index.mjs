@@ -4,9 +4,13 @@ import { createCanvas, Image } from 'canvas';
 import { Resvg } from '@resvg/resvg-js';
 import * as d3 from 'd3';
 
-const gribData = fs.readFileSync('/Users/matthewiannucci/Downloads/MRMS_MergedReflectivityQCComposite_00.50_20230106-000439.grib2');
+// const gribData = fs.readFileSync('/Users/matthewiannucci/Downloads/MRMS_MergedReflectivityQCComposite_00.50_20230106-000439.grib2');
+// const gribMessages = parseMessagesFromBuffer(gribData);
+// const message = gribMessages.find(g => g.varAbbrev === 'MergedReflectivityQCComposite');
+
+const gribData = fs.readFileSync('/Users/matthewiannucci/Downloads/gfs.t18z.pgrb2.0p25.f186.grib2');
 const gribMessages = parseMessagesFromBuffer(gribData);
-const message = gribMessages.find(g => g.varAbbrev === 'MergedReflectivityQCComposite');
+const message = gribMessages.find(g => g.varAbbrev === 'GUST');
 
 // const gribData = fs.readFileSync('./data/gfswave.20221222.t18z.atlocn.0p16.f064.grib2');
 // const gribMessages = parseMessagesFromBuffer(gribData);
@@ -78,6 +82,6 @@ const pngData = resvg.render()
 const pngBuffer = pngData.asPng()
 
 console.log('Writing to PNG file...');
-fs.writeFileSync("./rendered.png", pngBuffer);
+fs.writeFileSync("./gfs.png", pngBuffer);
 
 console.log('Operation Successful!');

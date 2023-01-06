@@ -1,5 +1,3 @@
-use std::collections::btree_map::Values;
-
 use itertools::izip;
 
 use crate::{
@@ -147,7 +145,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
             for i in 0..nbits {
                 temp_container[i] = bits[start + i];
             }
-            
+
             from_bits::<u32>(&temp_container).unwrap() * self.group_length_increment() as u32
                 + self.group_length_reference()
         });
@@ -157,23 +155,30 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         let reference_value: f64 = self.reference_value().into();
 
         let mut pos = group_lengths_start + n_length_bits * ng;
-        let mut values = Vec::with_capacity(ng);
+        let mut raw_values = Vec::with_capacity(ng);
         for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
             let n_bits = (width * length) as usize;
             let mut temp_container: [u8; 32] = [0; 32];
-            for i in 0..nbits {
-                temp_container[i] = bits[pos + i];
-            }
+            let group_values: Vec<i32> = (0..length)
+                .map(|i| {
+                    for bit in 0..width as usize {
+                        temp_container[bit as usize] = bits[pos + (i * width) as usize + bit];
+                    }
+
+                    from_bits::<i32>(&temp_container).unwrap() + reference as i32
+                })
+                .collect();
+
             pos += n_bits;
 
-            let raw_value: i32 = unwrap_or_return!(
-                from_bits::<i32>(&temp_container),
-                "failed to convert value to u32".into()
-            ) + reference as i32; 
-            let value = (raw_value as f64 * bscale + reference_value) * dscale;
-            values.push(value);
+            raw_values.push(group_values);
         }
+        let values: Vec<f64> = raw_values
+        .iter()
+        .flatten()
+        .map(|v| (*v as f64 * bscale + reference_value) * dscale)
+        .collect();
 
-        Ok(values)
+        Ok(values[range].to_vec())
     }
 }

@@ -1,7 +1,6 @@
 extern crate chrono;
 extern crate gribberish;
 
-use chrono::prelude::*;
 use gribberish::message::{Message, read_messages};
 use std::env;
 use std::fs::File;

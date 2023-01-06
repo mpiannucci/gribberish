@@ -2,7 +2,7 @@
 
 use gribberish::{
   data_message::DataMessage,
-  message::{self, read_message, read_messages, Message},
+  message::{read_message, read_messages},
 };
 use napi::{
   bindgen_prelude::{Array, Buffer, Float64Array},

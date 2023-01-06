@@ -51,15 +51,15 @@ pub fn read_f32_from_bytes(data: &[u8], offset: usize) -> Option<f32> {
     Some(f32::from_be_bytes(l))
 }
 
-pub fn read_f64_from_bytes(data: &[u8], offset: usize) -> Option<f64> {
-    if data.len() < offset + 8 {
-        return None;
-    }
+// pub fn read_f64_from_bytes(data: &[u8], offset: usize) -> Option<f64> {
+//     if data.len() < offset + 8 {
+//         return None;
+//     }
 
-    let mut l: [u8; 8] = Default::default();
-    l.copy_from_slice(&data[offset..offset + 8]);
-    Some(f64::from_be_bytes(l))
-}
+//     let mut l: [u8; 8] = Default::default();
+//     l.copy_from_slice(&data[offset..offset + 8]);
+//     Some(f64::from_be_bytes(l))
+// }
 
 pub fn read_signed_from_bytes(data: &[u8], offset: usize) -> Option<i32> {
     let mut bits = bit_array_from_bytes(&data[offset..offset + 4]);
@@ -122,20 +122,20 @@ pub fn bit_array_from_bytes(data: &[u8]) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
-pub fn byte_to_bits(data: &u8) -> [u8; 8] {
-    let mut result = [0; 8];
-    let bit_string = format!("{:08b}", data);
-    for (i, b) in bit_string.char_indices() {
-        result[i] = b.to_digit(2).unwrap_or(0) as u8;
-    }
+// pub fn byte_to_bits(data: &u8) -> [u8; 8] {
+//     let mut result = [0; 8];
+//     let bit_string = format!("{:08b}", data);
+//     for (i, b) in bit_string.char_indices() {
+//         result[i] = b.to_digit(2).unwrap_or(0) as u8;
+//     }
 
-    result
-}
+//     result
+// }
 
-pub fn positive_bit_count(data: &u8) -> u8 {
-    let bits = byte_to_bits(data);
-    bits.iter().sum()
-}
+// pub fn positive_bit_count(data: &u8) -> u8 {
+//     let bits = byte_to_bits(data);
+//     bits.iter().sum()
+// }
 
 pub fn bits_to_bytes(bits: Vec<u8>) -> Option<Vec<u8>> {
     if bits.len() % 8 != 0 {
@@ -170,29 +170,29 @@ pub fn grib_power(s: i32, n: i32) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
-    #[test]
-    fn test_byte_to_bits() {
-        let test_value: u8 = 255;
-        let result = byte_to_bits(&test_value);
-        for i in 0..8 {
-            assert_eq!(result[i], 1);
-        }
-    }
+    // #[test]
+    // fn test_byte_to_bits() {
+    //     let test_value: u8 = 255;
+    //     let result = byte_to_bits(&test_value);
+    //     for i in 0..8 {
+    //         assert_eq!(result[i], 1);
+    //     }
+    // }
 
-    #[test]
-    fn test_positive_bit_count() {
-        let test_value: u8 = 255;
-        let result = positive_bit_count(&test_value);
-        assert_eq!(result, 8);
+    // #[test]
+    // fn test_positive_bit_count() {
+    //     let test_value: u8 = 255;
+    //     let result = positive_bit_count(&test_value);
+    //     assert_eq!(result, 8);
 
-        let test_value: u8 = 1;
-        let result = positive_bit_count(&test_value);
-        assert_eq!(result, 1);
+    //     let test_value: u8 = 1;
+    //     let result = positive_bit_count(&test_value);
+    //     assert_eq!(result, 1);
 
-        let test_value: u8 = 20;
-        let result = positive_bit_count(&test_value);
-        assert_eq!(result, 2);
-    }
+    //     let test_value: u8 = 20;
+    //     let result = positive_bit_count(&test_value);
+    //     assert_eq!(result, 2);
+    // }
 }
