@@ -158,9 +158,10 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         let group_references = (0..ng).map(|ig| {
             let start = group_reference_start + ig * nbits;
+            let bit_start_index = 32 - nbits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..nbits {
-                temp_container[i] = bits[start + i];
+                temp_container[bit_start_index + 1] = bits[start + i];
             }
 
             from_bits::<u32>(&temp_container).unwrap()
@@ -170,9 +171,10 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let n_width_bits = self.group_width_bits() as usize;
         let group_widths = (0..ng).map(|ig| {
             let start = group_widths_start + ig * n_width_bits;
+            let bit_start_index = 32 - nbits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..n_width_bits {
-                temp_container[i] = bits[start + i];
+                temp_container[bit_start_index + i] = bits[start + i];
             }
 
             from_bits::<u32>(&temp_container).unwrap() + self.group_width_reference() as u32
@@ -182,9 +184,10 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let n_length_bits = self.group_length_bits() as usize;
         let group_lengths = (0..ng).map(|ig| {
             let start = group_lengths_start + ig * n_length_bits;
+            let bit_start_index = 32 - nbits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..n_length_bits {
-                temp_container[i] = bits[start + i];
+                temp_container[bit_start_index + i] = bits[start + i];
             }
 
             from_bits::<u32>(&temp_container).unwrap() * self.group_length_increment() as u32
@@ -207,8 +210,9 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             let mut temp_container: [u8; 32] = [0; 32];
             let group_values: Vec<i32> = (0..length)
                 .map(|i| {
+                    let bit_start_index = 32 - width as usize;
                     for bit in 0..width as usize {
-                        temp_container[bit as usize] = bits[pos + (i * width) as usize + bit];
+                        temp_container[bit as usize + bit_start_index] = bits[pos + (i * width) as usize + bit];
                     }
 
                     from_bits::<i32>(&temp_container).unwrap() + reference as i32
