@@ -73,7 +73,7 @@ impl<'a> Message<'a> {
         let mut sections = SectionIterator { data: data, offset };
 
         match sections.next() {
-            Some(Section::Indicator(i)) => Some(Message {
+            Some(Section::Indicator(_)) => Some(Message {
                 data: &data,
                 offset: offset,
             }),

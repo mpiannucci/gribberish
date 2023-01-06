@@ -5,11 +5,11 @@ use crate::unwrap_or_return;
 use crate::utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes};
 use std::ops::Range;
 
-pub struct SimpleGridPointDataRepresentationTemplate {
+pub struct SimplePackingDataRepresentationTemplate {
     data: Vec<u8>,
 }
 
-impl Template for SimpleGridPointDataRepresentationTemplate {
+impl Template for SimplePackingDataRepresentationTemplate {
     fn data(&self) -> &[u8] {
         self.data.as_slice()
     }
@@ -27,9 +27,9 @@ impl Template for SimpleGridPointDataRepresentationTemplate {
     }
 }
 
-impl SimpleGridPointDataRepresentationTemplate {
-    pub fn new(data: Vec<u8>) -> SimpleGridPointDataRepresentationTemplate {
-        SimpleGridPointDataRepresentationTemplate { data }
+impl SimplePackingDataRepresentationTemplate {
+    pub fn new(data: Vec<u8>) -> SimplePackingDataRepresentationTemplate {
+        SimplePackingDataRepresentationTemplate { data }
     }
 
     pub fn reference_value(&self) -> f32 {
@@ -53,7 +53,7 @@ impl SimpleGridPointDataRepresentationTemplate {
     }
 }
 
-impl DataRepresentationTemplate<f64> for SimpleGridPointDataRepresentationTemplate {
+impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate {
     fn compression_type(&self) -> String {
         "Simple Grid Packing".into()
     }

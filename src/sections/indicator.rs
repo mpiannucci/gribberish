@@ -70,8 +70,7 @@ impl <'a> GribSection for IndicatorSection<'a> {
 }
 
 mod tests {
-	use super::IndicatorSection;
-	use super::Discipline;
+	use super::{IndicatorSection, Discipline};
 
     #[test]
     fn read_indicator() {

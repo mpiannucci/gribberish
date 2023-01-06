@@ -1,5 +1,5 @@
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
-use crate::templates::data_representation::{DataRepresentationTemplate, SimpleGridPointDataRepresentationTemplate};
+use crate::templates::data_representation::{DataRepresentationTemplate, SimplePackingDataRepresentationTemplate};
 #[cfg(feature = "jpeg")]
 use crate::templates::data_representation::JPEGDataRepresentationTemplate;
 #[cfg(feature = "png")]
@@ -30,7 +30,7 @@ impl <'a> DataRepresentationSection<'a> {
         let data = self.data.clone();
         let template_number = self.data_representation_template_number();
         match template_number {
-            0 => Some(Box::new(SimpleGridPointDataRepresentationTemplate::new(data.to_vec()))),
+            0 => Some(Box::new(SimplePackingDataRepresentationTemplate::new(data.to_vec()))),
             #[cfg(feature = "jpeg")]
             40 => Some(Box::new(JPEGDataRepresentationTemplate::new(data.to_vec()))),
             #[cfg(feature = "png")]
