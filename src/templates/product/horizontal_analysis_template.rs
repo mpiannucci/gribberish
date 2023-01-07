@@ -1,6 +1,6 @@
 use gribberish_types::Parameter;
 use crate::templates::template::{Template, TemplateType};
-use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
+use crate::utils::{read_u16_from_bytes, read_u32_from_bytes, read_i16_from_bytes, read_i8_from_bytes};
 use chrono::{Utc, DateTime, Duration};
 
 use super::tables::{TimeUnit, GeneratingProcess, FixedSurfaceTypes, oceanographic_category, meteorological_category, multiradar_category, meteorological_parameter, oceanographic_parameter, multiradar_parameter};
@@ -94,13 +94,35 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
         self.data[22].into()
     }
 
-    pub fn first_fixed_surface_scale_factor(&self) -> u8 {
-        self.data[23]
+    pub fn first_fixed_surface_scale_factor(&self) -> Option<i8> {
+        read_i8_from_bytes(self.data, 23)
     }
 
     pub fn first_fixed_surface_scaled_value(&self) -> u32 {
         read_u32_from_bytes(self.data, 24).unwrap_or(0)
     }
+
+	pub fn first_fixed_surface_value(&self) -> f64 {
+		let scale_factor = 10_f64.powi(-i32::from(self.first_fixed_surface_scale_factor().unwrap_or(0)));
+		self.first_fixed_surface_scaled_value() as f64 * scale_factor
+	}
+
+    pub fn second_fixed_surface_type(&self) -> FixedSurfaceTypes {
+        self.data[28].into()
+    }
+
+    pub fn second_fixed_surface_scale_factor(&self) -> Option<i8> {
+		read_i8_from_bytes(self.data, 29)
+    }
+
+    pub fn second_fixed_surface_scaled_value(&self) -> u32 {
+        read_u32_from_bytes(self.data, 30).unwrap_or(0)
+    }
+
+	pub fn second_fixed_surface_value(&self) -> f64 {
+		let scale_factor = 10_f64.powi(-i32::from(self.second_fixed_surface_scale_factor().unwrap_or(0)));
+		self.second_fixed_surface_scaled_value() as f64 * scale_factor
+	}
 
 	pub fn array_index(&self) -> Option<usize> {
 		match self.first_fixed_surface_type() {
@@ -108,16 +130,4 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
 			_ => None,
 		}
 	}
-
-    pub fn second_fixed_surface_type(&self) -> FixedSurfaceTypes {
-        self.data[28].into()
-    }
-
-    pub fn second_fixed_surface_scale_factor(&self) -> u8 {
-        self.data[29]
-    }
-
-    pub fn second_fixed_surface_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(self.data, 30).unwrap_or(0)
-    }
 }

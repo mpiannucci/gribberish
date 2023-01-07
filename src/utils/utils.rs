@@ -31,6 +31,16 @@ pub fn read_u64_from_bytes(data: &[u8], offset: usize) -> Option<u64> {
     Some(u64::from_be_bytes(l))
 }
 
+pub fn read_i8_from_bytes(data: &[u8], offset: usize) -> Option<i8> {
+    if data.len() < offset + 1 {
+        return None;
+    }
+
+    let mut l: [u8; 1] = Default::default();
+    l.copy_from_slice(&data[offset..offset + 1]);
+    Some(i8::from_be_bytes(l))
+}
+
 pub fn read_i16_from_bytes(data: &[u8], offset: usize) -> Option<i16> {
     if data.len() < offset + 2 {
         return None;
