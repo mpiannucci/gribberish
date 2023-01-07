@@ -126,7 +126,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
             from_bits::<u32>(&temp_container).unwrap()
         });
 
-        let group_widths_start = ng * nbits;
+        let group_widths_start = ((ng * nbits) as f32 / 8.0).ceil() as usize * 8;
         let n_width_bits = self.group_width_bits() as usize;
         let group_width_start_index = 32 - n_width_bits;
         let group_widths = (0..ng).map(|ig| {
@@ -139,7 +139,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
             from_bits::<u32>(&temp_container).unwrap() + self.group_width_reference() as u32
         });
 
-        let group_lengths_start = group_widths_start + n_width_bits * ng;
+        let group_lengths_start = group_widths_start + (((n_width_bits * ng) as f32 / 8.0).ceil() as usize * 8);
         let n_length_bits = self.group_length_bits() as usize;
         let group_length_start_index = 32 - n_length_bits;
         let group_lengths = (0..ng).map(|ig| {
@@ -157,7 +157,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
         let reference_value: f64 = self.reference_value().into();
 
-        let mut pos = group_lengths_start + n_length_bits * ng;
+        let mut pos = group_lengths_start + (((n_length_bits * ng) as f32 / 8.0).ceil() as usize * 8);
         let mut raw_values = Vec::with_capacity(ng);
         for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
             let n_bits = (width * length) as usize;
@@ -165,6 +165,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
             let mut temp_container: [u8; 32] = [0; 32];
             let group_values: Vec<i32> = (0..length)
                 .map(|i| {
+                    temp_container = [0; 32];
                     for bit in 0..width as usize {
                         temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit];
                     }
