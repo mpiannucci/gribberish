@@ -104,9 +104,10 @@ where
 }
 
 pub fn filled_bit_array<const N: usize>(bits: &[u8]) -> [u8; N] {
+    let bit_start = N - bits.len();
     let mut new = [0; N];
     for i in 0..bits.len() {
-        new[i] = bits[i];
+        new[bit_start + i] = bits[i];
     }
     new
 }

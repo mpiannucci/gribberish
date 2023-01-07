@@ -156,12 +156,12 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             SpatialDifferencingOrder::Second => 3,
         };
 
+        let group_reference_bit_start_index = 32 - nbits;
         let group_references = (0..ng).map(|ig| {
             let start = group_reference_start + ig * nbits;
-            let bit_start_index = 32 - nbits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..nbits {
-                temp_container[bit_start_index + 1] = bits[start + i];
+                temp_container[group_reference_bit_start_index + 1] = bits[start + i];
             }
 
             from_bits::<u32>(&temp_container).unwrap()
@@ -169,12 +169,12 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         let group_widths_start = group_reference_start + ng * nbits;
         let n_width_bits = self.group_width_bits() as usize;
+        let group_width_bit_start_index = 32 - n_width_bits;
         let group_widths = (0..ng).map(|ig| {
             let start = group_widths_start + ig * n_width_bits;
-            let bit_start_index = 32 - nbits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..n_width_bits {
-                temp_container[bit_start_index + i] = bits[start + i];
+                temp_container[group_width_bit_start_index + i] = bits[start + i];
             }
 
             from_bits::<u32>(&temp_container).unwrap() + self.group_width_reference() as u32
@@ -182,12 +182,13 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         let group_lengths_start = group_widths_start + n_width_bits * ng;
         let n_length_bits = self.group_length_bits() as usize;
+        let group_length_bit_start_index = 32 - n_length_bits;
         let group_lengths = (0..ng).map(|ig| {
             let start = group_lengths_start + ig * n_length_bits;
-            let bit_start_index = 32 - nbits;
+
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..n_length_bits {
-                temp_container[bit_start_index + i] = bits[start + i];
+                temp_container[group_length_bit_start_index + i] = bits[start + i];
             }
 
             from_bits::<u32>(&temp_container).unwrap() * self.group_length_increment() as u32
@@ -198,19 +199,20 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         let mut pos = group_lengths_start + ng * n_length_bits;
         let mut raw_values = Vec::with_capacity(ng);
-        for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
-            println!("{length}");
+        for (ig, (reference, width, length)) in izip!(group_references, group_widths, group_lengths).enumerate() {
             if width == 0 {
                 raw_values.push(vec![0; length as usize]);
                 continue;
             }
 
             println!("width: {width}");
+            println!("{ig}/{ng}");
+
             let n_bits = (width * length) as usize;
             let mut temp_container: [u8; 32] = [0; 32];
+            let bit_start_index = 32 - width as usize;
             let group_values: Vec<i32> = (0..length)
                 .map(|i| {
-                    let bit_start_index = 32 - width as usize;
                     for bit in 0..width as usize {
                         temp_container[bit as usize + bit_start_index] = bits[pos + (i * width) as usize + bit];
                     }
