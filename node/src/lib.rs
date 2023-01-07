@@ -1,8 +1,10 @@
 #![deny(clippy::all)]
 
+use std::collections::HashMap;
+
 use gribberish::{
   data_message::DataMessage,
-  message::{read_message, read_messages},
+  message::{map_messages, read_message, read_messages},
 };
 use napi::{
   bindgen_prelude::{Array, Buffer, Float64Array},
@@ -29,6 +31,13 @@ impl GribMessage {
   pub fn parse_from_buffer(buffer: Buffer, offset: u32) -> Self {
     let buf: Vec<u8> = buffer.into();
     let message = read_message(&buf, offset as usize).unwrap();
+    let message = DataMessage::try_from(message).unwrap();
+
+    GribMessage { inner: message }
+  }
+
+  pub fn parse_from_bytes(data: &[u8], offset: usize) -> Self {
+    let message = read_message(&data, offset).unwrap();
     let message = DataMessage::try_from(message).unwrap();
 
     GribMessage { inner: message }
@@ -84,8 +93,8 @@ impl GribMessage {
   pub fn grid_shape(&self) -> GridShape {
     let (rows, cols) = self.inner.grid_shape();
     GridShape {
-      rows: rows as u32, 
-      cols: cols as u32
+      rows: rows as u32,
+      cols: cols as u32,
     }
   }
 
@@ -93,8 +102,8 @@ impl GribMessage {
   pub fn grid_resolution(&self) -> GridShape {
     let (rows, cols) = self.inner.grid_resolution;
     GridShape {
-      rows: rows as u32, 
-      cols: cols as u32
+      rows: rows as u32,
+      cols: cols as u32,
     }
   }
 
@@ -129,4 +138,31 @@ pub fn parse_messages_from_buffer(buffer: Buffer, env: Env) -> Array {
   });
 
   arr
+}
+
+#[napi]
+pub struct GribMessageFactory {
+  data: Vec<u8>,
+  mapping: HashMap<String, (usize, usize)>,
+}
+
+#[napi]
+impl GribMessageFactory {
+  #[napi(factory)]
+  pub fn from_buffer(buffer: Buffer) -> Self {
+    let data: Vec<u8> = buffer.into();
+    let mapping = map_messages(&data);
+
+    GribMessageFactory { data, mapping }
+  }
+
+  #[napi(getter)]
+  pub fn available_messages(&self) -> Vec<String> {
+    self.mapping.keys().map(|k| k.into()).collect()
+  }
+
+  #[napi]
+  pub fn get_message(&self, key: String) -> GribMessage {
+    GribMessage::parse_from_bytes(&self.data, self.mapping[&key].1)
+  }
 }

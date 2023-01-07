@@ -168,6 +168,20 @@ impl<'a> Message<'a> {
         .clone()
     }
 
+    pub fn product_template_id(&self) -> Result<u16, String> {
+        let mut sections = self.sections();
+        
+        let product_definition = unwrap_or_return!(
+            sections.find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        Ok(product_definition.product_definition_template_number())
+    }
+
     pub fn parameter_index(&self) -> Result<String, String> {
         let mut sections = self.sections();
 

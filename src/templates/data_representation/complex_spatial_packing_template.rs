@@ -199,7 +199,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         let mut pos = group_lengths_start + (((ng * n_length_bits) as f32 / 8.0).ceil() as usize * 8);
         let mut raw_values = Vec::with_capacity(ng);
-        for (ig, (reference, width, length)) in izip!(group_references, group_widths, group_lengths).enumerate() {
+        for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
             if width == 0 {
                 raw_values.push(vec![0; length as usize]);
                 continue;

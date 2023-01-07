@@ -1,8 +1,6 @@
+use chrono::Duration;
 use gribberish_macros::{DisplayDescription, FromValue, ToParameter};
 use gribberish_types::Parameter;
-use super::template::{Template, TemplateType};
-use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
-use chrono::{Utc, DateTime, Duration};
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -21,7 +19,45 @@ pub enum FixedSurfaceTypes {
 	#[description = "cloud base level"]
 	CloudBase = 2,
 	#[description = "cloud tops level"]
-	CloudTop = 3, 
+	CloudTop = 3,
+	#[description = "maximum wind level"]
+	MaximumWindLevel = 6,
+	#[description = "tropopause"]
+	Tropopause = 7,
+	#[description = "sea bottom"]
+	SeaBottom = 9,
+	#[description = "entire atmosphere"]
+	EntireAtmosphere = 10,
+	#[description = "isothermal level"]
+	IsothermalLevel = 20,
+	#[description = "mean sea level"]
+	MeanSeaLevel = 101,
+	#[description = "specific altitude above mean sea level"]
+	SpecificAltitudeAboveMeanSeaLevel = 102,
+	#[description = "specific height level above ground"]
+	SpecifiedHeightLevelAboveGround = 103,
+	#[description = "sigma level"]
+	SigmaLevel = 104,
+	#[description = "hybrid level"]
+	HybridLevel = 105,
+	#[description = "eta level"]
+	EtaLevel = 111,
+	#[description = "snow level"]
+	SnowLevel = 114,
+	#[description = "sigma height level"]
+	SigmaHeightLevel = 115,
+	#[description = "generalized vertical height coordinate"]
+	GeneralizedVerticalHeightCoordinate = 150,
+	#[description = "depth below sea level"]
+	DepthBelowSeaLevel = 160,
+	#[description = "depth below water surface"]
+	DepthBelowWaterSurface = 161,
+	#[description = "mixing layer"]
+	MixingLayer = 166,
+	#[description = "entire atmosphere as a single layer"]
+	EntireAtmosphereAsSingleLayer = 200,
+	#[description = "entire ocean as a single layer"]
+	EntireOceanAsSingleLayer = 201,
 	#[description = "Ordered Sequence of Data"]
 	OrderedSequence = 241,
 }
@@ -254,7 +290,7 @@ pub enum MassProduct {
 	PressureTendency = 2,
 }
 
-fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter> {
+pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter> {
 	match category {
 		0 => Some(Parameter::from(TemperatureProduct::from(parameter))),
 		1 => Some(Parameter::from(MoistureProduct::from(parameter))),
@@ -264,7 +300,7 @@ fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter> {
 	}
 }
 
-fn meteorological_category(category: u8) -> &'static str {
+pub fn meteorological_category(category: u8) -> &'static str {
 	match category {
 		0 => "temperature",
 		1 => "moisture",
@@ -471,14 +507,14 @@ pub enum WavesProduct {
 	WaveLength = 193,
 }
 
-fn oceanographic_parameter(category: u8, parameter: u8) -> Option<Parameter> {
+pub fn oceanographic_parameter(category: u8, parameter: u8) -> Option<Parameter> {
 	match category {
 		0 => Some(Parameter::from(WavesProduct::from(parameter))),
 		_ => None,
 	}
 }
 
-fn oceanographic_category(category: u8) -> &'static str {
+pub fn oceanographic_category(category: u8) -> &'static str {
 	match category {
 		0 => "waves",
 		1 => "currents",
@@ -686,7 +722,7 @@ pub enum MRMSMergedReflectivityProduct {
 	MergedBaseReflectivity = 3,
 }
 
-fn multiradar_parameter(category: u8, parameter: u8) -> Option<Parameter> {
+pub fn multiradar_parameter(category: u8, parameter: u8) -> Option<Parameter> {
 	match category {
 		2 => Some(Parameter::from(MRMSLightningProduct::from(parameter))),
 		3 => Some(Parameter::from(MRMSConvectionProduct::from(parameter))),
@@ -697,7 +733,7 @@ fn multiradar_parameter(category: u8, parameter: u8) -> Option<Parameter> {
 	}
 }
 
-fn multiradar_category(category: u8) -> &'static str {
+pub fn multiradar_category(category: u8) -> &'static str {
 	match category {
 		2 => "lightning",
 		3 => "convection",
@@ -706,131 +742,4 @@ fn multiradar_category(category: u8) -> &'static str {
 		11 => "merged reflectivity",
 		_ => "misc",
 	}
-}
-
-pub enum ProductTemplate<'a> {
-	HorizontalAnalysisForecast(HorizontalAnalysisForecastTemplate<'a>),
-	Other,
-}
-
-impl <'a> ProductTemplate<'a> {
-	pub fn from_template_number(template_number: u16, data: &'a[u8], discipline: u8) -> ProductTemplate {
-		match template_number {
-			0 => ProductTemplate::HorizontalAnalysisForecast(HorizontalAnalysisForecastTemplate{data, discipline}),
-			_ => ProductTemplate::Other,
-		}
-	}
-}
-
-pub struct HorizontalAnalysisForecastTemplate<'a> {
-	data: &'a[u8],
-	discipline: u8,
-}
-
-impl <'a> Template for HorizontalAnalysisForecastTemplate<'a> {
-	fn data(&self) -> &[u8] {
-    	self.data
- 	}
-
- 	fn template_number(&self) -> u16 {
- 	    0
- 	}
-
- 	fn template_type(&self) -> TemplateType {
- 	    TemplateType::Product
- 	}
- 	
-    fn template_name(&self) -> &str {
-        "Analysis or forecast at a horizontal level or in a horizontal layer at a point in time"
-    }
-}
-
-impl <'a> HorizontalAnalysisForecastTemplate<'a> {
-
-	pub fn category_value(&self) -> u8 {
-		self.data[9]
-	}
-
-	pub fn parameter_value(&self) -> u8{
-		self.data[10]
-	}
-
-	pub fn category(&self) -> &'static str {
-		let category = self.category_value();
-		match self.discipline {
-			0 => meteorological_category(category),
-			10 => oceanographic_category(category),
-			209 => multiradar_category(category),
-			_ => "",
-		}
-	}
-
-	pub fn parameter(&self) -> Option<Parameter> {
-		let category = self.category_value();
-		let parameter = self.parameter_value();
-
-		match self.discipline {
-			0 => meteorological_parameter(category, parameter),
-			10 => oceanographic_parameter(category, parameter),
-			209 => multiradar_parameter(category, parameter),
-			_ => None,
-		}
-	}
-
-	pub fn generating_process(&self) -> GeneratingProcess {
-		self.data[12].into()
-	}
-
-	pub fn observation_cutoff_hours_after_reference_time(&self) -> u16 {
-		read_u16_from_bytes(self.data, 14).unwrap_or(0)
-	}
-
-	pub fn observation_cutoff_minutes_after_cutoff_time(&self) -> u8 {
-		self.data[16]
-	}
-
-	pub fn time_unit(&self) -> TimeUnit {
-		self.data[17].into()
-	}
-
-	pub fn forecast_time(&self) -> u32 {
-		read_u32_from_bytes(self.data, 18).unwrap_or(0)
-	}
-
-	pub fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc> {
-		let forecast_offset = self.forecast_time();
-		let offset_duration: Duration = self.time_unit().duration(forecast_offset as i64);
-		reference_date + offset_duration
-	}
-
-    pub fn first_fixed_surface_type(&self) -> FixedSurfaceTypes {
-        self.data[22].into()
-    }
-
-    pub fn first_fixed_surface_scale_factor(&self) -> u8 {
-        self.data[23]
-    }
-
-    pub fn first_fixed_surface_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(self.data, 24).unwrap_or(0)
-    }
-
-	pub fn array_index(&self) -> Option<usize> {
-		match self.first_fixed_surface_type() {
-			FixedSurfaceTypes::OrderedSequence => Some(self.first_fixed_surface_scaled_value() as usize), 
-			_ => None,
-		}
-	}
-
-    pub fn second_fixed_surface_type(&self) -> FixedSurfaceTypes {
-        self.data[28].into()
-    }
-
-    pub fn second_fixed_surface_scale_factor(&self) -> u8 {
-        self.data[29]
-    }
-
-    pub fn second_fixed_surface_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(self.data, 30).unwrap_or(0)
-    }
 }

@@ -25,3 +25,8 @@ export class GribMessage {
   get longitudes(): Float64Array
   get data(): Float64Array
 }
+export class GribMessageFactory {
+  static fromBuffer(buffer: Buffer): GribMessageFactory
+  get availableMessages(): Array<string>
+  getMessage(key: string): GribMessage
+}

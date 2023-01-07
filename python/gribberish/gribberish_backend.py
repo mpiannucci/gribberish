@@ -48,6 +48,12 @@ class GribberishBackend(BackendEntrypoint):
         # for each variables message
         var_mapping = parse_grib_mapping(raw_data)
 
+        # For now, any unsupported products get dropped 
+        keys = list(var_mapping.keys())
+        for var in keys: 
+            if var.startswith('(') or var == 'unknown': 
+                var_mapping.pop(var, None)
+
         # If there are variabels specified to drop, do so now
         if drop_variables:
             for var in drop_variables:
