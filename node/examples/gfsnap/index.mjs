@@ -10,10 +10,14 @@ import * as d3 from 'd3';
 // '/Users/matthewiannucci/Downloads/MRMS_MergedReflectivityQCComposite_00.50_20230106-000439.grib2'
 // MergedReflectivityQCComposite
 const gribPath = '/Users/matthewiannucci/Downloads/gfs.t18z.pgrb2.0p25.f186.grib2';
-const gribVariable = 'UGRD';
+const gribVariable = 'PRES@groundorwater_0';
 
 const gribData = fs.readFileSync(gribPath);
 const messageFactory = GribMessageFactory.fromBuffer(gribData);
+
+// console.log(messageFactory.availableMessages);
+// process.exit(0);
+
 const message = messageFactory.getMessage(gribVariable);
 
 if (message !== undefined) {
@@ -36,9 +40,12 @@ const min = d3.min(values);
 const range = max - min;
 const steps = 20;
 
+console.log(min)
+console.log(max)
+
 for (let i = 0; i < values.length; ++i) {
   if (isNaN(values[i])) {
-    values[i] = -99999;
+    values[i] = -9999999;
   }
 }
 

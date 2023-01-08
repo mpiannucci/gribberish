@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use gribberish::{
   data_message::DataMessage,
-  message::{map_messages, read_message, read_messages},
+  message::{scan_messages, read_message, read_messages},
 };
 use napi::{
   bindgen_prelude::{Array, Buffer, Float64Array},
@@ -31,67 +31,67 @@ impl GribMessage {
   pub fn parse_from_buffer(buffer: Buffer, offset: u32) -> Self {
     let buf: Vec<u8> = buffer.into();
     let message = read_message(&buf, offset as usize).unwrap();
-    let message = DataMessage::try_from(message).unwrap();
+    let message = DataMessage::try_from(&message).unwrap();
 
     GribMessage { inner: message }
   }
 
   pub fn parse_from_bytes(data: &[u8], offset: usize) -> Self {
     let message = read_message(&data, offset).unwrap();
-    let message = DataMessage::try_from(message).unwrap();
+    let message = DataMessage::try_from(&message).unwrap();
 
     GribMessage { inner: message }
   }
 
   #[napi(getter)]
   pub fn var_name(&self) -> &str {
-    self.inner.name.as_str()
+    self.inner.metadata.name.as_str()
   }
 
   #[napi(getter)]
   pub fn var_abbrev(&self) -> &str {
-    self.inner.var.as_str()
+    self.inner.metadata.var.as_str()
   }
 
   #[napi(getter)]
   pub fn units(&self) -> &str {
-    self.inner.units.as_str()
+    self.inner.metadata.units.as_str()
   }
 
-  #[napi(getter)]
-  pub fn array_index(&self) -> u32 {
-    self.inner.array_index.unwrap_or(0) as u32
-  }
+  // #[napi(getter)]
+  // pub fn array_index(&self) -> u32 {
+  //   self.inner.metadata.array_index.unwrap_or(0) as u32
+  // }
 
   #[napi(getter)]
   pub fn forecast_date(&self) -> chrono::DateTime<chrono::Utc> {
-    self.inner.forecast_date
+    self.inner.metadata.forecast_date
   }
 
   #[napi(getter)]
   pub fn reference_date(&self) -> chrono::DateTime<chrono::Utc> {
-    self.inner.reference_date
+    self.inner.metadata.reference_date
   }
 
   #[napi(getter)]
   pub fn proj(&self) -> &str {
-    self.inner.proj.as_str()
+    self.inner.metadata.proj.as_str()
   }
 
   #[napi(getter)]
   pub fn crs(&self) -> &str {
-    self.inner.crs.as_str()
+    self.inner.metadata.crs.as_str()
   }
 
   #[napi(getter)]
   pub fn bbox(&self) -> Vec<f64> {
-    let bbox = &self.inner.bbox;
+    let bbox = &self.inner.metadata.bbox;
     vec![bbox.0, bbox.1, bbox.2, bbox.3]
   }
 
   #[napi(getter)]
   pub fn grid_shape(&self) -> GridShape {
-    let (rows, cols) = self.inner.grid_shape();
+    let (rows, cols) = self.inner.metadata.grid_shape();
     GridShape {
       rows: rows as u32,
       cols: cols as u32,
@@ -100,7 +100,7 @@ impl GribMessage {
 
   #[napi(getter)]
   pub fn grid_resolution(&self) -> GridShape {
-    let (rows, cols) = self.inner.grid_resolution;
+    let (rows, cols) = self.inner.metadata.grid_resolution;
     GridShape {
       rows: rows as u32,
       cols: cols as u32,
@@ -109,12 +109,12 @@ impl GribMessage {
 
   #[napi(getter)]
   pub fn latitudes(&self) -> Float64Array {
-    Float64Array::new(self.inner.latitude.clone())
+    Float64Array::new(self.inner.metadata.latitude.clone())
   }
 
   #[napi(getter)]
   pub fn longitudes(&self) -> Float64Array {
-    Float64Array::new(self.inner.longitude.clone())
+    Float64Array::new(self.inner.metadata.longitude.clone())
   }
 
   #[napi(getter)]
@@ -131,7 +131,7 @@ pub fn parse_messages_from_buffer(buffer: Buffer, env: Env) -> Array {
   let mut arr = env.create_array(0).unwrap();
   messages.into_iter().for_each(|gm| {
     let grib_message = GribMessage {
-      inner: DataMessage::try_from(gm).unwrap(),
+      inner: DataMessage::try_from(&gm).unwrap(),
     };
 
     arr.insert(grib_message).unwrap();
@@ -151,7 +151,7 @@ impl GribMessageFactory {
   #[napi(factory)]
   pub fn from_buffer(buffer: Buffer) -> Self {
     let data: Vec<u8> = buffer.into();
-    let mapping = map_messages(&data);
+    let mapping = scan_messages(&data);
 
     GribMessageFactory { data, mapping }
   }

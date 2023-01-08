@@ -13,7 +13,6 @@ export class GribMessage {
   get varName(): string
   get varAbbrev(): string
   get units(): string
-  get arrayIndex(): number
   get forecastDate(): Date
   get referenceDate(): Date
   get proj(): string
