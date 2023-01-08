@@ -3,7 +3,7 @@ use crate::templates::template::{Template, TemplateType};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes, read_i16_from_bytes, read_i8_from_bytes};
 use chrono::{Utc, DateTime, Duration};
 
-use super::tables::{TimeUnit, GeneratingProcess, FixedSurfaceTypes, oceanographic_category, meteorological_category, multiradar_category, meteorological_parameter, oceanographic_parameter, multiradar_parameter};
+use super::tables::{TimeUnit, GeneratingProcess, FixedSurfaceType, oceanographic_category, meteorological_category, multiradar_category, meteorological_parameter, oceanographic_parameter, multiradar_parameter};
 
 pub struct HorizontalAnalysisForecastTemplate<'a> {
 	data: &'a[u8],
@@ -90,7 +90,7 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
 		reference_date + offset_duration
 	}
 
-    pub fn first_fixed_surface_type(&self) -> FixedSurfaceTypes {
+    pub fn first_fixed_surface_type(&self) -> FixedSurfaceType {
         self.data[22].into()
     }
 
@@ -107,7 +107,7 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
 		self.first_fixed_surface_scaled_value() as f64 * scale_factor
 	}
 
-    pub fn second_fixed_surface_type(&self) -> FixedSurfaceTypes {
+    pub fn second_fixed_surface_type(&self) -> FixedSurfaceType {
         self.data[28].into()
     }
 
@@ -126,7 +126,7 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
 
 	pub fn array_index(&self) -> Option<usize> {
 		match self.first_fixed_surface_type() {
-			FixedSurfaceTypes::OrderedSequence => Some(self.first_fixed_surface_scaled_value() as usize), 
+			FixedSurfaceType::OrderedSequence => Some(self.first_fixed_surface_scaled_value() as usize), 
 			_ => None,
 		}
 	}

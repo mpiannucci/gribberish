@@ -1,4 +1,5 @@
 use crate::templates::grid_definition::GridDefinitionTemplate;
+use crate::templates::product::tables::FixedSurfaceType;
 use crate::{
     sections::{indicator::Discipline, section::Section, section::SectionIterator},
     templates::product::ProductTemplate,
@@ -170,7 +171,7 @@ impl<'a> Message<'a> {
 
     pub fn product_template_id(&self) -> Result<u16, String> {
         let mut sections = self.sections();
-        
+
         let product_definition = unwrap_or_return!(
             sections.find_map(|s| match s {
                 Section::ProductDefinition(product_definition) => Some(product_definition),
@@ -318,7 +319,7 @@ impl<'a> Message<'a> {
         Ok(product_template.forecast_datetime(reference_date))
     }
 
-    pub fn array_index(&self) -> Result<Option<usize>, String> {
+    pub fn first_fixed_surface(&self) -> Result<(FixedSurfaceType, f64), String> {
         let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(
@@ -337,7 +338,33 @@ impl<'a> Message<'a> {
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
-        Ok(product_template.array_index())
+        let surface_type = product_template.first_fixed_surface_type(); 
+        let surface_value = product_template.first_fixed_surface_value();
+        Ok((surface_type, surface_value))
+    }
+
+    pub fn second_fixed_surface(&self) -> Result<(FixedSurfaceType, f64), String> {
+        let discipline = self.discipline()?;
+
+        let product_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            match product_definition.product_definition_template(discipline.clone() as u8) {
+                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
+                _ => None,
+            },
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        let surface_type = product_template.second_fixed_surface_type(); 
+        let surface_value = product_template.second_fixed_surface_value();
+        Ok((surface_type, surface_value))
     }
 
     pub fn proj_string(&self) -> Result<String, String> {

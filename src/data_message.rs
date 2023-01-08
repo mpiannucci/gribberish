@@ -1,12 +1,15 @@
 use std::convert::TryFrom;
-use crate::message::Message;
+use crate::{message::Message, templates::product::tables::FixedSurfaceType};
 use chrono::{DateTime, Utc};
 
 pub struct DataMessage {
     pub var: String,
     pub name: String,
     pub units: String,
-    pub array_index: Option<usize>,
+    pub first_fixed_surface_type: FixedSurfaceType, 
+    pub first_fixed_surface_value: f64,
+    pub second_fixed_surface_type: FixedSurfaceType, 
+    pub second_fixed_surface_value: f64,
     pub discipline: String, 
     pub category: String, 
     pub data_compression: String,
@@ -52,11 +55,17 @@ impl <'a> TryFrom<Message<'a>> for DataMessage {
     type Error = String;
 
     fn try_from(message: Message) -> std::result::Result<Self, <Self as std::convert::TryFrom<Message>>::Error> { 
+        let (first_fixed_surface_type, first_fixed_surface_value) = message.first_fixed_surface()?;
+        let (second_fixed_surface_type, second_fixed_surface_value) = message.second_fixed_surface()?;
+
         Ok(DataMessage {
             var: message.variable_abbrev()?, 
             name: message.variable_name()?, 
             units: message.unit()?, 
-            array_index: message.array_index()?,
+            first_fixed_surface_type, 
+            first_fixed_surface_value, 
+            second_fixed_surface_type, 
+            second_fixed_surface_value,
             discipline: message.discipline()?.to_string(),
             category: message.category()?,
             data_compression: format!("{}: {}", message.data_template_number().unwrap_or(99), message.data_compression_type().unwrap_or("Unknown".to_string())),
