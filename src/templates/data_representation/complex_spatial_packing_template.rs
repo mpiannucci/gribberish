@@ -226,7 +226,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                     }
 
                     let raw = from_bits::<u32>(&temp_container).unwrap(); 
-                    as_signed!(raw, i32) + reference as i32
+                    as_signed!(raw, i32) + reference as i32 + dmin as i32
                 })
                 .collect();
 
@@ -236,12 +236,14 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         }
         let raw_values: Vec<i32> = raw_values.iter().flatten().map(|v| *v).collect();
 
+        println!("raw_values {:?}", &raw_values[2000..2050]);
+
         let mut values = Vec::with_capacity(raw_values.len());
         match self.spatial_differencing_order() {
             SpatialDifferencingOrder::First => {
                 values.push(d1 as f64);
                 for i in 1..raw_values.len() {
-                    let val = raw_values[i] as f64 + raw_values[i - 1] as f64 + dmin as f64;
+                    let val = raw_values[i] as f64 + values[i - 1] as f64;
                     values.push(val);
                 }
             },
@@ -249,23 +251,27 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                 values.push(d1 as f64); 
                 values.push(d2 as f64);
                 for i in 2..raw_values.len() {
-                    let val = raw_values[i] as f64 + (2.0 * raw_values[i - 1] as f64) - raw_values[i - 2] as f64 + dmin as f64;
+                    let val = raw_values[i] as f64 + (2.0 * values[i - 1] as f64) - values[i - 2] as f64;
                     values.push(val);
                 }
             },
         };
 
-        let bscale = grib_power(self.binary_scale_factor().into(), 2);
-        let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
-        let reference_value: f64 = self.reference_value().into();
+        let bscale = 2_f64.powi(self.binary_scale_factor() as i32);
+        let dscale = 10_f64.powi(-self.decimal_scale_factor() as i32);
+        let reference_value = self.reference_value() as f64;
 
         println!("bscale {bscale}");
         println!("dscale {dscale}");
         println!("refval {reference_value}");
-        println!("value[0] {}", values[0]);
+        println!("values {:?}", &values[2000..2050]);
 
-        // (55 * 1 + 0.22778330743312836) * 0.1 = 5.72778
+        // values [55.0, 55.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
         values.iter_mut().for_each(|v| *v = (*v * bscale + reference_value) * dscale);
+
+        // [5.522778330743313, 5.522778330743313, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838]
+        println!("values {:?}", &values[2000..2050]);
 
         Ok(values[range].to_vec())
     }
