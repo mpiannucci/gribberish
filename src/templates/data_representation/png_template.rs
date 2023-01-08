@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::{templates::template::{Template, TemplateType}, utils::{bits_to_bytes, grib_power, read_f32_from_bytes, read_i16_from_bytes, read_u16_from_bytes}};
+use crate::{templates::template::{Template, TemplateType}, utils::{bits_to_bytes, grib_power, read_f32_from_bytes, read_u16_from_bytes}};
 use super::{DataRepresentationTemplate, tables::OriginalFieldValue};
 use png::Decoder;
 
@@ -36,11 +36,11 @@ impl PNGDataRepresentationTemplate {
     }
 
     pub fn binary_scale_factor(&self) -> i16 {
-        read_i16_from_bytes(self.data.as_slice(), 15).unwrap_or(0)
+        as_signed!(read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0), i16)
     }
 
     pub fn decimal_scale_factor(&self) -> i16 {
-        read_i16_from_bytes(self.data.as_slice(), 17).unwrap_or(0)
+        as_signed!(read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0), i16)
     }
 
     pub fn bit_count(&self) -> u8 {

@@ -4,13 +4,13 @@ import { Resvg } from '@resvg/resvg-js';
 import * as d3 from 'd3';
 
 // WAVE
-// './data/gfswave.20221222.t18z.atlocn.0p16.f064.grib2'
-// HTSGW
+// const gribPath = './data/gfswave.20221222.t18z.atlocn.0p16.f064.grib2'
+// const gribVariable = 'HTSGW@groundorwater_1'
 // RADAR
-// '/Users/matthewiannucci/Downloads/MRMS_MergedReflectivityQCComposite_00.50_20230106-000439.grib2'
-// MergedReflectivityQCComposite
+// const gribPath = '/Users/matthewiannucci/Downloads/MRMS_MergedReflectivityQCComposite_00.50_20230106-000439.grib2'
+// const gribVariable = 'MergedReflectivityQCComposite'
 const gribPath = '/Users/matthewiannucci/Downloads/gfs.t18z.pgrb2.0p25.f186.grib2';
-const gribVariable = 'PRES@groundorwater_0';
+const gribVariable = 'GUST@groundorwater_0';
 
 const gribData = fs.readFileSync(gribPath);
 const messageFactory = GribMessageFactory.fromBuffer(gribData);

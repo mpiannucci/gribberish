@@ -2,7 +2,7 @@ use itertools::izip;
 
 use crate::{
     templates::template::{Template, TemplateType},
-    utils::{from_bits, read_f32_from_bytes, read_i16_from_bytes, read_u32_from_bytes, grib_power},
+    utils::{from_bits, read_f32_from_bytes, read_u32_from_bytes, grib_power, read_u16_from_bytes},
 };
 
 use super::{
@@ -42,11 +42,11 @@ impl ComplexPackingDataRepresentationTemplate {
     }
 
     pub fn binary_scale_factor(&self) -> i16 {
-        read_i16_from_bytes(self.data.as_slice(), 15).unwrap_or(0)
+        as_signed!(read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0), i16)
     }
 
     pub fn decimal_scale_factor(&self) -> i16 {
-        read_i16_from_bytes(self.data.as_slice(), 17).unwrap_or(0)
+        as_signed!(read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0), i16)
     }
 
     pub fn bit_count(&self) -> u8 {
@@ -170,7 +170,8 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
                         temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit];
                     }
 
-                    from_bits::<i32>(&temp_container).unwrap() + reference as i32
+                    let raw = from_bits::<u32>(&temp_container).unwrap(); 
+                    as_signed!(raw, i32) + reference as i32
                 })
                 .collect();
 

@@ -1,6 +1,6 @@
 use gribberish_types::Parameter;
 use crate::templates::template::{Template, TemplateType};
-use crate::utils::{read_u16_from_bytes, read_u32_from_bytes, read_i8_from_bytes, read_i32_from_bytes};
+use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use chrono::{Utc, DateTime, Duration};
 
 use super::tables::{TimeUnit, GeneratingProcess, FixedSurfaceType, oceanographic_category, meteorological_category, multiradar_category, meteorological_parameter, oceanographic_parameter, multiradar_parameter};
@@ -95,11 +95,11 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
     }
 
     pub fn first_fixed_surface_scale_factor(&self) -> i8 {
-        read_i8_from_bytes(self.data, 23).unwrap_or(0)
+        as_signed!(self.data[23], i8)
     }
 
     pub fn first_fixed_surface_scaled_value(&self) -> i32 {
-        read_i32_from_bytes(self.data, 24).unwrap_or(0)
+        as_signed!(read_u32_from_bytes(self.data, 24).unwrap_or(0), i32)
     }
 
 	pub fn first_fixed_surface_value(&self) -> Option<f64> {
@@ -111,11 +111,11 @@ impl <'a> HorizontalAnalysisForecastTemplate<'a> {
     }
 
     pub fn second_fixed_surface_scale_factor(&self) -> i8 {
-		read_i8_from_bytes(self.data, 29).unwrap_or(0)
+		as_signed!(self.data[29], i8)
     }
 
     pub fn second_fixed_surface_scaled_value(&self) -> i32 {
-        read_i32_from_bytes(self.data, 30).unwrap_or(0)
+        as_signed!(read_u32_from_bytes(self.data, 30).unwrap_or(0), i32)
     }
 
 	pub fn second_fixed_surface_value(&self) -> Option<f64> {

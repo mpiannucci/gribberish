@@ -1,7 +1,7 @@
 use super::grid_definition_template::GridDefinitionTemplate;
 use super::tables::EarthShape;
 use crate::templates::template::{Template, TemplateType};
-use crate::utils::{bit_array_from_bytes, read_signed_from_bytes, read_u32_from_bytes};
+use crate::utils::{bit_array_from_bytes, read_u32_from_bytes};
 
 use std::iter::Iterator;
 use std::vec::Vec;
@@ -79,7 +79,8 @@ impl <'a> LatLngGridTemplate<'a> {
     }
 
     pub fn start_latitude(&self) -> f64 {
-        let value = read_signed_from_bytes(self.data, 46).unwrap_or(0) as f64;
+        let raw_value = read_u32_from_bytes(self.data, 46).unwrap_or(0);
+        let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
@@ -93,7 +94,8 @@ impl <'a> LatLngGridTemplate<'a> {
     }
 
     pub fn end_latitude(&self) -> f64 {
-        let value = read_signed_from_bytes(self.data, 55).unwrap_or(0) as f64;
+        let raw_value = read_u32_from_bytes(self.data, 55).unwrap_or(0);
+        let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 

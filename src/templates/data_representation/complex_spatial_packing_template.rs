@@ -5,8 +5,8 @@ use itertools::{izip};
 use crate::{
     templates::template::{Template, TemplateType},
     utils::{
-        filled_bit_array, from_bits, grib_power, read_f32_from_bytes, read_i16_from_bytes,
-        read_u32_from_bytes,
+        filled_bit_array, from_bits, grib_power, read_f32_from_bytes,
+        read_u32_from_bytes, read_u16_from_bytes,
     },
 };
 
@@ -49,11 +49,11 @@ impl ComplexSpatialPackingDataRepresentationTemplate {
     }
 
     pub fn binary_scale_factor(&self) -> i16 {
-        read_i16_from_bytes(self.data.as_slice(), 15).unwrap_or(0)
+        as_signed!(read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0), i16)
     }
 
     pub fn decimal_scale_factor(&self) -> i16 {
-        read_i16_from_bytes(self.data.as_slice(), 17).unwrap_or(0)
+        as_signed!(read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0), i16)
     }
 
     pub fn bit_count(&self) -> u8 {
@@ -130,16 +130,19 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         let d1 = unwrap_or_return!(
             from_bits::<u16>(&filled_bit_array::<16>(&bits[0..16])),
-            "failed to convert value to u32".into()
+            "failed to convert value to u16".into()
         );
+        let d1 = as_signed!(d1, i16);
+
         let d2 = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
             unwrap_or_return!(
                 from_bits::<u16>(&filled_bit_array::<16>(&bits[16..32])),
-                "failed to convert value to u32".into()
+                "failed to convert value to u16".into()
             )
         } else {
             0
         };
+        let d2 = as_signed!(d2, i16);
 
         let dmin_start = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
             32
@@ -148,8 +151,15 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         };
         let dmin = unwrap_or_return!(
             from_bits::<u16>(&filled_bit_array::<16>(&bits[dmin_start..dmin_start + 16])),
-            "failed to convert value to u32".into()
+            "failed to convert value to u16".into()
         );
+        let dmin = as_signed!(dmin, i16);
+
+        println!("{:?}", &bits[dmin_start..dmin_start + 16]);
+
+        println!("{d1}"); 
+        println!("{d2}");
+        println!("{dmin}");
 
         let group_reference_start = self.number_of_octets_for_differencing() as usize * 8 * match self.spatial_differencing_order() {
             SpatialDifferencingOrder::First => 2,
@@ -212,10 +222,11 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                 .map(|i| {
                     temp_container = [0; 32];
                     for bit in 0..width as usize {
-                        temp_container[bit as usize + bit_start_index] = bits[pos + (i * width) as usize + bit];
+                        temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit];
                     }
 
-                    from_bits::<i32>(&temp_container).unwrap() + reference as i32
+                    let raw = from_bits::<u32>(&temp_container).unwrap(); 
+                    as_signed!(raw, i32) + reference as i32
                 })
                 .collect();
 
@@ -228,16 +239,18 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let mut values = Vec::with_capacity(raw_values.len());
         match self.spatial_differencing_order() {
             SpatialDifferencingOrder::First => {
-                values[0] = d1 as f64; 
-                for i in 2..raw_values.len() {
-                    values[i] = raw_values[i] as f64 + raw_values[i - 1] as f64 + dmin as f64;
+                values.push(d1 as f64);
+                for i in 1..raw_values.len() {
+                    let val = raw_values[i] as f64 + raw_values[i - 1] as f64 + dmin as f64;
+                    values.push(val);
                 }
             },
             SpatialDifferencingOrder::Second => {
                 values.push(d1 as f64); 
                 values.push(d2 as f64);
                 for i in 2..raw_values.len() {
-                    values.push(raw_values[i] as f64 + (2.0 * raw_values[i - 1] as f64) - raw_values[i - 2] as f64 + dmin as f64);
+                    let val = raw_values[i] as f64 + (2.0 * raw_values[i - 1] as f64) - raw_values[i - 2] as f64 + dmin as f64;
+                    values.push(val);
                 }
             },
         };
@@ -246,6 +259,12 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
         let reference_value: f64 = self.reference_value().into();
 
+        println!("bscale {bscale}");
+        println!("dscale {dscale}");
+        println!("refval {reference_value}");
+        println!("value[0] {}", values[0]);
+
+        // (55 * 1 + 0.22778330743312836) * 0.1 = 5.72778
         values.iter_mut().for_each(|v| *v = (*v * bscale + reference_value) * dscale);
 
         Ok(values[range].to_vec())

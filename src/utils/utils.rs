@@ -31,36 +31,6 @@ pub fn read_u64_from_bytes(data: &[u8], offset: usize) -> Option<u64> {
     Some(u64::from_be_bytes(l))
 }
 
-pub fn read_i8_from_bytes(data: &[u8], offset: usize) -> Option<i8> {
-    if data.len() < offset + 1 {
-        return None;
-    }
-
-    let mut l: [u8; 1] = Default::default();
-    l.copy_from_slice(&data[offset..offset + 1]);
-    Some(i8::from_be_bytes(l))
-}
-
-pub fn read_i16_from_bytes(data: &[u8], offset: usize) -> Option<i16> {
-    if data.len() < offset + 2 {
-        return None;
-    }
-
-    let mut l: [u8; 2] = Default::default();
-    l.copy_from_slice(&data[offset..offset + 2]);
-    Some(i16::from_be_bytes(l))
-}
-
-pub fn read_i32_from_bytes(data: &[u8], offset: usize) -> Option<i32> {
-    if data.len() < offset + 4 {
-        return None;
-    }
-
-    let mut l: [u8; 4] = Default::default();
-    l.copy_from_slice(&data[offset..offset + 4]);
-    Some(i32::from_be_bytes(l))
-}
-
 pub fn read_f32_from_bytes(data: &[u8], offset: usize) -> Option<f32> {
     if data.len() < offset + 4 {
         return None;
@@ -81,46 +51,18 @@ pub fn read_f32_from_bytes(data: &[u8], offset: usize) -> Option<f32> {
 //     Some(f64::from_be_bytes(l))
 // }
 
-pub fn read_signed_from_bytes(data: &[u8], offset: usize) -> Option<i32> {
-    let mut bits = bit_array_from_bytes(&data[offset..offset + 4]);
-
-    let is_negative;
-    if bits[0] == 1 {
-        bits[0] = 0;
-        is_negative = true;
-    } else {
-        return match read_u32_from_bytes(data, offset) {
-            Some(v) => Some(v as i32),
-            None => None,
-        };
-    }
-
-    let data = bits_to_bytes(bits).unwrap();
-
-    let value = read_u32_from_bytes(&data[0..], 0);
-    if let Some(value) = value {
-        if is_negative {
-            Some(value as i32 * -1)
-        } else {
-            Some(value as i32)
-        }
-    } else {
-        None
-    }
-}
-
 pub fn from_bits<T>(bits: &[u8]) -> Option<T>
 where
-    T: num::Integer + From<u8>,
+    T: num::Unsigned + From<u8>,
 {
     if bits.len() != (std::mem::size_of::<T>() * 8) {
         return None;
     }
 
-    Some(
-        bits.iter()
-            .fold(T::from(0), |acc, &b| acc * T::from(2) + T::from(b)),
-    )
+    let value = bits.iter()
+    .fold(T::from(0), |acc, &b| acc * T::from(2) + T::from(b)); 
+
+    Some(value)
 }
 
 pub fn filled_bit_array<const N: usize>(bits: &[u8]) -> [u8; N] {
@@ -193,27 +135,13 @@ pub fn grib_power(s: i32, n: i32) -> f64 {
 mod tests {
     // use super::*;
 
-    // #[test]
-    // fn test_byte_to_bits() {
-    //     let test_value: u8 = 255;
-    //     let result = byte_to_bits(&test_value);
-    //     for i in 0..8 {
-    //         assert_eq!(result[i], 1);
-    //     }
-    // }
 
-    // #[test]
-    // fn test_positive_bit_count() {
-    //     let test_value: u8 = 255;
-    //     let result = positive_bit_count(&test_value);
-    //     assert_eq!(result, 8);
+    #[test]
+    fn test_convert_signed() {
+        let neg_one: u8 = 0b10000001;
+        assert_eq!(as_signed!(neg_one, i8), -1);
 
-    //     let test_value: u8 = 1;
-    //     let result = positive_bit_count(&test_value);
-    //     assert_eq!(result, 1);
-
-    //     let test_value: u8 = 20;
-    //     let result = positive_bit_count(&test_value);
-    //     assert_eq!(result, 2);
-    // }
+        let four: u8 = 0b00000100;
+        assert_eq!(as_signed!(four, i8), 4);
+    }
 }
