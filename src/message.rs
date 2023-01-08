@@ -9,13 +9,13 @@ use gribberish_types::Parameter;
 use std::collections::HashMap;
 use std::vec::Vec;
 
-pub fn map_messages<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize)> {
+pub fn scan_messages<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize)> {
     let message_iter = MessageIterator::from_data(data, 0);
 
     message_iter
         .enumerate()
         .map(
-            |(index, m)| match m.variable_abbrev().or(m.parameter_index()) {
+            |(index, m)| match m.key() {
                 Ok(var) => (var, (index, m.byte_offset())),
                 Err(_) => ("unknown".into(), (index, m.byte_offset())),
             },
@@ -95,6 +95,37 @@ impl<'a> Message<'a> {
             data: self.data,
             offset: self.offset,
         }
+    }
+
+    pub fn key(&self) -> Result<String, String> {
+        let var = self.variable_abbrev()?;
+        let first_fixed_surface = self.first_fixed_surface()?;
+        let first_level = if first_fixed_surface.0 == FixedSurfaceType::Missing {
+            "".into()
+        } else {
+            let level_value = if let Some(value) = first_fixed_surface.1 {
+                format!("_{:.0}", value)
+            } else {
+                "".into()
+            };
+
+            format!("@{}{level_value}", Parameter::from(first_fixed_surface.0).name)
+        };
+
+        let second_fixed_surface = self.second_fixed_surface()?;
+        let second_level = if second_fixed_surface.0 == FixedSurfaceType::Missing {
+            "".into()
+        } else {
+            let level_value = if let Some(value) = second_fixed_surface.1 {
+                format!("_{:.0}", value)
+            } else {
+                "".into()
+            };
+
+            format!("@{}{level_value}", Parameter::from(second_fixed_surface.0).name)
+        };
+
+        Ok(format!("{}{}{}", var, first_level, second_level))
     }
 
     pub fn variable_names(messages: Vec<Message>) -> Vec<Option<String>> {
@@ -319,7 +350,7 @@ impl<'a> Message<'a> {
         Ok(product_template.forecast_datetime(reference_date))
     }
 
-    pub fn first_fixed_surface(&self) -> Result<(FixedSurfaceType, f64), String> {
+    pub fn first_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), String> {
         let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(
@@ -343,7 +374,7 @@ impl<'a> Message<'a> {
         Ok((surface_type, surface_value))
     }
 
-    pub fn second_fixed_surface(&self) -> Result<(FixedSurfaceType, f64), String> {
+    pub fn second_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), String> {
         let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(

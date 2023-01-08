@@ -12,7 +12,7 @@ pub enum ClusteringMethod {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Eq, PartialEq, Debug, Clone, DisplayDescription, FromValue, ToParameter)]
 pub enum FixedSurfaceType {
 	#[description = "ground or water surface"]
 	GroundOrWater = 1,
@@ -58,8 +58,10 @@ pub enum FixedSurfaceType {
 	EntireAtmosphereAsSingleLayer = 200,
 	#[description = "entire ocean as a single layer"]
 	EntireOceanAsSingleLayer = 201,
-	#[description = "Ordered Sequence of Data"]
+	#[description = "ordered Sequence of Data"]
 	OrderedSequence = 241,
+	#[description = "missing"]
+	Missing = 255,
 }
 
 #[repr(u8)]
