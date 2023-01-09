@@ -113,35 +113,7 @@ pub fn bits_to_bytes(bits: Vec<u8>) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
-// https://github.com/erdc/grib_api/blob/master/src/grib_scaling.c
-pub fn grib_power(s: i32, n: i32) -> f64 {
-    let mut divisor = 1.0;
-    let mut ss = s;
-
-    while ss < 0 {
-        divisor /= n as f64;
-        ss += 1;
-    }
-
-    while ss > 0 {
-        divisor *= n as f64;
-        ss -= 1;
-    }
-
-    return divisor;
-}
-
 #[cfg(test)]
 mod tests {
     // use super::*;
-
-
-    #[test]
-    fn test_convert_signed() {
-        let neg_one: u8 = 0b10000001;
-        assert_eq!(as_signed!(neg_one, i8), -1);
-
-        let four: u8 = 0b00000100;
-        assert_eq!(as_signed!(four, i8), 4);
-    }
 }

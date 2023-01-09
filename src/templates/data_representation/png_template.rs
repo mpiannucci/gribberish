@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::{templates::template::{Template, TemplateType}, utils::{bits_to_bytes, grib_power, read_f32_from_bytes, read_u16_from_bytes}};
+use crate::{templates::template::{Template, TemplateType}, utils::{bits_to_bytes, read_f32_from_bytes, read_u16_from_bytes}};
 use super::{DataRepresentationTemplate, tables::OriginalFieldValue};
 use png::Decoder;
 
@@ -70,8 +70,8 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
         let mut image_data: Vec<u8> = vec![0; reader.output_buffer_size()];
         let _ = reader.next_frame(&mut image_data).unwrap();
 
-        let bscale = grib_power(self.binary_scale_factor().into(), 2);
-        let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
+        let bscale = 2_f64.powi(self.binary_scale_factor().into());
+        let dscale = 10_f64.powi(-self.decimal_scale_factor() as i32);
         let reference_value: f64 = self.reference_value().into();
 
         let bytes_per_datapoint = self.bit_count_per_datapoint() / 8;

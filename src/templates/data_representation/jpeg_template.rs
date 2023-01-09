@@ -1,4 +1,4 @@
-use crate::{templates::template::{Template, TemplateType}, utils::{grib_power, extract_jpeg_data, read_u16_from_bytes}};
+use crate::{templates::template::{Template, TemplateType}, utils::{extract_jpeg_data, read_u16_from_bytes}};
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::{CompressionType, OriginalFieldValue};
 use crate::utils::{read_f32_from_bytes, bits_to_bytes};
@@ -72,8 +72,8 @@ impl DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate {
 	fn unpack(&self, bits: Vec<u8>, range: Range<usize>) -> Result<Vec<f64>, String> {
         let bytes = bits_to_bytes(bits).unwrap();
 
-        let bscale = grib_power(self.binary_scale_factor().into(), 2);
-        let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
+        let bscale = 2_f64.powi(self.binary_scale_factor().into());
+        let dscale = 10_f64.powi(-self.decimal_scale_factor() as i32);
         let reference_value: f64 = self.reference_value().into();
 
         let output_value: Vec<f64> = extract_jpeg_data(&bytes)?

@@ -19,3 +19,18 @@ macro_rules! as_signed{
         }
     };
 }
+
+#[cfg(test)]
+mod tests {
+    // use super::*;
+
+
+    #[test]
+    fn test_convert_signed() {
+        let neg_one: u8 = 0b10000001;
+        assert_eq!(as_signed!(neg_one, i8), -1);
+
+        let four: u8 = 0b00000100;
+        assert_eq!(as_signed!(four, i8), 4);
+    }
+}

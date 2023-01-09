@@ -5,7 +5,7 @@ use itertools::{izip};
 use crate::{
     templates::template::{Template, TemplateType},
     utils::{
-        filled_bit_array, from_bits, grib_power, read_f32_from_bytes,
+        filled_bit_array, from_bits, read_f32_from_bytes,
         read_u32_from_bytes, read_u16_from_bytes,
     },
 };
@@ -155,12 +155,6 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         );
         let dmin = as_signed!(dmin, i16);
 
-        println!("{:?}", &bits[dmin_start..dmin_start + 16]);
-
-        println!("{d1}"); 
-        println!("{d2}");
-        println!("{dmin}");
-
         let group_reference_start = self.number_of_octets_for_differencing() as usize * 8 * match self.spatial_differencing_order() {
             SpatialDifferencingOrder::First => 2,
             SpatialDifferencingOrder::Second => 3,
@@ -211,7 +205,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let mut raw_values = Vec::with_capacity(ng);
         for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
             if width == 0 {
-                raw_values.push(vec![0; length as usize]);
+                raw_values.push(vec![reference as i32; length as usize]);
                 continue;
             }
 
@@ -226,7 +220,6 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                     }
 
                     let raw = as_signed!(from_bits::<u32>(&temp_container).unwrap(), i32);
-                    //println!("RAW - {raw} == REF - {reference} - DMIN {dmin}");
                     raw + reference as i32
                 })
                 .collect();
@@ -236,8 +229,6 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             raw_values.push(group_values);
         }
         let raw_values: Vec<i32> = raw_values.iter().flatten().map(|v| *v).collect();
-
-        println!("raw_values {:?}", &raw_values[2000..2050]);
 
         let mut values = Vec::with_capacity(raw_values.len());
         match self.spatial_differencing_order() {
@@ -262,19 +253,9 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let dscale = 10_f64.powi(-self.decimal_scale_factor() as i32);
         let reference_value = self.reference_value() as f64;
 
-        println!("bscale {bscale}");
-        println!("dscale {dscale}");
-        println!("refval {reference_value}");
-        // println!("values {:?}", &values);
-
-        // values [55.0, 55.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
         let values = values
         .iter()
         .map(|v| ((*v as f64) * bscale + reference_value) * dscale).collect::<Vec<f64>>();
-
-        // [5.522778330743313, 5.522778330743313, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838]
-        println!("values {:?}", &values[2000..2050]);
 
         Ok(values[range].to_vec())
     }

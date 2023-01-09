@@ -2,7 +2,7 @@ use itertools::izip;
 
 use crate::{
     templates::template::{Template, TemplateType},
-    utils::{from_bits, read_f32_from_bytes, read_u32_from_bytes, grib_power, read_u16_from_bytes},
+    utils::{from_bits, read_f32_from_bytes, read_u32_from_bytes, read_u16_from_bytes},
 };
 
 use super::{
@@ -153,13 +153,18 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
                 + self.group_length_reference()
         });
 
-        let bscale = grib_power(self.binary_scale_factor().into(), 2);
-        let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
+        let bscale = 2_f64.powi(self.binary_scale_factor().into());
+        let dscale = 10_f64.powi(-self.decimal_scale_factor() as i32);
         let reference_value: f64 = self.reference_value().into();
 
         let mut pos = group_lengths_start + (((n_length_bits * ng) as f32 / 8.0).ceil() as usize * 8);
         let mut raw_values = Vec::with_capacity(ng);
         for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
+            if width == 0 {
+                raw_values.push(vec![reference as i32; length as usize]);
+                continue;
+            }
+            
             let n_bits = (width * length) as usize;
             let bit_start_index = 32 - width as usize;
             let mut temp_container: [u8; 32] = [0; 32];

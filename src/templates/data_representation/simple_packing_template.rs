@@ -1,4 +1,4 @@
-use crate::{templates::template::{Template, TemplateType}, utils::{grib_power, read_u16_from_bytes}};
+use crate::{templates::template::{Template, TemplateType}, utils::{read_u16_from_bytes}};
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::{OriginalFieldValue};
 use crate::unwrap_or_return;
@@ -78,8 +78,8 @@ impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate
 		let start_index = range.start * bits_per_val;
 		let end_index = range.end * bits_per_val;
 
-        let bscale = grib_power(self.binary_scale_factor().into(), 2);
-        let dscale = grib_power(-(self.decimal_scale_factor() as i32), 10);
+        let bscale = 2_f64.powi(self.binary_scale_factor().into());
+        let dscale = 10_f64.powi(-self.decimal_scale_factor() as i32);
         let reference_value: f64 = self.reference_value().into();
 
         for i in (start_index..end_index).step_by(bits_per_val) {
