@@ -637,7 +637,6 @@ impl<'a> Message<'a> {
 
         let scaled_unpacked_data = data_representation_template.unpack(
             raw_packed_data,
-            0..data_representation_section.data_point_count(),
         )?;
 
         let bitmap_section = unwrap_or_return!(

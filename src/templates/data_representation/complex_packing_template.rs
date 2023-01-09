@@ -1,4 +1,5 @@
 use itertools::izip;
+use crate::utils::iter::{ScaleGribValueIterator};
 
 use crate::{
     templates::template::{Template, TemplateType},
@@ -111,7 +112,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: Vec<u8>, range: std::ops::Range<usize>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
         let ng = self.number_of_groups() as usize;
         let nbits = self.bit_count() as usize;
 
@@ -153,10 +154,6 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
                 + self.group_length_reference()
         });
 
-        let bscale = 2_f64.powi(self.binary_scale_factor().into());
-        let dscale = 10_f64.powi(-self.decimal_scale_factor() as i32);
-        let reference_value: f64 = self.reference_value().into();
-
         let mut pos = group_lengths_start + (((n_length_bits * ng) as f32 / 8.0).ceil() as usize * 8);
         let mut raw_values = Vec::with_capacity(ng);
         for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
@@ -164,7 +161,6 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
                 raw_values.push(vec![reference as i32; length as usize]);
                 continue;
             }
-            
             let n_bits = (width * length) as usize;
             let bit_start_index = 32 - width as usize;
             let mut temp_container: [u8; 32] = [0; 32];
@@ -184,12 +180,13 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
 
             raw_values.push(group_values);
         }
+
         let values: Vec<f64> = raw_values
-        .iter()
+        .into_iter()
         .flatten()
-        .map(|v| (*v as f64 * bscale + reference_value) * dscale)
+        .scale_value_by(self.binary_scale_factor(), self.decimal_scale_factor(), self.reference_value())
         .collect();
 
-        Ok(values[range].to_vec())
+        Ok(values)
     }
 }

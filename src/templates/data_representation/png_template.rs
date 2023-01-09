@@ -1,6 +1,4 @@
-use std::ops::Range;
-
-use crate::{templates::template::{Template, TemplateType}, utils::{bits_to_bytes, read_f32_from_bytes, read_u16_from_bytes}};
+use crate::{templates::template::{Template, TemplateType}, utils::{bits_to_bytes, read_f32_from_bytes, read_u16_from_bytes, iter::ScaleGribValueIterator}};
 use super::{DataRepresentationTemplate, tables::OriginalFieldValue};
 use png::Decoder;
 
@@ -61,7 +59,7 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
 		self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: Vec<u8>, range: Range<usize>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
         let bytes = bits_to_bytes(bits).unwrap();
         
         let decoder = Decoder::new(bytes.as_slice());
@@ -70,25 +68,14 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
         let mut image_data: Vec<u8> = vec![0; reader.output_buffer_size()];
         let _ = reader.next_frame(&mut image_data).unwrap();
 
-        let bscale = 2_f64.powi(self.binary_scale_factor().into());
-        let dscale = 10_f64.powi(-self.decimal_scale_factor() as i32);
-        let reference_value: f64 = self.reference_value().into();
-
         let bytes_per_datapoint = self.bit_count_per_datapoint() / 8;
-        let start_byte = range.start * bytes_per_datapoint;
-        let end_byte = range.end * bytes_per_datapoint;
-        let data_count = range.end - range.start;
 
-        let mut out = vec![f64::NAN; data_count];
+        let values = (0..image_data.len())
+            .step_by(bytes_per_datapoint)
+            .map(|ib| read_u16_from_bytes(&image_data, ib).unwrap())
+            .scale_value_by(self.binary_scale_factor(), self.decimal_scale_factor(), self.reference_value())
+            .collect();
 
-        // TODO: support non greyscale imagery
-        for (iter_index, byte_index) in (start_byte..end_byte).step_by(bytes_per_datapoint).enumerate() {
-            if let Some(data_point) = read_u16_from_bytes(&image_data, byte_index) {
-                let scaled = ((data_point as f64) * bscale + reference_value) * dscale;
-                out[iter_index] = scaled;
-            }
-        }
-
-        Ok(out)
+        Ok(values)
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     templates::template::{Template, TemplateType},
     utils::{
         filled_bit_array, from_bits, read_f32_from_bytes,
-        read_u32_from_bytes, read_u16_from_bytes,
+        read_u32_from_bytes, read_u16_from_bytes, iter::ScaleGribValueIterator,
     },
 };
 
@@ -126,7 +126,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: Vec<u8>, range: std::ops::Range<usize>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
 
         let d1 = unwrap_or_return!(
             from_bits::<u16>(&filled_bit_array::<16>(&bits[0..16])),
@@ -249,14 +249,11 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             },
         };
 
-        let bscale = 2_f64.powi(self.binary_scale_factor() as i32);
-        let dscale = 10_f64.powi(-self.decimal_scale_factor() as i32);
-        let reference_value = self.reference_value() as f64;
-
         let values = values
-        .iter()
-        .map(|v| ((*v as f64) * bscale + reference_value) * dscale).collect::<Vec<f64>>();
+            .into_iter()
+            .scale_value_by(self.binary_scale_factor(), self.decimal_scale_factor(), self.reference_value())
+            .collect();
 
-        Ok(values[range].to_vec())
+        Ok(values)
     }
 }

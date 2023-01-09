@@ -59,8 +59,9 @@ where
         return None;
     }
 
-    let value = bits.iter()
-    .fold(T::from(0), |acc, &b| acc * T::from(2) + T::from(b)); 
+    let value = bits
+        .iter()
+        .fold(T::from(0), |acc, &b| acc * T::from(2) + T::from(b));
 
     Some(value)
 }
@@ -91,9 +92,6 @@ pub fn bit_array_from_bytes(data: &[u8]) -> Vec<u8> {
 //     for (i, b) in bit_string.char_indices() {
 //         result[i] = b.to_digit(2).unwrap_or(0) as u8;
 //     }
-
-//     result
-// }
 
 // pub fn positive_bit_count(data: &u8) -> u8 {
 //     let bits = byte_to_bits(data);
