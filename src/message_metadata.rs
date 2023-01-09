@@ -9,6 +9,7 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct MessageMetadata {
+    pub key: String,
     pub var: String,
     pub name: String,
     pub units: String,
@@ -62,6 +63,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             message.second_fixed_surface()?;
 
         Ok(MessageMetadata {
+            key: message.key()?,
             var: message.variable_abbrev()?,
             name: message.variable_name()?,
             units: message.unit()?,
