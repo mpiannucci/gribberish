@@ -98,6 +98,10 @@ impl<'a> Message<'a> {
     }
 
     pub fn key(&self) -> Result<String, String> {
+        let time = self.forecast_date()
+            .map(|t| format!("&{}", t.to_rfc3339()))
+            .unwrap_or("".into())
+            .to_string();
         let var = self.variable_abbrev()?;
         let first_fixed_surface = self.first_fixed_surface()?;
         let first_level = if first_fixed_surface.0 == FixedSurfaceType::Missing {
@@ -125,7 +129,7 @@ impl<'a> Message<'a> {
             format!("@{}{level_value}", Parameter::from(second_fixed_surface.0).name)
         };
 
-        Ok(format!("{}{}{}", var, first_level, second_level))
+        Ok(format!("{}{}{}{}", var, first_level, second_level, time))
     }
 
     pub fn variable_names(messages: Vec<Message>) -> Vec<Option<String>> {

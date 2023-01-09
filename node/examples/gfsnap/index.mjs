@@ -4,13 +4,16 @@ import { Resvg } from '@resvg/resvg-js';
 import * as d3 from 'd3';
 
 // WAVE
-// const gribPath = './data/gfswave.20221222.t18z.atlocn.0p16.f064.grib2'
+//const gribPath = './data/gfswave.20221222.t18z.atlocn.0p16.f064.grib2'
 // const gribVariable = 'HTSGW@groundorwater_1'
+// NWPS
+const gribPath = '/Users/matthewiannucci/Downloads/box_nwps_CG0_Trkng_20230109_0600.grib2';
+const gribVariable = 'SWPER@orderedsequence_1&2023-01-11T02:00:00+00:00';
 // RADAR
 // const gribPath = '/Users/matthewiannucci/Downloads/MRMS_MergedReflectivityQCComposite_00.50_20230106-000439.grib2'
 // const gribVariable = 'MergedReflectivityQCComposite'
-const gribPath = '/Users/matthewiannucci/Downloads/gfs.t18z.pgrb2.0p25.f186.grib2';
-const gribVariable = 'GUST@groundorwater_0';
+// const gribPath = '/Users/matthewiannucci/Downloads/gfs.t18z.pgrb2.0p25.f186.grib2';
+// const gribVariable = 'GUST@groundorwater_0';
 
 const gribData = fs.readFileSync(gribPath);
 const messageFactory = GribMessageFactory.fromBuffer(gribData);
@@ -30,6 +33,10 @@ if (message !== undefined) {
 const bbox = message.bbox;
 const lngRange = bbox[2] - bbox[0];
 const latRange = bbox[3] - bbox[1];
+
+console.log(bbox);
+console.log(lngRange);
+console.log(latRange);
 
 const height = message.latitudes.length;
 const width = message.longitudes.length;
