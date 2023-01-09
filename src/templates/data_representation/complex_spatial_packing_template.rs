@@ -225,8 +225,9 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                         temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit];
                     }
 
-                    let raw = from_bits::<u32>(&temp_container).unwrap(); 
-                    as_signed!(raw, i32) + reference as i32 + dmin as i32
+                    let raw = as_signed!(from_bits::<u32>(&temp_container).unwrap(), i32);
+                    //println!("RAW - {raw} == REF - {reference} - DMIN {dmin}");
+                    raw + reference as i32
                 })
                 .collect();
 
@@ -241,17 +242,17 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let mut values = Vec::with_capacity(raw_values.len());
         match self.spatial_differencing_order() {
             SpatialDifferencingOrder::First => {
-                values.push(d1 as f64);
+                values.push(d1 as i32);
                 for i in 1..raw_values.len() {
-                    let val = raw_values[i] as f64 + values[i - 1] as f64;
+                    let val = raw_values[i] + values[i - 1] + dmin as i32;
                     values.push(val);
                 }
             },
             SpatialDifferencingOrder::Second => {
-                values.push(d1 as f64); 
-                values.push(d2 as f64);
+                values.push(d1 as i32); 
+                values.push(d2 as i32);
                 for i in 2..raw_values.len() {
-                    let val = raw_values[i] as f64 + (2.0 * values[i - 1] as f64) - values[i - 2] as f64;
+                    let val = raw_values[i] + 2 * values[i - 1] - values[i - 2] + dmin as i32;
                     values.push(val);
                 }
             },
@@ -264,11 +265,13 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         println!("bscale {bscale}");
         println!("dscale {dscale}");
         println!("refval {reference_value}");
-        println!("values {:?}", &values[2000..2050]);
+        // println!("values {:?}", &values);
 
         // values [55.0, 55.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-        values.iter_mut().for_each(|v| *v = (*v * bscale + reference_value) * dscale);
+        let values = values
+        .iter()
+        .map(|v| ((*v as f64) * bscale + reference_value) * dscale).collect::<Vec<f64>>();
 
         // [5.522778330743313, 5.522778330743313, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838, 0.022778330743312838]
         println!("values {:?}", &values[2000..2050]);
