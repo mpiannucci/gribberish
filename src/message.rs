@@ -1,4 +1,5 @@
 use crate::templates::grid_definition::GridDefinitionTemplate;
+use crate::templates::product::tables::FixedSurfaceType;
 use crate::{
     sections::{indicator::Discipline, section::Section, section::SectionIterator},
     templates::product::ProductTemplate,
@@ -8,13 +9,13 @@ use gribberish_types::Parameter;
 use std::collections::HashMap;
 use std::vec::Vec;
 
-pub fn map_messages<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize)> {
+pub fn scan_messages<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize)> {
     let message_iter = MessageIterator::from_data(data, 0);
 
     message_iter
         .enumerate()
         .map(
-            |(index, m)| match m.variable_abbrev().or(m.parameter_index()) {
+            |(index, m)| match m.key() {
                 Ok(var) => (var, (index, m.byte_offset())),
                 Err(_) => ("unknown".into(), (index, m.byte_offset())),
             },
@@ -73,7 +74,7 @@ impl<'a> Message<'a> {
         let mut sections = SectionIterator { data: data, offset };
 
         match sections.next() {
-            Some(Section::Indicator(i)) => Some(Message {
+            Some(Section::Indicator(_)) => Some(Message {
                 data: &data,
                 offset: offset,
             }),
@@ -94,6 +95,37 @@ impl<'a> Message<'a> {
             data: self.data,
             offset: self.offset,
         }
+    }
+
+    pub fn key(&self) -> Result<String, String> {
+        let var = self.variable_abbrev()?;
+        let first_fixed_surface = self.first_fixed_surface()?;
+        let first_level = if first_fixed_surface.0 == FixedSurfaceType::Missing {
+            "".into()
+        } else {
+            let level_value = if let Some(value) = first_fixed_surface.1 {
+                format!("_{:.0}", value)
+            } else {
+                "".into()
+            };
+
+            format!("@{}{level_value}", Parameter::from(first_fixed_surface.0).name)
+        };
+
+        let second_fixed_surface = self.second_fixed_surface()?;
+        let second_level = if second_fixed_surface.0 == FixedSurfaceType::Missing {
+            "".into()
+        } else {
+            let level_value = if let Some(value) = second_fixed_surface.1 {
+                format!("_{:.0}", value)
+            } else {
+                "".into()
+            };
+
+            format!("@{}{level_value}", Parameter::from(second_fixed_surface.0).name)
+        };
+
+        Ok(format!("{}{}{}", var, first_level, second_level))
     }
 
     pub fn variable_names(messages: Vec<Message>) -> Vec<Option<String>> {
@@ -166,6 +198,20 @@ impl<'a> Message<'a> {
             _ => Err("Indicator section not found when reading discipline".into()),
         }
         .clone()
+    }
+
+    pub fn product_template_id(&self) -> Result<u16, String> {
+        let mut sections = self.sections();
+
+        let product_definition = unwrap_or_return!(
+            sections.find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        Ok(product_definition.product_definition_template_number())
     }
 
     pub fn parameter_index(&self) -> Result<String, String> {
@@ -304,7 +350,7 @@ impl<'a> Message<'a> {
         Ok(product_template.forecast_datetime(reference_date))
     }
 
-    pub fn array_index(&self) -> Result<Option<usize>, String> {
+    pub fn first_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), String> {
         let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(
@@ -323,7 +369,33 @@ impl<'a> Message<'a> {
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
-        Ok(product_template.array_index())
+        let surface_type = product_template.first_fixed_surface_type(); 
+        let surface_value = product_template.first_fixed_surface_value();
+        Ok((surface_type, surface_value))
+    }
+
+    pub fn second_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), String> {
+        let discipline = self.discipline()?;
+
+        let product_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            match product_definition.product_definition_template(discipline.clone() as u8) {
+                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
+                _ => None,
+            },
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        let surface_type = product_template.second_fixed_surface_type(); 
+        let surface_value = product_template.second_fixed_surface_value();
+        Ok((surface_type, surface_value))
     }
 
     pub fn proj_string(&self) -> Result<String, String> {
@@ -565,7 +637,6 @@ impl<'a> Message<'a> {
 
         let scaled_unpacked_data = data_representation_template.unpack(
             raw_packed_data,
-            0..data_representation_section.data_point_count(),
         )?;
 
         let bitmap_section = unwrap_or_return!(

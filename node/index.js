@@ -237,7 +237,8 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GribMessage, parseMessagesFromBuffer } = nativeBinding
+const { GribMessage, parseMessagesFromBuffer, GribMessageFactory } = nativeBinding
 
 module.exports.GribMessage = GribMessage
 module.exports.parseMessagesFromBuffer = parseMessagesFromBuffer
+module.exports.GribMessageFactory = GribMessageFactory

@@ -85,7 +85,7 @@ impl <'a> IdentificationSection<'a> {
         let minute = self.data[17] as u32;
         let second = self.data[18] as u32;
 
-        Utc.ymd(year, month, day).and_hms(hour, minute, second)
+        Utc.with_ymd_and_hms(year, month, day, hour, minute, second).unwrap()
     }
 
     pub fn production_status(&self) -> ProductionStatus {

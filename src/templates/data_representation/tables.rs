@@ -25,7 +25,7 @@ pub enum MatrixCoordinateParameters {
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
-pub enum GroupSplittingMethods {
+pub enum GroupSplittingMethod {
     RowByRow = 0,
     GeneralGroup = 1,
 }

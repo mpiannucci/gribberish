@@ -1,16 +1,24 @@
 import fs from 'fs';
-import { parseMessagesFromBuffer } from 'gribberishjs';
-import { createCanvas, Image } from 'canvas';
+import { GribMessageFactory } from 'gribberishjs';
 import { Resvg } from '@resvg/resvg-js';
 import * as d3 from 'd3';
 
-const gribData = fs.readFileSync('/Users/matthewiannucci/Downloads/MRMS_MergedReflectivityQCComposite_00.50_20230106-000439.grib2');
-const gribMessages = parseMessagesFromBuffer(gribData);
-const message = gribMessages.find(g => g.varAbbrev === 'MergedReflectivityQCComposite');
+// WAVE
+// const gribPath = './data/gfswave.20221222.t18z.atlocn.0p16.f064.grib2'
+// const gribVariable = 'HTSGW@groundorwater_1'
+// RADAR
+// const gribPath = '/Users/matthewiannucci/Downloads/MRMS_MergedReflectivityQCComposite_00.50_20230106-000439.grib2'
+// const gribVariable = 'MergedReflectivityQCComposite'
+const gribPath = '/Users/matthewiannucci/Downloads/gfs.t18z.pgrb2.0p25.f186.grib2';
+const gribVariable = 'GUST@groundorwater_0';
 
-// const gribData = fs.readFileSync('./data/gfswave.20221222.t18z.atlocn.0p16.f064.grib2');
-// const gribMessages = parseMessagesFromBuffer(gribData);
-// const message = gribMessages.find(g => g.varAbbrev === 'HTSGW');
+const gribData = fs.readFileSync(gribPath);
+const messageFactory = GribMessageFactory.fromBuffer(gribData);
+
+// console.log(messageFactory.availableMessages);
+// process.exit(0);
+
+const message = messageFactory.getMessage(gribVariable);
 
 if (message !== undefined) {
   console.log('Found matching grib message, contouring...');
@@ -27,19 +35,22 @@ const height = message.latitudes.length;
 const width = message.longitudes.length;
 
 const values = message.data;
+const max = d3.max(values);
+const min = d3.min(values);
+const range = max - min;
+const steps = 20;
+
 for (let i = 0; i < values.length; ++i) {
   if (isNaN(values[i])) {
-    values[i] = -99999;
+    values[i] = -9999999;
   }
 }
-
-const max = d3.max(values);
 
 // const blurredValues = d3.blur2({ data: swhMessage.data, width }, 0.5).data;
 const contours = d3
   .contours()
   .size([width, height])
-  .thresholds(Array.from({ length: 10 }, (_, i) => i / 10 * max));
+  .thresholds(Array.from({ length: steps }, (_, i) => min + (i / steps * range)));
 
 const color = d3.scaleSequential([max, 0], d3.interpolateRdBu);
 
@@ -70,7 +81,7 @@ const svgout = `
 `;
 
 console.log('Writing to SVG file...');
-fs.writeFileSync('vector.svg', svgout);
+fs.writeFileSync(`${gribVariable}.svg`, svgout);
 
 console.log('Rendering svg to image...');
 const resvg = new Resvg(svgout)
@@ -78,6 +89,6 @@ const pngData = resvg.render()
 const pngBuffer = pngData.asPng()
 
 console.log('Writing to PNG file...');
-fs.writeFileSync("./rendered.png", pngBuffer);
+fs.writeFileSync(`./${gribVariable}.png`, pngBuffer);
 
 console.log('Operation Successful!');

@@ -11,6 +11,7 @@ chrono = "0.4"
 openjpeg-sys = { version = "1.0.3", optional = true }
 png = { version = "0.17.2", optional = true }
 num = { version = "0.2", default-features = false }
+itertools = "0.10.5"
 
 [profile.release]
 debug = true

@@ -13,7 +13,6 @@ export class GribMessage {
   get varName(): string
   get varAbbrev(): string
   get units(): string
-  get arrayIndex(): number
   get forecastDate(): Date
   get referenceDate(): Date
   get proj(): string
@@ -24,4 +23,9 @@ export class GribMessage {
   get latitudes(): Float64Array
   get longitudes(): Float64Array
   get data(): Float64Array
+}
+export class GribMessageFactory {
+  static fromBuffer(buffer: Buffer): GribMessageFactory
+  get availableMessages(): Array<string>
+  getMessage(key: string): GribMessage
 }
