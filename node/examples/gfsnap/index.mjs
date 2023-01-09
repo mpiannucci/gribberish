@@ -40,9 +40,6 @@ const min = d3.min(values);
 const range = max - min;
 const steps = 20;
 
-console.log(min)
-console.log(max)
-
 for (let i = 0; i < values.length; ++i) {
   if (isNaN(values[i])) {
     values[i] = -9999999;
