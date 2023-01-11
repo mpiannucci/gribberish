@@ -15,6 +15,7 @@
     "d3-contour": "^4.0.0",
     "d3-geo": "^3.1.0",
     "d3-path": "^3.1.0",
-    "gribberishjs": "file:../.."
+    "gribberishjs": "file:../..",
+    "minimist": "^1.2.7"
   }
 }
