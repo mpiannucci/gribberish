@@ -181,7 +181,7 @@ pub enum TemperatureProduct {
 	#[abbrev = "TMIN"]
 	#[unit = "K"]
 	MinimumTemperature = 5,
-	#[description = "depoint temperature"]
+	#[description = "dewpoint temperature"]
 	#[abbrev = "DPT"]
 	#[unit = "K"]
 	DewpointTemperature = 6,
@@ -201,6 +201,10 @@ pub enum TemperatureProduct {
 	#[abbrev = "WCF"]
 	#[unit = "K"]
 	WindChillFactor = 13,
+	#[description = "apparent temperature"]
+	#[abbrev = "APTMP"]
+	#[unit = "K"]
+	ApparentTemperature = 21,
 }
 
 #[repr(u8)]
@@ -273,7 +277,23 @@ pub enum MomentumProduct {
 	#[description = "wind fetch"]
 	#[abbrev = "WINDF"]
 	#[unit = "m"]
-	WindFetch = 33, 
+	WindFetch = 33,
+	#[description = "u-component of storm motion"]
+	#[abbrev = "UTSM"]
+	#[unit = "ms-1"]
+	UComponentStormMotion = 27,
+	#[description = "v-component of storm motion"]
+	#[abbrev = "VSTM"]
+	#[unit = "ms-1"]
+	VComponentStormMotion = 28,
+	#[description = "tropical wind direction"]
+	#[abbrev = "TPWDIR"]
+	#[unit = "degrees"]
+	TropicalWindDirection = 231, 
+	#[description = "tropical wind speed"]
+	#[abbrev = "TPWSPD"]
+	#[unit = "ms-1"]
+	TropicalWindSpeed = 232
 }
 
 #[repr(u8)]
@@ -292,12 +312,34 @@ pub enum MassProduct {
 	PressureTendency = 2,
 }
 
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum RadarProduct {
+	#[description = "base spectrum width"]
+	#[abbrev = "BSWID"]
+	#[unit = "ms-1"]
+	BaseSpectrumWidth = 0,
+	#[description = "base reflectivity"]
+	#[abbrev = "bref"]
+	#[unit = "dB"]
+	BaseReflectivity = 1,
+	#[description = "layer maximum base reflectivity"]
+	#[abbrev = "LMAXBR"]
+	#[unit = "dB"]
+	LayerMaximumBaseReflectivity = 4,
+	#[description = "precipitation"]
+	#[abbrev = "PREC"]
+	#[unit = "kgm-2"]
+	Precipitation = 5,
+}
+
 pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter> {
 	match category {
 		0 => Some(Parameter::from(TemperatureProduct::from(parameter))),
 		1 => Some(Parameter::from(MoistureProduct::from(parameter))),
 		2 => Some(Parameter::from(MomentumProduct::from(parameter))),
 		3 => Some(Parameter::from(MassProduct::from(parameter))),
+		15 => Some(Parameter::from(RadarProduct::from(parameter))),
 		_ => None,
 	}
 }
