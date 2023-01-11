@@ -419,6 +419,18 @@ impl<'a> Message<'a> {
         Ok(grid_template.proj_string())
     }
 
+    pub fn grid_template_id(&self) -> Result<u16, String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        Ok(grid_definition.grid_definition_template_number())
+    }
+
     pub fn crs(&self) -> Result<String, String> {
         let grid_definition = unwrap_or_return!(
             self.sections().find_map(|s| match s {

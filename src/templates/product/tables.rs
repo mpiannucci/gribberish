@@ -595,7 +595,7 @@ pub enum MRMSConvectionProduct {
 	#[abbrev = "SHI"]
 	#[unit = "index"]
 	SHI = 26,
-	#[description = "Probability of sever hail"]
+	#[description = "Probability of severe hail"]
 	#[abbrev = "POSH"]
 	#[unit = "%"]
 	POSH = 27,

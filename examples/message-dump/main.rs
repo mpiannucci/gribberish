@@ -28,13 +28,14 @@ fn main() {
     println!("GRIB2 file read: {}", grib_path);
     println!("Message count: {}", messages.len());
     println!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
         "Message #",
         "Variable",
         "Name",
         "Units",
         "Product Template Id",
         "Date",
+        "Grid Template Id",
         "Region",
         "Grid",
         "Data Template Id",
@@ -44,13 +45,14 @@ fn main() {
 
     messages.iter().enumerate().for_each(|m| {
         println!(
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             m.0,
             match m.1.variable_abbrev() { Ok(p) => p, Err(_) => m.1.parameter_index().unwrap_or("--".into())},
             match m.1.variable_name() {Ok(p) => p, Err(_) => m.1.parameter_index().unwrap_or("--".into())},
             match m.1.unit() {Ok(p) => p, Err(_) => "--".into()},
             match m.1.product_template_id() {Ok(p) => format!("{p}"), Err(_) => "--".into()},
-            match m.1.forecast_date() { Ok(d) => format!("{}", d), Err(_) => "--".into()},
+            match m.1.forecast_date() { Ok(d) => format!("{d}"), Err(_) => "--".into()},
+            match m.1.grid_template_id() {Ok(d) => format!("{d}"), Err(_) => "--".into()},
             match m.1.location_region() {Ok(r) => format!("{:?}", r), Err(_) => "--".into()},
             match m.1.location_grid_dimensions() {Ok(r) => format!("{:?}", r), Err(_) => "--".into()},
             match m.1.data_template_number() {Ok(t) => format!("{t}"), Err(_) => "--".into()},

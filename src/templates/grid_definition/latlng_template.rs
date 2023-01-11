@@ -1,5 +1,5 @@
 use super::grid_definition_template::GridDefinitionTemplate;
-use super::tables::EarthShape;
+use super::tables::{EarthShape, ScanningModeFlags, ScanningMode};
 use crate::templates::template::{Template, TemplateType};
 use crate::utils::{bit_array_from_bytes, read_u32_from_bytes};
 
@@ -7,11 +7,11 @@ use std::iter::Iterator;
 use std::vec::Vec;
 
 
-pub struct LatLngGridTemplate<'a> {
+pub struct LatLngTemplate<'a> {
     data: &'a [u8],
 }
 
-impl <'a> Template for LatLngGridTemplate<'a> {
+impl <'a> Template for LatLngTemplate<'a> {
     fn template_type(&self) -> TemplateType {
         TemplateType::Grid
     }
@@ -29,9 +29,9 @@ impl <'a> Template for LatLngGridTemplate<'a> {
     }
 }
 
-impl <'a> LatLngGridTemplate<'a> {
+impl <'a> LatLngTemplate<'a> {
     pub fn new(data: &'a [u8]) -> Self {
-        LatLngGridTemplate { data }
+        LatLngTemplate { data }
     }
 
     pub fn earth_shape(&self) -> EarthShape {
@@ -120,8 +120,8 @@ impl <'a> LatLngGridTemplate<'a> {
         }
     }
 
-    pub fn scanning_mode_flags(&self) -> u8 {
-        self.data[71]
+    pub fn scanning_mode_flags(&self) -> ScanningModeFlags {
+        ScanningMode::read_flags(self.data[71])
     }
 
     fn is_descending_latitude(&self) -> bool {
@@ -129,7 +129,7 @@ impl <'a> LatLngGridTemplate<'a> {
     }
 }
 
-impl <'a> GridDefinitionTemplate<'a> for LatLngGridTemplate<'a> {
+impl <'a> GridDefinitionTemplate<'a> for LatLngTemplate<'a> {
     fn proj_string(&self) -> String {
         format!("+proj=latlon +a=6367470 +b=6367470")
     }
