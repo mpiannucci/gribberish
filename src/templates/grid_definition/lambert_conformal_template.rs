@@ -96,13 +96,13 @@ impl <'a> LambertConformalTemplate<'a> {
     pub fn x_direction_grid_length(&self) -> f64 {
         let raw_value = read_u32_from_bytes(self.data, 55).unwrap_or(0); 
         let value = as_signed!(raw_value, i32) as f64;
-        value * (10f64.powf(3.0))
+        value * (10f64.powf(-3.0))
     }
 
     pub fn y_direction_grid_length(&self) -> f64 {
         let raw_value = read_u32_from_bytes(self.data, 59).unwrap_or(0); 
         let value = as_signed!(raw_value, i32) as f64;
-        value * (10f64.powf(3.0))
+        value * (10f64.powf(-3.0))
     }
 
     pub fn projection_centre_flags(&self) -> ProjectionCenterFlags {

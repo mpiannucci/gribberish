@@ -99,15 +99,6 @@ impl GribMessage {
   }
 
   #[napi(getter)]
-  pub fn grid_resolution(&self) -> GridShape {
-    let (rows, cols) = self.inner.metadata.grid_resolution;
-    GridShape {
-      rows: rows as u32,
-      cols: cols as u32,
-    }
-  }
-
-  #[napi(getter)]
   pub fn latitudes(&self) -> Float64Array {
     Float64Array::new(self.inner.metadata.latitude.clone())
   }

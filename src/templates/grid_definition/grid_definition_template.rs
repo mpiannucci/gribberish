@@ -7,8 +7,6 @@ pub trait GridDefinitionTemplate<'a> {
     fn end(&self) -> (f64, f64);
     fn latitude_count(&self) -> usize;
     fn longitude_count(&self) -> usize;
-    fn latitude_resolution(&self) -> f64;
-    fn longitude_resolution(&self) -> f64;
     fn latitudes(&self) -> Vec<f64>;
     fn longitudes(&self) -> Vec<f64>;
     fn locations(&self) -> Vec<(f64, f64)>;
@@ -18,17 +16,19 @@ pub trait GridDefinitionTemplate<'a> {
         (indices.0 * self.longitude_count()) + indices.1
     }
 
-    fn latitudes_in_range(&self, range: (f64, f64)) -> Vec<f64> {
+    fn latitudes_in_range(&self, range: (f64, f64)) -> Vec<(usize, f64)> {
         self.latitudes()
             .into_iter()
-            .filter(|l| *l > range.0 && *l < range.1)
+            .enumerate()
+            .filter(|(_, l)| *l > range.0 && *l < range.1)
             .collect()
     }
 
-    fn longitudes_in_range(&self, range: (f64, f64)) -> Vec<f64> {
+    fn longitudes_in_range(&self, range: (f64, f64)) -> Vec<(usize, f64)> {
         self.longitudes()
             .into_iter()
-            .filter(|l| *l > range.0 && *l < range.1)
+            .enumerate()
+            .filter(|(_, l)| *l > range.0 && *l < range.1)
             .collect()
     }
 
@@ -36,10 +36,11 @@ pub trait GridDefinitionTemplate<'a> {
         &self,
         latitude_range: (f64, f64),
         longitude_range: (f64, f64),
-    ) -> Vec<(f64, f64)> {
+    ) -> Vec<(usize, (f64, f64))> {
         self.locations()
             .into_iter()
-            .filter(|l| {
+            .enumerate()
+            .filter(|(_, l)| {
                 l.0 > latitude_range.0
                     && l.0 < latitude_range.1
                     && l.1 > longitude_range.0
