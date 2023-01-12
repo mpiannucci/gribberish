@@ -60,6 +60,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             message.first_fixed_surface()?;
         let (second_fixed_surface_type, second_fixed_surface_value) =
             message.second_fixed_surface()?;
+            let (latitudes, longitudes) = message.latitude_longitude_arrays()?;
 
         Ok(MessageMetadata {
             key: message.key()?,
@@ -85,8 +86,8 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             proj: message.proj_string()?,
             crs: message.crs()?,
             bbox: message.location_bbox()?,
-            latitude: message.latitudes()?,
-            longitude: message.longitudes()?,
+            latitude: latitudes,
+            longitude: longitudes,
         })
     }
 }

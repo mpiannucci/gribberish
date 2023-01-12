@@ -490,7 +490,7 @@ impl<'a> Message<'a> {
         ))
     }
 
-    pub fn locations(&self) -> Result<Vec<(f64, f64)>, String> {
+    pub fn latlng(&self) -> Result<Vec<(f64, f64)>, String> {
         let grid_definition = unwrap_or_return!(
             self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
@@ -504,10 +504,10 @@ impl<'a> Message<'a> {
             "Only latitude longitude templates supported at this time".into()
         );
 
-        Ok(grid_template.locations())
+        Ok(grid_template.latlng())
     }
 
-    pub fn latitudes(&self) -> Result<Vec<f64>, String> {
+    pub fn latitude_longitude_arrays(&self) -> Result<(Vec<f64>, Vec<f64>), String> {
         let grid_definition = unwrap_or_return!(
             self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
@@ -521,24 +521,7 @@ impl<'a> Message<'a> {
             "Only latitude longitude templates supported at this time".into()
         );
 
-        Ok(grid_template.latitudes())
-    }
-
-    pub fn longitudes(&self) -> Result<Vec<f64>, String> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data".into()
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
-        Ok(grid_template.longitudes())
+        Ok(grid_template.latlng_values())
     }
 
     pub fn data_template_number(&self) -> Result<u16, String> {
@@ -686,7 +669,7 @@ impl<'a> Message<'a> {
         Ok(data_grid)
     }
 
-    pub fn location_grid(&self) -> Result<Vec<Vec<Vec<f64>>>, String> {
+    pub fn latlng_grid(&self) -> Result<Vec<Vec<Vec<f64>>>, String> {
         let grid_definition = unwrap_or_return!(
             self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),
@@ -700,6 +683,6 @@ impl<'a> Message<'a> {
             "Only latitude longitude templates supported at this time".into()
         );
 
-        Ok(grid_template.location_grid())
+        Ok(grid_template.latlng_grid())
     }
 }
