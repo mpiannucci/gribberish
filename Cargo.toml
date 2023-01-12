@@ -12,7 +12,8 @@ openjpeg-sys = { version = "1.0.3", optional = true }
 png = { version = "0.17.2", optional = true }
 num = { version = "0.2", default-features = false }
 itertools = "0.10.5"
-mappers = "0.1.0"
+#mappers = "0.1.0"
+mappers = { path = "../mappers" }
 
 [profile.release]
 debug = true

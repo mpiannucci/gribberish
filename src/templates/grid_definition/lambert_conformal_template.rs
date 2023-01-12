@@ -12,11 +12,11 @@ use super::{
     GridDefinitionTemplate,
 };
 
-pub struct LambertConformalTemplate<'a> {
-    data: &'a [u8],
+pub struct LambertConformalTemplate {
+    data: Vec<u8>,
 }
 
-impl<'a> Template for LambertConformalTemplate<'a> {
+impl Template for LambertConformalTemplate {
     fn template_type(&self) -> TemplateType {
         TemplateType::Grid
     }
@@ -26,7 +26,7 @@ impl<'a> Template for LambertConformalTemplate<'a> {
     }
 
     fn data(&self) -> &[u8] {
-        self.data
+        &self.data
     }
 
     fn template_name(&self) -> &str {
@@ -34,8 +34,8 @@ impl<'a> Template for LambertConformalTemplate<'a> {
     }
 }
 
-impl<'a> LambertConformalTemplate<'a> {
-    pub fn new(data: &'a [u8]) -> Self {
+impl LambertConformalTemplate {
+    pub fn new(data: Vec<u8>) -> Self {
         LambertConformalTemplate { data }
     }
 
@@ -48,7 +48,7 @@ impl<'a> LambertConformalTemplate<'a> {
     }
 
     pub fn earth_radius_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(self.data, 16).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 16).unwrap_or(0)
     }
 
     pub fn earth_major_axis_scale_factor(&self) -> u8 {
@@ -56,7 +56,7 @@ impl<'a> LambertConformalTemplate<'a> {
     }
 
     pub fn earth_major_axis_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(self.data, 21).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 21).unwrap_or(0)
     }
 
     pub fn earth_minor_axis_scale_factor(&self) -> u8 {
@@ -64,25 +64,25 @@ impl<'a> LambertConformalTemplate<'a> {
     }
 
     pub fn earth_minor_axis_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(self.data, 26).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 26).unwrap_or(0)
     }
 
     pub fn number_of_points_on_x_axis(&self) -> u32 {
-        read_u32_from_bytes(self.data, 30).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 30).unwrap_or(0)
     }
 
     pub fn number_of_points_on_y_axis(&self) -> u32 {
-        read_u32_from_bytes(self.data, 34).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 34).unwrap_or(0)
     }
 
     pub fn latitude_of_first_grid_point(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 38).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 38).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn longitude_of_first_grid_point(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 42).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 42).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
@@ -92,25 +92,25 @@ impl<'a> LambertConformalTemplate<'a> {
     }
 
     pub fn latitude_of_dx_dy(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 47).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 47).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn longitude_of_paralell_meridian_to_latitude_increase(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 51).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 51).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn x_direction_grid_length(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 55).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 55).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-3.0))
     }
 
     pub fn y_direction_grid_length(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 59).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 59).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-3.0))
     }
@@ -124,45 +124,59 @@ impl<'a> LambertConformalTemplate<'a> {
     }
 
     pub fn latin_1(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 65).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 65).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn latin_2(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 69).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 69).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn latitude_of_southern_pole(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 73).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 73).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn longitude_of_southern_pole(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 77).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 77).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn projection(&self) -> Result<LambertConformalConic, String> {
+        let mut lng = self.longitude_of_first_grid_point(); 
+        lng = if lng > 180.0 {
+            180.0 - lng
+        } else {
+            lng
+        };
+
         LambertConformalConic::new(
-            self.longitude_of_first_grid_point(),
+            lng,
             self.latitude_of_first_grid_point(),
             self.latin_1(),
-            self.latin_2(),
+            self.latitude_of_first_grid_point(),
             Ellipsoid::wgs84(),
         )
         .map_err(|e| format!("Failed to create lambert conformal conic projection: {e}"))
     }
 
     pub fn project_axes(&self) -> Result<(LambertConformalConic, Vec<f64>, Vec<f64>), String> {
+        let mut start_lng = self.longitude_of_first_grid_point(); 
+        start_lng = if start_lng > 180.0 {
+            180.0 - start_lng
+        } else {
+            start_lng
+        };
+
         let projection = self.projection()?;
         let (start_x, start_y) = projection
             .project(
-                self.longitude_of_first_grid_point(),
+                start_lng,
                 self.latitude_of_first_grid_point(),
             )
             .map_err(|e| {
@@ -171,8 +185,8 @@ impl<'a> LambertConformalTemplate<'a> {
                 )
             })?;
 
-        let dx = self.x_direction_grid_length();
-        let dy = self.y_direction_grid_length();
+        let dx = if self.scanning_mode_flags()[0] == ScanningMode::PlusI {self.x_direction_grid_length() } else {-self.x_direction_grid_length()};
+        let dy = if self.scanning_mode_flags()[1] == ScanningMode::PlusJ {self.y_direction_grid_length() } else {-self.y_direction_grid_length()};
 
         let x = (0..self.number_of_points_on_x_axis())
             .map(|i| start_x + dx * i as f64)
@@ -186,7 +200,7 @@ impl<'a> LambertConformalTemplate<'a> {
     }
 }
 
-impl<'a> GridDefinitionTemplate<'a> for LambertConformalTemplate<'a> {
+impl GridDefinitionTemplate for LambertConformalTemplate {
     fn proj_string(&self) -> String {
         format!(
             "+proj=lcc lon_0={} lat_0={} lat_1={} lat_2={}",

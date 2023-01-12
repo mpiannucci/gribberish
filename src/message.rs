@@ -1,4 +1,3 @@
-use crate::templates::grid_definition::GridDefinitionTemplate;
 use crate::templates::product::tables::FixedSurfaceType;
 use crate::{
     sections::{indicator::Discipline, section::Section, section::SectionIterator},

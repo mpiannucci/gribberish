@@ -1,4 +1,4 @@
-pub trait GridDefinitionTemplate<'a> {
+pub trait GridDefinitionTemplate {
     fn proj_string(&self) -> String;
     fn crs(&self) -> String;
     fn grid_point_count(&self) -> usize;

@@ -27,16 +27,15 @@ impl <'a> DataRepresentationSection<'a> {
     }
 
     pub fn data_representation_template(&self) -> Option<Box<dyn DataRepresentationTemplate<f64>>> {
-        let data = self.data.clone();
         let template_number = self.data_representation_template_number();
         match template_number {
-            0 => Some(Box::new(SimplePackingDataRepresentationTemplate::new(data.to_vec()))),
-            2 => Some(Box::new(ComplexPackingDataRepresentationTemplate::new(data.to_vec()))),
-            3 => Some(Box::new(ComplexSpatialPackingDataRepresentationTemplate::new(data.to_vec()))),
+            0 => Some(Box::new(SimplePackingDataRepresentationTemplate::new(self.data.to_vec()))),
+            2 => Some(Box::new(ComplexPackingDataRepresentationTemplate::new(self.data.to_vec()))),
+            3 => Some(Box::new(ComplexSpatialPackingDataRepresentationTemplate::new(self.data.to_vec()))),
             #[cfg(feature = "jpeg")]
-            40 => Some(Box::new(JPEGDataRepresentationTemplate::new(data.to_vec()))),
+            40 => Some(Box::new(JPEGDataRepresentationTemplate::new(self.data.to_vec()))),
             #[cfg(feature = "png")]
-            41 => Some(Box::new(PNGDataRepresentationTemplate::new(data.to_vec()))),
+            41 => Some(Box::new(PNGDataRepresentationTemplate::new(self.data.to_vec()))),
             _ => None,
         }
     }
