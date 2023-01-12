@@ -149,8 +149,9 @@ impl LambertConformalTemplate {
 
     pub fn projection(&self) -> Result<LambertConformalConic, String> {
         let mut lng = self.longitude_of_first_grid_point(); 
+        println!("{lng}");
         lng = if lng > 180.0 {
-            180.0 - lng
+            lng - 360.0
         } else {
             lng
         };
@@ -159,7 +160,7 @@ impl LambertConformalTemplate {
             lng,
             self.latitude_of_first_grid_point(),
             self.latin_1(),
-            self.latitude_of_first_grid_point(),
+            self.latin_2(),
             Ellipsoid::wgs84(),
         )
         .map_err(|e| format!("Failed to create lambert conformal conic projection: {e}"))
@@ -168,7 +169,7 @@ impl LambertConformalTemplate {
     pub fn project_axes(&self) -> Result<(LambertConformalConic, Vec<f64>, Vec<f64>), String> {
         let mut start_lng = self.longitude_of_first_grid_point(); 
         start_lng = if start_lng > 180.0 {
-            180.0 - start_lng
+            start_lng - 360.0
         } else {
             start_lng
         };
@@ -213,7 +214,7 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
 
     fn crs(&self) -> String {
         // This is probably not right
-        "EPSG:9802".to_string()
+        "EPSG:2154".to_string()
     }
 
     fn grid_point_count(&self) -> usize {
