@@ -3,7 +3,6 @@ pub trait GridDefinitionTemplate<'a> {
     fn crs(&self) -> String;
     fn grid_point_count(&self) -> usize;
     fn start(&self) -> (f64, f64);
-    fn origin(&self) -> (f64, f64);
     fn end(&self) -> (f64, f64);
     fn latitude_count(&self) -> usize;
     fn longitude_count(&self) -> usize;
@@ -37,20 +36,22 @@ pub trait GridDefinitionTemplate<'a> {
     fn latlng_grid(&self) -> Vec<Vec<Vec<f64>>> {
         let latlng = self.latlng();
         (0..self.latitude_count())
-            .map(|lat_i| (0..self.longitude_count())
-                .map(|lon_i| {
-                    let idx = lat_i * self.longitude_count() + lon_i; 
-                    let (lat, lng) = latlng[idx];
-                    vec![lat, lng]
-                }).collect()
-            ).collect()
+            .map(|lat_i| {
+                (0..self.longitude_count())
+                    .map(|lon_i| {
+                        let idx = lat_i * self.longitude_count() + lon_i;
+                        let (lat, lng) = latlng[idx];
+                        vec![lat, lng]
+                    })
+                    .collect()
+            })
+            .collect()
     }
 
     fn zerod_location_grid(&self) -> Vec<Vec<f64>> {
-        let latlng = self.latlng();
+        let longitude_count = self.longitude_count();
         (0..self.latitude_count())
-            .map(|lat_i| (0..self.longitude_count())
-                .map(|lon_i| 0.0).collect()
-            ).collect()
+            .map(|_| (0..longitude_count).map(|_| 0.0).collect())
+            .collect()
     }
 }

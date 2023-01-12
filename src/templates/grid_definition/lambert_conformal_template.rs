@@ -158,7 +158,7 @@ impl<'a> LambertConformalTemplate<'a> {
         .map_err(|e| format!("Failed to create lambert conformal conic projection: {e}"))
     }
 
-    pub fn project_axes(&self) -> Result<(Vec<f64>, Vec<f64>), String> {
+    pub fn project_axes(&self) -> Result<(LambertConformalConic, Vec<f64>, Vec<f64>), String> {
         let projection = self.projection()?;
         let (start_x, start_y) = projection
             .project(
@@ -181,8 +181,8 @@ impl<'a> LambertConformalTemplate<'a> {
         let y = (0..self.number_of_points_on_y_axis())
             .map(|i| start_y + dy * i as f64)
             .collect();
-        
-        Ok((x, y))
+
+        Ok((projection, x, y))
     }
 }
 
@@ -207,15 +207,17 @@ impl<'a> GridDefinitionTemplate<'a> for LambertConformalTemplate<'a> {
     }
 
     fn start(&self) -> (f64, f64) {
-        todo!()
-    }
-
-    fn origin(&self) -> (f64, f64) {
-        todo!()
+        *self
+            .latlng()
+            .first()
+            .expect("Failed to get last lat/lng pair")
     }
 
     fn end(&self) -> (f64, f64) {
-        todo!()
+        *self
+            .latlng()
+            .last()
+            .expect("Failed to get last lat/lng pair")
     }
 
     fn latitude_count(&self) -> usize {
@@ -227,6 +229,20 @@ impl<'a> GridDefinitionTemplate<'a> for LambertConformalTemplate<'a> {
     }
 
     fn latlng(&self) -> Vec<(f64, f64)> {
-        todo!()
+        let (projection, x, y) = self
+            .project_axes()
+            .expect("Failed to project LCC coordinates");
+
+        x.iter()
+            .flat_map(|x_coord| {
+                y.iter()
+                    .map(|y_coord| {
+                        projection
+                            .inverse_project(*x_coord, *y_coord)
+                            .expect("Failed to inverse project from xy to lnglat")
+                    })
+                    .collect::<Vec<(f64, f64)>>()
+            })
+            .collect::<Vec<(f64, f64)>>()
     }
 }

@@ -162,12 +162,6 @@ impl <'a> GridDefinitionTemplate<'a> for LatLngTemplate<'a> {
         (self.start_latitude(), self.start_longitude())
     }
 
-    fn origin(&self) -> (f64, f64) {
-        let lat = (self.start_latitude() + self.end_latitude()) * 0.5;
-        let lng = (self.start_longitude() + self.end_longitude()) * 0.5;
-        (lat, lng)
-    }
-
     fn end(&self) -> (f64, f64) {
         (self.end_latitude(), self.end_longitude())
     }
