@@ -2,6 +2,7 @@ pub trait GridDefinitionTemplate {
     fn proj_string(&self) -> String;
     fn crs(&self) -> String;
     fn grid_point_count(&self) -> usize;
+    fn is_regular_grid(&self) -> bool;
     fn latitude_count(&self) -> usize;
     fn longitude_count(&self) -> usize;
     fn latlng(&self) -> Vec<(f64, f64)>;

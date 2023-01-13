@@ -220,6 +220,10 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
         (self.number_of_points_on_x_axis() * self.number_of_points_on_y_axis()) as usize
     }
 
+    fn is_regular_grid(&self) -> bool {
+        false
+    }
+
     fn latitude_count(&self) -> usize {
         self.number_of_points_on_y_axis() as usize
     }

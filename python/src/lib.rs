@@ -56,6 +56,11 @@ impl GribMessage {
         self.inner.metadata.crs.as_str()
     }
 
+    #[getter]
+    fn is_regular_grid(&self) -> bool {
+        self.inner.metadata.is_regular_grid
+    }
+
     fn data<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
         PyArray::from_slice(py, &self.inner.flattened_data())
     }

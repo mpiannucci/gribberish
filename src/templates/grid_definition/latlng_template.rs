@@ -158,6 +158,10 @@ impl GridDefinitionTemplate for LatLngTemplate {
         (self.parallel_point_count() * self.meridian_point_count()) as usize
     }
 
+    fn is_regular_grid(&self) -> bool {
+        true
+    }
+
     fn latitude_count(&self) -> usize {
         self.meridian_point_count() as usize
     }

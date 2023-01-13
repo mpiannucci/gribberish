@@ -26,6 +26,7 @@ pub struct MessageMetadata {
     pub proj: String,
     pub crs: String,
     pub bbox: (f64, f64, f64, f64),
+    pub is_regular_grid: bool,
     pub latitude: Vec<f64>,
     pub longitude: Vec<f64>,
 }
@@ -86,6 +87,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             proj: message.proj_string()?,
             crs: message.crs()?,
             bbox: message.location_bbox()?,
+            is_regular_grid: message.is_regular_grid()?,
             latitude: latitudes,
             longitude: longitudes,
         })

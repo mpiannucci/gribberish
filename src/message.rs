@@ -435,6 +435,23 @@ impl<'a> Message<'a> {
         Ok(grid_definition.grid_definition_template_number())
     }
 
+    pub fn is_regular_grid(&self) -> Result<bool, String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        Ok(grid_template.is_regular_grid())
+    }
+
     pub fn crs(&self) -> Result<String, String> {
         let grid_definition = unwrap_or_return!(
             self.sections().find_map(|s| match s {
