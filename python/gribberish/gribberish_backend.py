@@ -12,16 +12,11 @@ def read_binary_data(filename: str):
 
 
 def extract_variable_data(grib_message):
-    data = np.expand_dims(grib_message.data(), axis=0)
-
-    # if grib_message.is_regular_grid:
-    #     coords = ['time', 'lat', 'lon']
-    # else: 
-    #     coords = ['time', 'n']
-
+    data = grib_message.data().reshape(grib_message.grid_shape)
+    data = np.expand_dims(data, axis=0)
     crs = grib_message.crs
     return (
-        ['time', 'lat', 'lon'] if grib_message.is_regular_grid else ['time', 'n'],
+        ['time', 'lat', 'lon'] if grib_message.is_regular_grid else ['time', 'y', 'x'],
         data,
         {
             'standard_name': grib_message.var_abbrev,
@@ -75,27 +70,30 @@ class GribberishBackend(BackendEntrypoint):
             list(var_mapping.values())[0][1]
         )
 
+        lat = first_message.latitudes().reshape(first_message.grid_shape)
+        lng = first_message.longitudes().reshape(first_message.grid_shape)
+
         if first_message.is_regular_grid:
-            lat = (['lat'], np.unique(first_message.latitudes()), {
+            lat = (['lat'], lat[:, 0], {
                 'standard_name': 'latitude',
                 'long_name': 'latitude',
                 'units': 'degrees_north',
                 'axis': 'Y'
             })
-            lon = (['lon'], np.unique(first_message.longitudes()), {
+            lon = (['lon'], lng[0, :], {
                 'standard_name': 'longitude',
                 'long_name': 'longitude',
                 'units': 'degrees_east',
                 'axis': 'X'
             })
         else:
-            lat = (['n'], first_message.latitudes(), {
+            lat = (['y', 'x'], lat, {
                 'standard_name': 'latitude',
                 'long_name': 'latitude',
                 'units': 'degrees_north',
                 'axis': 'Y'
             })
-            lon = (['n'], first_message.longitudes(), {
+            lon = (['y', 'x'], lng, {
                 'standard_name': 'longitude',
                 'long_name': 'longitude',
                 'units': 'degrees_east',

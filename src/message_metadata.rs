@@ -27,21 +27,18 @@ pub struct MessageMetadata {
     pub crs: String,
     pub bbox: (f64, f64, f64, f64),
     pub is_regular_grid: bool,
+    pub grid_shape: (usize, usize),
     pub latitude: Vec<f64>,
     pub longitude: Vec<f64>,
 }
 
 impl MessageMetadata {
-    pub fn grid_shape(&self) -> (usize, usize) {
-        (self.latitude.len(), self.longitude.len())
-    }
-
     pub fn data_point_count(&self) -> usize {
-        self.latitude.len() * self.longitude.len()
+        self.grid_shape.0 * self.grid_shape.1
     }
 
     pub fn flattened_coords(&self) -> Vec<(f64, f64)> {
-        let (_, cols) = self.grid_shape();
+        let (_, cols) = self.grid_shape;
         (0..self.data_point_count())
             .map(|i| {
                 let lat_i = i / cols;
@@ -88,6 +85,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             crs: message.crs()?,
             bbox: message.location_bbox()?,
             is_regular_grid: message.is_regular_grid()?,
+            grid_shape: message.grid_dimensions()?,
             latitude: latitudes,
             longitude: longitudes,
         })

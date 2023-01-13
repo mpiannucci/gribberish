@@ -493,7 +493,7 @@ impl<'a> Message<'a> {
         Ok((min_lng, min_lat, max_lng, max_lat))
     }
 
-    pub fn location_grid_dimensions(&self) -> Result<(usize, usize), String> {
+    pub fn grid_dimensions(&self) -> Result<(usize, usize), String> {
         let grid_definition = unwrap_or_return!(
             self.sections().find_map(|s| match s {
                 Section::GridDefinition(grid_definition) => Some(grid_definition),

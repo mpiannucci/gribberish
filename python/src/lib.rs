@@ -61,6 +61,11 @@ impl GribMessage {
         self.inner.metadata.is_regular_grid
     }
 
+    #[getter]
+    fn grid_shape(&self) -> (usize, usize) {
+        self.inner.metadata.grid_shape
+    }
+
     fn data<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
         PyArray::from_slice(py, &self.inner.flattened_data())
     }
