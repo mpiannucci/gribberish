@@ -16,7 +16,7 @@ def extract_variable_data(grib_message):
 
     crs = grib_message.crs
     return (
-        ['time', 'lat', 'lon'],
+        ['time', 'n'],
         data,
         {
             'standard_name': grib_message.var_abbrev,
@@ -77,13 +77,13 @@ class GribberishBackend(BackendEntrypoint):
                 'units': 'seconds since 2010-01-01 00:00:00',
                 'axis': 'T'
             }),
-            'lat': (['lat'], first_message.latitudes(), {
+            'lat': (['n'], first_message.latitudes(), {
                 'standard_name': 'latitude',
                 'long_name': 'latitude',
                 'units': 'degrees_north',
                 'axis': 'Y'
             }),
-            'lon': (['lon'], first_message.longitudes(), {
+            'lon': (['n'], first_message.longitudes(), {
                 'standard_name': 'longitude',
                 'long_name': 'longitude',
                 'units': 'degrees_east',

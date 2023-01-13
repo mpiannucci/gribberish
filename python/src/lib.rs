@@ -56,8 +56,8 @@ impl GribMessage {
         self.inner.metadata.crs.as_str()
     }
 
-    fn data<'py>(&self, py: Python<'py>) -> &'py PyArray<f64, Ix2> {
-        PyArray::from_vec2(py, &self.inner.data).unwrap()
+    fn data<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
+        PyArray::from_slice(py, &self.inner.flattened_data())
     }
 
     fn latitudes<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
