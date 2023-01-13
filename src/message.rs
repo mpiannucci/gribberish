@@ -13,12 +13,10 @@ pub fn scan_messages<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize)> {
 
     message_iter
         .enumerate()
-        .map(
-            |(index, m)| match m.key() {
-                Ok(var) => (var, (index, m.byte_offset())),
-                Err(_) => ("unknown".into(), (index, m.byte_offset())),
-            },
-        )
+        .map(|(index, m)| match m.key() {
+            Ok(var) => (var, (index, m.byte_offset())),
+            Err(_) => ("unknown".into(), (index, m.byte_offset())),
+        })
         .collect()
 }
 
@@ -97,7 +95,8 @@ impl<'a> Message<'a> {
     }
 
     pub fn key(&self) -> Result<String, String> {
-        let time = self.forecast_date()
+        let time = self
+            .forecast_date()
             .map(|t| format!("&{}", t.to_rfc3339()))
             .unwrap_or("".into())
             .to_string();
@@ -112,7 +111,10 @@ impl<'a> Message<'a> {
                 "".into()
             };
 
-            format!("@{}{level_value}", Parameter::from(first_fixed_surface.0).name)
+            format!(
+                "@{}{level_value}",
+                Parameter::from(first_fixed_surface.0).name
+            )
         };
 
         let second_fixed_surface = self.second_fixed_surface()?;
@@ -125,7 +127,10 @@ impl<'a> Message<'a> {
                 "".into()
             };
 
-            format!("@{}{level_value}", Parameter::from(second_fixed_surface.0).name)
+            format!(
+                "@{}{level_value}",
+                Parameter::from(second_fixed_surface.0).name
+            )
         };
 
         Ok(format!("{}{}{}{}", var, first_level, second_level, time))
@@ -372,7 +377,7 @@ impl<'a> Message<'a> {
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
-        let surface_type = product_template.first_fixed_surface_type(); 
+        let surface_type = product_template.first_fixed_surface_type();
         let surface_value = product_template.first_fixed_surface_value();
         Ok((surface_type, surface_value))
     }
@@ -396,7 +401,7 @@ impl<'a> Message<'a> {
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
-        let surface_type = product_template.second_fixed_surface_type(); 
+        let surface_type = product_template.second_fixed_surface_type();
         let surface_value = product_template.second_fixed_surface_value();
         Ok((surface_type, surface_value))
     }
@@ -447,26 +452,28 @@ impl<'a> Message<'a> {
         Ok(grid_template.crs())
     }
 
-    pub fn location_region(&self) -> Result<((f64, f64), (f64, f64)), String> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data".into()
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
-        Ok((grid_template.start(), grid_template.end()))
-    }
-
     pub fn location_bbox(&self) -> Result<(f64, f64, f64, f64), String> {
-        let region = self.location_region()?;
-        Ok((region.0.1, region.0.0, region.1.1, region.1.0))
+        let mut min_lat = 90.0;
+        let mut max_lat = -90.0;
+        let mut min_lng = 180.0;
+        let mut max_lng = -180.0;
+        self.latlng()?.iter().for_each(|(lat, lng)| {
+            if *lat < min_lat {
+                min_lat = *lat;
+            }
+            if *lat > max_lat {
+                max_lat = *lat;
+            }
+
+            if *lng < min_lng {
+                min_lng = *lng;
+            }
+            if *lng > max_lng {
+                max_lng = *lng;
+            }
+        });
+
+        Ok((min_lng, min_lat, max_lng, max_lat))
     }
 
     pub fn location_grid_dimensions(&self) -> Result<(usize, usize), String> {
@@ -613,9 +620,7 @@ impl<'a> Message<'a> {
             "Failed to unpack the data representation template".into()
         );
 
-        let scaled_unpacked_data = data_representation_template.unpack(
-            raw_packed_data,
-        )?;
+        let scaled_unpacked_data = data_representation_template.unpack(raw_packed_data)?;
 
         let bitmap_section = unwrap_or_return!(
             self.sections().find_map(|s| match s {

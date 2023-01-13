@@ -148,8 +148,7 @@ impl LambertConformalTemplate {
     }
 
     pub fn projection(&self) -> Result<LambertConformalConic, String> {
-        let mut lng = self.longitude_of_first_grid_point(); 
-        println!("{lng}");
+        let mut lng = self.longitude_of_paralell_meridian_to_latitude_increase(); 
         lng = if lng > 180.0 {
             lng - 360.0
         } else {
@@ -158,10 +157,10 @@ impl LambertConformalTemplate {
 
         LambertConformalConic::new(
             lng,
-            self.latitude_of_first_grid_point(),
+            self.latitude_of_dx_dy(),
             self.latin_1(),
             self.latin_2(),
-            Ellipsoid::wgs84(),
+            Ellipsoid::grs80(),
         )
         .map_err(|e| format!("Failed to create lambert conformal conic projection: {e}"))
     }
@@ -187,7 +186,7 @@ impl LambertConformalTemplate {
             })?;
 
         let dx = if self.scanning_mode_flags()[0] == ScanningMode::PlusI {self.x_direction_grid_length() } else {-self.x_direction_grid_length()};
-        let dy = if self.scanning_mode_flags()[1] == ScanningMode::PlusJ {self.y_direction_grid_length() } else {-self.y_direction_grid_length()};
+        let dy = if self.scanning_mode_flags()[1] == ScanningMode::PlusJ {-self.y_direction_grid_length() } else {self.y_direction_grid_length()};
 
         let x = (0..self.number_of_points_on_x_axis())
             .map(|i| start_x + dx * i as f64)
@@ -219,20 +218,6 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
 
     fn grid_point_count(&self) -> usize {
         (self.number_of_points_on_x_axis() * self.number_of_points_on_y_axis()) as usize
-    }
-
-    fn start(&self) -> (f64, f64) {
-        *self
-            .latlng()
-            .first()
-            .expect("Failed to get last lat/lng pair")
-    }
-
-    fn end(&self) -> (f64, f64) {
-        *self
-            .latlng()
-            .last()
-            .expect("Failed to get last lat/lng pair")
     }
 
     fn latitude_count(&self) -> usize {

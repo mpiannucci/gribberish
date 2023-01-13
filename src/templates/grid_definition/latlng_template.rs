@@ -158,14 +158,6 @@ impl GridDefinitionTemplate for LatLngTemplate {
         (self.parallel_point_count() * self.meridian_point_count()) as usize
     }
 
-    fn start(&self) -> (f64, f64) {
-        (self.start_latitude(), self.start_longitude())
-    }
-
-    fn end(&self) -> (f64, f64) {
-        (self.end_latitude(), self.end_longitude())
-    }
-
     fn latitude_count(&self) -> usize {
         self.meridian_point_count() as usize
     }
