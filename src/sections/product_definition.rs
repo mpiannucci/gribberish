@@ -1,5 +1,4 @@
-use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
-use crate::templates::product::ProductTemplate;
+use crate::{utils::{read_u16_from_bytes, read_u32_from_bytes}, templates::product::{product_template::ProductTemplate, HorizontalAnalysisForecastTemplate, AverageAccumulationExtremeHorizontalAnalysisForecastTemplate}};
 use super::grib_section::GribSection;
 
 pub struct ProductDefinitionSection<'a> {
@@ -21,8 +20,12 @@ impl <'a> ProductDefinitionSection<'a> {
         read_u16_from_bytes(self.data, 7).unwrap_or(0)
     }
 
-    pub fn product_definition_template(&self, discipline: u8) -> ProductTemplate {
-        ProductTemplate::from_template_number(self.product_definition_template_number(), &self.data, discipline)
+    pub fn product_definition_template(&self, discipline: u8) -> Option<Box<dyn ProductTemplate>> {
+        match self.product_definition_template_number() {
+            0 => Some(Box::new(HorizontalAnalysisForecastTemplate::new(self.data.to_vec(), discipline))),
+            8 => Some(Box::new(AverageAccumulationExtremeHorizontalAnalysisForecastTemplate::new(self.data.to_vec(), discipline))),
+            _ => None
+        }
     }
 }
 

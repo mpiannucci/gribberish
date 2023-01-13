@@ -70,10 +70,10 @@ impl <'a> GribSection for IndicatorSection<'a> {
 }
 
 mod tests {
-	use super::{IndicatorSection, Discipline};
-
     #[test]
     fn read_indicator() {
+		use super::{IndicatorSection, Discipline};
+
 		let raw = [0x47u8, 0x52, 0x49, 0x42, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb3];
 		let indicator = IndicatorSection::from_data(&raw);
         assert!(indicator.valid());

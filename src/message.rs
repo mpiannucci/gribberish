@@ -1,7 +1,6 @@
 use crate::templates::product::tables::FixedSurfaceType;
 use crate::{
     sections::{indicator::Discipline, section::Section, section::SectionIterator},
-    templates::product::ProductTemplate,
 };
 use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
@@ -242,10 +241,7 @@ impl<'a> Message<'a> {
         );
 
         let product_template = unwrap_or_return!(
-            match product_definition.product_definition_template(discipline.clone() as u8) {
-                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
-                _ => None,
-            },
+            product_definition.product_definition_template(discipline),
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
@@ -267,10 +263,7 @@ impl<'a> Message<'a> {
         );
 
         let product_template = unwrap_or_return!(
-            match product_definition.product_definition_template(discipline.clone() as u8) {
-                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
-                _ => None,
-            },
+            product_definition.product_definition_template(discipline as u8),
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
@@ -299,10 +292,7 @@ impl<'a> Message<'a> {
         );
 
         let product_template = unwrap_or_return!(
-            match product_definition.product_definition_template(discipline.clone() as u8) {
-                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
-                _ => None,
-            },
+            product_definition.product_definition_template(discipline as u8),
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
@@ -347,10 +337,7 @@ impl<'a> Message<'a> {
         );
 
         let product_template = unwrap_or_return!(
-            match product_definition.product_definition_template(discipline.clone() as u8) {
-                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
-                _ => None,
-            },
+            product_definition.product_definition_template(discipline as u8),
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
@@ -370,10 +357,7 @@ impl<'a> Message<'a> {
         );
 
         let product_template = unwrap_or_return!(
-            match product_definition.product_definition_template(discipline.clone() as u8) {
-                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
-                _ => None,
-            },
+            product_definition.product_definition_template(discipline as u8),
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
@@ -394,10 +378,7 @@ impl<'a> Message<'a> {
         );
 
         let product_template = unwrap_or_return!(
-            match product_definition.product_definition_template(discipline.clone() as u8) {
-                ProductTemplate::HorizontalAnalysisForecast(template) => Some(template),
-                _ => None,
-            },
+            product_definition.product_definition_template(discipline as u8),
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 

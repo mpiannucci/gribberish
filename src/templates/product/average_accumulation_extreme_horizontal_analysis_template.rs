@@ -1,23 +1,24 @@
-use gribberish_types::Parameter;
 use crate::templates::template::{Template, TemplateType};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
-use chrono::{Utc, DateTime, Duration};
+use chrono::{prelude::*, Duration};
+use gribberish_types::Parameter;
 
+use super::HorizontalAnalysisForecastTemplate;
 use super::product_template::ProductTemplate;
-use super::tables::{TimeUnit, GeneratingProcess, FixedSurfaceType, oceanographic_category, meteorological_category, multiradar_category, meteorological_parameter, oceanographic_parameter, multiradar_parameter};
+use super::tables::{TypeOfStatisticalProcessing, TypeOfTimeInterval, TimeUnit, GeneratingProcess, oceanographic_parameter, meteorological_parameter, multiradar_parameter, multiradar_category, oceanographic_category, meteorological_category, FixedSurfaceType};
 
-pub struct HorizontalAnalysisForecastTemplate {
+pub struct AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
 	data: Vec<u8>,
 	discipline: u8,
 }
 
-impl Template for HorizontalAnalysisForecastTemplate {
+impl Template for AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
 	fn data(&self) -> &[u8] {
     	&self.data
  	}
 
  	fn template_number(&self) -> u16 {
- 	    0
+ 	    8
  	}
 
  	fn template_type(&self) -> TemplateType {
@@ -25,14 +26,18 @@ impl Template for HorizontalAnalysisForecastTemplate {
  	}
  	
     fn template_name(&self) -> &str {
-        "Analysis or forecast at a horizontal level or in a horizontal layer at a point in time"
+        "Average, Accumulation and/or Extreme values or
+        other Statistically-processed values at a horizontal level or
+        in a horizontal layer in a continuous or non-continuous time interval"
     }
 }
 
-impl HorizontalAnalysisForecastTemplate {
-
+impl AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
 	pub fn new(	data: Vec<u8>, discipline: u8) -> Self {
-		HorizontalAnalysisForecastTemplate { data, discipline }
+		Self {
+            data, 
+            discipline,
+        }
 	}
 
 	pub fn category_value(&self) -> u8 {
@@ -97,30 +102,52 @@ impl HorizontalAnalysisForecastTemplate {
         as_signed!(read_u32_from_bytes(&self.data, 30).unwrap_or(0), i32)
     }
 
-	pub fn array_index(&self) -> Option<usize> {
-		match self.first_fixed_surface_type() {
-			FixedSurfaceType::OrderedSequence => Some(self.first_fixed_surface_scaled_value() as usize), 
-			_ => None,
-		}
-	}
+    pub fn time_interval_end(&self) -> DateTime<Utc>  {
+        let data = self.data();
+        let year = read_u16_from_bytes(data, 34).unwrap_or(0) as i32;
+        let month = data[36] as u32;
+        let day = data[37] as u32;
+        let hour = data[38] as u32;
+        let minute = data[39] as u32;
+        let second = data[40] as u32;
 
-	pub fn scale_value(factor: i8, scaled_value: i32) -> Option<f64> {
-		let factor = if factor == i8::MIN + 1 {
-			0
-		} else {
-			factor as i32
-		};
-		let scale_factor = 10_f64.powi(-factor);
+        Utc.with_ymd_and_hms(year as i32, month, day, hour, minute, second).unwrap()
+    }
 
-		if scaled_value == i32::MIN + 1 {
-			None
-		} else {
-			Some(scaled_value as f64 * scale_factor)
-		}
-	}
+    pub fn number_of_time_ranges(&self) -> u8 {
+        self.data()[41]
+    }
+
+    pub fn number_of_values_missing_from_stats(&self) -> u32 {
+        read_u32_from_bytes(self.data(), 42).unwrap_or(0)
+    }
+
+    pub fn statistical_process(&self) -> TypeOfStatisticalProcessing {
+        self.data()[46].into()
+    }
+
+    pub fn type_of_time_interval(&self) -> TypeOfTimeInterval {
+        self.data()[47].into()
+    }
+
+    pub fn statistical_process_time_unit(&self) -> TimeUnit {
+        self.data()[48].into()
+    }
+
+    pub fn statistical_process_time_interval(&self) -> u32 {
+        read_u32_from_bytes(self.data(), 49).unwrap_or(0)
+    }
+
+    pub fn time_increment_unit(&self) -> TimeUnit {
+        self.data()[53].into()
+    }
+
+    pub fn time_increment_interval(&self) -> u32 {
+        read_u32_from_bytes(self.data(), 54).unwrap_or(0)
+    }
 }
 
-impl ProductTemplate for HorizontalAnalysisForecastTemplate {
+impl ProductTemplate for AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
     fn category_value(&self) -> u8 {
         self.data[9]
     }
