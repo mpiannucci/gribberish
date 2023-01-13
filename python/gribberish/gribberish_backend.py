@@ -12,11 +12,11 @@ def read_binary_data(filename: str):
 
 
 def extract_variable_data(grib_message):
-    data = np.expand_dims(grib_message.data(), axis=0)
-
+    data = grib_message.data().reshape(grib_message.grid_shape)
+    data = np.expand_dims(data, axis=0)
     crs = grib_message.crs
     return (
-        ['time', 'lat', 'lon'],
+        ['time', 'lat', 'lon'] if grib_message.is_regular_grid else ['time', 'y', 'x'],
         data,
         {
             'standard_name': grib_message.var_abbrev,
@@ -70,6 +70,36 @@ class GribberishBackend(BackendEntrypoint):
             list(var_mapping.values())[0][1]
         )
 
+        lat = first_message.latitudes().reshape(first_message.grid_shape)
+        lng = first_message.longitudes().reshape(first_message.grid_shape)
+
+        if first_message.is_regular_grid:
+            lat = (['lat'], lat[:, 0], {
+                'standard_name': 'latitude',
+                'long_name': 'latitude',
+                'units': 'degrees_north',
+                'axis': 'Y'
+            })
+            lon = (['lon'], lng[0, :], {
+                'standard_name': 'longitude',
+                'long_name': 'longitude',
+                'units': 'degrees_east',
+                'axis': 'X'
+            })
+        else:
+            lat = (['y', 'x'], lat, {
+                'standard_name': 'latitude',
+                'long_name': 'latitude',
+                'units': 'degrees_north',
+                'axis': 'Y'
+            })
+            lon = (['y', 'x'], lng, {
+                'standard_name': 'longitude',
+                'long_name': 'longitude',
+                'units': 'degrees_east',
+                'axis': 'X'
+            })
+
         coords = {
             'time': (['time'], [first_message.forecast_date], {
                 'standard_name': 'time',
@@ -77,18 +107,8 @@ class GribberishBackend(BackendEntrypoint):
                 'units': 'seconds since 2010-01-01 00:00:00',
                 'axis': 'T'
             }),
-            'lat': (['lat'], first_message.latitudes(), {
-                'standard_name': 'latitude',
-                'long_name': 'latitude',
-                'units': 'degrees_north',
-                'axis': 'Y'
-            }),
-            'lon': (['lon'], first_message.longitudes(), {
-                'standard_name': 'longitude',
-                'long_name': 'longitude',
-                'units': 'degrees_east',
-                'axis': 'X'
-            }),
+            'lat': lat,
+            'lon': lon,
         }
 
         # Finally put it all together and create the xarray dataset

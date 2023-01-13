@@ -7,11 +7,11 @@ use std::iter::Iterator;
 use std::vec::Vec;
 
 
-pub struct LatLngTemplate<'a> {
-    data: &'a [u8],
+pub struct LatLngTemplate {
+    data: Vec<u8>,
 }
 
-impl <'a> Template for LatLngTemplate<'a> {
+impl Template for LatLngTemplate {
     fn template_type(&self) -> TemplateType {
         TemplateType::Grid
     }
@@ -21,7 +21,7 @@ impl <'a> Template for LatLngTemplate<'a> {
     }
 
     fn data(&self) -> &[u8] {
-        self.data
+        &self.data
     }
 
     fn template_name(&self) -> &str {
@@ -29,8 +29,8 @@ impl <'a> Template for LatLngTemplate<'a> {
     }
 }
 
-impl <'a> LatLngTemplate<'a> {
-    pub fn new(data: &'a [u8]) -> Self {
+impl LatLngTemplate {
+    pub fn new(data: Vec<u8>) -> Self {
         LatLngTemplate { data }
     }
 
@@ -43,7 +43,7 @@ impl <'a> LatLngTemplate<'a> {
     }
 
     pub fn earth_radius_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(self.data, 16).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 16).unwrap_or(0)
     }
 
     pub fn earth_major_axis_scale_factor(&self) -> u8 {
@@ -51,7 +51,7 @@ impl <'a> LatLngTemplate<'a> {
     }
 
     pub fn earth_major_axis_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(self.data, 21).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 21).unwrap_or(0)
     }
 
     pub fn earth_minor_axis_scale_factor(&self) -> u8 {
@@ -59,33 +59,33 @@ impl <'a> LatLngTemplate<'a> {
     }
 
     pub fn earth_minor_axis_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(self.data, 26).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 26).unwrap_or(0)
     }
 
     pub fn parallel_point_count(&self) -> u32 {
-        read_u32_from_bytes(self.data, 30).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 30).unwrap_or(0)
     }
 
     pub fn meridian_point_count(&self) -> u32 {
-        read_u32_from_bytes(self.data, 34).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 34).unwrap_or(0)
     }
 
     pub fn basic_angle(&self) -> u32 {
-        read_u32_from_bytes(self.data, 38).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 38).unwrap_or(0)
     }
 
     pub fn subdivision(&self) -> u32 {
-        read_u32_from_bytes(self.data, 42).unwrap_or(0)
+        read_u32_from_bytes(&self.data, 42).unwrap_or(0)
     }
 
     pub fn start_latitude(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 46).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 46).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn start_longitude(&self) -> f64 {
-        let value = read_u32_from_bytes(self.data, 50).unwrap_or(0) as f64;
+        let value = read_u32_from_bytes(&self.data, 50).unwrap_or(0) as f64;
         value * (10f64.powf(-6.0))
     }
 
@@ -94,23 +94,23 @@ impl <'a> LatLngTemplate<'a> {
     }
 
     pub fn end_latitude(&self) -> f64 {
-        let raw_value = read_u32_from_bytes(self.data, 55).unwrap_or(0);
+        let raw_value = read_u32_from_bytes(&self.data, 55).unwrap_or(0);
         let value = as_signed!(raw_value, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn end_longitude(&self) -> f64 {
-        let value = read_u32_from_bytes(self.data, 59).unwrap_or(0) as f64;
+        let value = read_u32_from_bytes(&self.data, 59).unwrap_or(0) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn i_direction_increment(&self) -> f64 {
-        let value = read_u32_from_bytes(self.data, 63).unwrap_or(0) as f64;
+        let value = read_u32_from_bytes(&self.data, 63).unwrap_or(0) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn j_direction_increment(&self) -> f64 {
-        let value = read_u32_from_bytes(self.data, 67).unwrap_or(0) as f64;
+        let value = read_u32_from_bytes(&self.data, 67).unwrap_or(0) as f64;
         let value = value * (10f64.powf(-6.0));
 
         if self.is_descending_latitude() {
@@ -126,42 +126,6 @@ impl <'a> LatLngTemplate<'a> {
 
     fn is_descending_latitude(&self) -> bool {
         self.start_latitude() > self.end_latitude()
-    }
-}
-
-impl <'a> GridDefinitionTemplate<'a> for LatLngTemplate<'a> {
-    fn proj_string(&self) -> String {
-        format!("+proj=latlon +a=6367470 +b=6367470")
-    }
-
-    fn crs(&self) -> String {
-        "EPSG:4326".to_string()
-    }
-
-    fn grid_point_count(&self) -> usize {
-        (self.parallel_point_count() * self.meridian_point_count()) as usize
-    }
-
-    fn start(&self) -> (f64, f64) {
-        (self.start_latitude(), self.start_longitude())
-    }
-
-    fn origin(&self) -> (f64, f64) {
-        let lat = (self.start_latitude() + self.end_latitude()) * 0.5;
-        let lng = (self.start_longitude() + self.end_longitude()) * 0.5;
-        (lat, lng)
-    }
-
-    fn end(&self) -> (f64, f64) {
-        (self.end_latitude(), self.end_longitude())
-    }
-
-    fn latitude_count(&self) -> usize {
-        self.meridian_point_count() as usize
-    }
-
-    fn longitude_count(&self) -> usize {
-        self.parallel_point_count() as usize
     }
 
     fn latitudes(&self) -> Vec<f64> {
@@ -179,8 +143,34 @@ impl <'a> GridDefinitionTemplate<'a> for LatLngTemplate<'a> {
             .map(|i| longitude_start + i as f64 * longitude_step)
             .collect()
     }
+}
 
-    fn locations(&self) -> Vec<(f64, f64)> {
+impl GridDefinitionTemplate for LatLngTemplate {
+    fn proj_string(&self) -> String {
+        format!("+proj=latlon +a=6367470 +b=6367470")
+    }
+
+    fn crs(&self) -> String {
+        "EPSG:4326".to_string()
+    }
+
+    fn grid_point_count(&self) -> usize {
+        (self.parallel_point_count() * self.meridian_point_count()) as usize
+    }
+
+    fn is_regular_grid(&self) -> bool {
+        true
+    }
+
+    fn latitude_count(&self) -> usize {
+        self.meridian_point_count() as usize
+    }
+
+    fn longitude_count(&self) -> usize {
+        self.parallel_point_count() as usize
+    }
+
+    fn latlng(&self) -> Vec<(f64, f64)> {
         let latitudes = self.latitudes();
         let longitudes = self.longitudes();
 
@@ -193,22 +183,4 @@ impl <'a> GridDefinitionTemplate<'a> for LatLngTemplate<'a> {
 
         return locations;
     }
-
-    fn location_for_index(&self, index: usize) -> Result<(f64, f64), &'static str> {
-        if index >= self.grid_point_count() {
-            return Err("Index out of range");
-        }
-
-        let lat_increment = self.j_direction_increment();
-        let lng_increment = self.i_direction_increment();
-
-        let lat_index = index / lat_increment as usize;
-        let lon_index = index % lng_increment as usize;
-
-        let latitude = self.start_latitude() + lat_increment * lat_index as f64;
-        let longitude = self.start_longitude() + lng_increment * lon_index as f64;
-
-        Ok((latitude, longitude))
-    }
-
 }
