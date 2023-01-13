@@ -127,7 +127,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
     }
 
     fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
-
+        println!("{}", self.missing_value_management());
         let d1 = unwrap_or_return!(
             from_bits::<u16>(&filled_bit_array::<16>(&bits[0..16])),
             "failed to convert value to u16".into()

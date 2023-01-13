@@ -179,7 +179,7 @@ impl ProductTemplate for AverageAccumulationExtremeHorizontalAnalysisForecastTem
     }
 
     fn generating_process(&self) -> GeneratingProcess {
-        self.data[12].into()
+        self.data[11].into()
     }
 
     fn observation_cutoff_hours_after_reference_time(&self) -> u16 {
@@ -195,7 +195,7 @@ impl ProductTemplate for AverageAccumulationExtremeHorizontalAnalysisForecastTem
     }
 
     fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc> {
-		let forecast_offset = self.forecast_time();
+        let forecast_offset = self.forecast_time();
 		let offset_duration: Duration = self.time_unit().duration(forecast_offset as i64);
 		reference_date + offset_duration
     }

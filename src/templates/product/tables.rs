@@ -270,7 +270,7 @@ pub enum MoistureProduct {
     #[description = "precipitation rate"]
     #[abbrev = "PRATE"]
     #[unit = "kgm-2s-1"]
-    PrecipitationRate = 5,
+    PrecipitationRate = 7,
     #[description = "total precipitation"]
     #[abbrev = "APCP"]
     #[unit = "kgm-2"]
