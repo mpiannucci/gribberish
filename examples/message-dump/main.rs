@@ -54,7 +54,7 @@ fn main() {
             match m.1.forecast_date() { Ok(d) => format!("{d}"), Err(_) => "--".into()},
             match m.1.grid_template_id() {Ok(d) => format!("{d}"), Err(_) => "--".into()},
             match m.1.location_bbox() {Ok(r) => format!("{:?}", r), Err(_) => "--".into()},
-            match m.1.location_grid_dimensions() {Ok(r) => format!("{:?}", r), Err(_) => "--".into()},
+            match m.1.grid_dimensions() {Ok(r) => format!("{:?}", r), Err(_) => "--".into()},
             match m.1.data_template_number() {Ok(t) => format!("{t}"), Err(_) => "--".into()},
             match m.1.data_point_count() {Ok(c) => format!("{c}"), Err(_) => "--".into()},
         );
