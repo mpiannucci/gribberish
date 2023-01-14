@@ -65,9 +65,6 @@ const min = args.minThreshold !== undefined ? parseFloat(args.minThreshold) : d3
 const range = max - min;
 const steps = args.steps !== undefined ? parseInt(args.steps) : 20;
 
-console.log(min)
-console.log(max)
-
 for (let i = 0; i < values.length; ++i) {
   if (isNaN(values[i])) {
     values[i] = -9999999;

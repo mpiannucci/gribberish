@@ -72,6 +72,7 @@ pub fn filled_bit_array<const N: usize>(bits: &[u8]) -> [u8; N] {
     for i in 0..bits.len() {
         new[bit_start + i] = bits[i];
     }
+    println!("{:?}", new);
     new
 }
 

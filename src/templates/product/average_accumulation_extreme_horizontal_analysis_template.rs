@@ -87,19 +87,19 @@ impl AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
 	}
 
     pub fn first_fixed_surface_scale_factor(&self) -> i8 {
-        as_signed!(self.data[23], i8)
+        as_signed!(self.data[23], 8, i8)
     }
 
     pub fn first_fixed_surface_scaled_value(&self) -> i32 {
-        as_signed!(read_u32_from_bytes(&self.data, 24).unwrap_or(0), i32)
+        as_signed!(read_u32_from_bytes(&self.data, 24).unwrap_or(0), 32, i32)
     }
 
     pub fn second_fixed_surface_scale_factor(&self) -> i8 {
-		as_signed!(self.data[29], i8)
+		as_signed!(self.data[29], 8, i8)
     }
 
     pub fn second_fixed_surface_scaled_value(&self) -> i32 {
-        as_signed!(read_u32_from_bytes(&self.data, 30).unwrap_or(0), i32)
+        as_signed!(read_u32_from_bytes(&self.data, 30).unwrap_or(0), 32, i32)
     }
 
     pub fn time_interval_end(&self) -> DateTime<Utc>  {

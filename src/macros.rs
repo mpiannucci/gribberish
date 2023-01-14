@@ -11,9 +11,10 @@ macro_rules! unwrap_or_return {
 
 #[macro_export]
 macro_rules! as_signed{
-    ($e:expr, $dest:ident) => {
-        if $e.leading_ones() > 0 {
-            -(($e << 1 >> 1) as $dest)
+    ($e:expr, $sig_bit:expr, $dest:ident) => {
+        
+        if ($e & (1 << ($sig_bit - 1))) > 0 {
+            -(($e & !(1 << ($sig_bit - 1))) as $dest)
         } else {
             $e as $dest
         }
@@ -24,13 +25,12 @@ macro_rules! as_signed{
 mod tests {
     // use super::*;
 
-
     #[test]
     fn test_convert_signed() {
-        let neg_one: u8 = 0b10000001;
-        assert_eq!(as_signed!(neg_one, i8), -1);
+        let neg_one: u8 = 0b0000000010000001;
+        assert_eq!(as_signed!(neg_one, 8, i16), -1);
 
         let four: u8 = 0b00000100;
-        assert_eq!(as_signed!(four, i8), 4);
+        assert_eq!(as_signed!(four, 8, i8), 4);
     }
 }

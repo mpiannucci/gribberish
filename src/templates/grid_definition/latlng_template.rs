@@ -80,7 +80,7 @@ impl LatLngTemplate {
 
     pub fn start_latitude(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 46).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
@@ -95,7 +95,7 @@ impl LatLngTemplate {
 
     pub fn end_latitude(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 55).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 

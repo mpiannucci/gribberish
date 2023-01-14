@@ -49,11 +49,11 @@ impl ComplexSpatialPackingDataRepresentationTemplate {
     }
 
     pub fn binary_scale_factor(&self) -> i16 {
-        as_signed!(read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0), i16)
+        as_signed!(read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0), 16, i16)
     }
 
     pub fn decimal_scale_factor(&self) -> i16 {
-        as_signed!(read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0), i16)
+        as_signed!(read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0), 16, i16)
     }
 
     pub fn bit_count(&self) -> u8 {
@@ -127,39 +127,35 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
     }
 
     fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
-        println!("{}", self.missing_value_management());
+        let bits_for_differencing = self.number_of_octets_for_differencing() as usize * 8;
+        let mut idx = 0;
         let d1 = unwrap_or_return!(
-            from_bits::<u16>(&filled_bit_array::<16>(&bits[0..16])),
-            "failed to convert value to u16".into()
+            from_bits::<u32>(&filled_bit_array::<32>(&bits[idx..idx + bits_for_differencing])),
+            "failed to convert value to u32".into()
         );
-        let d1 = as_signed!(d1, i16);
+        let d1 = as_signed!(d1, bits_for_differencing, i32);
+        idx += bits_for_differencing;
 
         let d2 = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
-            unwrap_or_return!(
-                from_bits::<u16>(&filled_bit_array::<16>(&bits[16..32])),
-                "failed to convert value to u16".into()
-            )
+            let val = unwrap_or_return!(
+                from_bits::<u32>(&filled_bit_array::<32>(&bits[idx..idx + bits_for_differencing])),
+                "failed to convert value to u32".into()
+            ); 
+            idx += bits_for_differencing;
+            val
         } else {
             0
         };
-        let d2 = as_signed!(d2, i16);
+        let d2 = as_signed!(d2, bits_for_differencing, i32);
 
-        let dmin_start = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
-            32
-        } else {
-            16
-        };
         let dmin = unwrap_or_return!(
-            from_bits::<u16>(&filled_bit_array::<16>(&bits[dmin_start..dmin_start + 16])),
-            "failed to convert value to u16".into()
+            from_bits::<u32>(&filled_bit_array::<32>(&bits[idx..idx + bits_for_differencing])),
+            "failed to convert value to u32".into()
         );
-        let dmin = as_signed!(dmin, i16);
+        let dmin = as_signed!(dmin, bits_for_differencing, i32);
+        idx += bits_for_differencing;
 
-        let group_reference_start = self.number_of_octets_for_differencing() as usize * 8 * match self.spatial_differencing_order() {
-            SpatialDifferencingOrder::First => 2,
-            SpatialDifferencingOrder::Second => 3,
-        };
-
+        let group_reference_start = idx;
         let ng = self.number_of_groups() as usize;
         let n_reference_bits = self.bit_count() as usize;
         let group_reference_bit_start_index = 32 - n_reference_bits;
@@ -219,7 +215,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                         temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit];
                     }
 
-                    let raw = as_signed!(from_bits::<u32>(&temp_container).unwrap(), i32);
+                    let raw = as_signed!(from_bits::<u32>(&temp_container).unwrap(), 32, i32);
                     raw + reference as i32
                 })
                 .collect();

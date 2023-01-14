@@ -40,6 +40,7 @@ impl SimplePackingDataRepresentationTemplate {
     pub fn binary_scale_factor(&self) -> i16 {
         as_signed!(
             read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0),
+            16,
             i16
         )
     }
@@ -47,6 +48,7 @@ impl SimplePackingDataRepresentationTemplate {
     pub fn decimal_scale_factor(&self) -> i16 {
         as_signed!(
             read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0),
+            16,
             i16
         )
     }
