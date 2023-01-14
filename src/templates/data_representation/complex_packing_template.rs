@@ -172,7 +172,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
                     }
 
                     let raw = from_bits::<u32>(&temp_container).unwrap(); 
-                    as_signed!(raw, width, i32) + reference as i32
+                    as_signed!(raw, 32, i32) + reference as i32
                 })
                 .collect();
 
