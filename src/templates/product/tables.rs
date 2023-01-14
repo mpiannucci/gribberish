@@ -187,6 +187,35 @@ pub enum TypeOfTimeInterval {
 	FloatingSubintervfal = 5,
 }
 
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+pub enum DerivedForecastType {
+    UnweightedMean = 0,
+    WeightedMean = 1,
+    StandardDeviation = 2, 
+    NormalizedStandardDeviation = 3, 
+    Spread = 4,
+    LargeAnomaly = 5,
+    UnweightedMeanOfClustered = 6, 
+    InterquartileRange = 7, 
+    Minimum = 8, 
+    Maximum = 9,
+    UnweightedMode = 192, 
+    TenthPercentile = 193, 
+    FiftiethPercentile = 194, 
+    NinetiethPercentile = 195, 
+    StatisticallyWeighted = 196, 
+    ClimatePercentile = 197, 
+    DeviationOfMeanFromClimatology = 198, 
+    ExtremeForecastIndex = 199, 
+    EquallyWeightedMena = 200, 
+    FifthPercentile = 201, 
+    TwentyFifthPercentile = 202, 
+    SeventyFifthPercentile = 203, 
+    NinetyFifthPercentile = 204, 
+    Missing = 255, 
+}
+
 pub trait ProductDiscipline {
     fn from_category_parameter(category: u8, parameter: u8) -> Self;
 

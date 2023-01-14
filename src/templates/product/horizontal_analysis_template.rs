@@ -152,15 +152,7 @@ impl ProductTemplate for HorizontalAnalysisForecastTemplate {
     }
 
     fn generating_process(&self) -> GeneratingProcess {
-        self.data[12].into()
-    }
-
-    fn observation_cutoff_hours_after_reference_time(&self) -> u16 {
-        read_u16_from_bytes(&self.data, 14).unwrap_or(0)
-    }
-
-    fn observation_cutoff_minutes_after_cutoff_time(&self) -> u8 {
-        self.data[16]
+        self.data[11].into()
     }
 
     fn time_unit(&self) -> TimeUnit {
