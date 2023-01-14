@@ -1,4 +1,4 @@
-use crate::templates::product::tables::FixedSurfaceType;
+use crate::templates::product::tables::{FixedSurfaceType, GeneratingProcess};
 use crate::{
     sections::{indicator::Discipline, section::Section, section::SectionIterator},
 };
@@ -323,6 +323,25 @@ impl<'a> Message<'a> {
             "Identification section not found when reading reference date".into()
         );
         Ok(reference_date)
+    }
+
+    pub fn generating_process(&self) -> Result<GeneratingProcess, String> {
+        let discipline = self.discipline()?;
+
+        let product_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            product_definition.product_definition_template(discipline as u8),
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        Ok(product_template.generating_process())
     }
 
     pub fn forecast_date(&self) -> Result<DateTime<Utc>, String> {

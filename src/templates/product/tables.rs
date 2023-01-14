@@ -65,7 +65,7 @@ pub enum FixedSurfaceType {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum GeneratingProcess {
     Analysis = 0,
     Initialization = 1,
@@ -243,6 +243,7 @@ pub enum TemperatureProduct {
     #[abbrev = "APTMP"]
     #[unit = "K"]
     ApparentTemperature = 21,
+    Missing = 255,
 }
 
 #[repr(u8)]
@@ -275,6 +276,39 @@ pub enum MoistureProduct {
     #[abbrev = "APCP"]
     #[unit = "kgm-2"]
     TotalPrecipitation = 8,
+    #[description = "water Equivalent of accumulated snow depth"]
+    #[abbrev = "WEASD"]
+    #[unit = "kgm-2"]
+    WaterEquavalentSnowDepth = 13,
+    #[description = "categorical rain"]
+    #[abbrev = "CRAIN"]
+    #[unit = "BOOL"]
+    CategoricalRain = 33,
+    #[description = "categorical freezing rain"]
+    #[abbrev = "CFRZR"]
+    #[unit = "BOOL"]
+    CategoricalFreezingRain = 34,
+    #[description = "categorical ice pellets"]
+    #[abbrev = "CICEP"]
+    #[unit = "BOOL"]
+    CategoricalIcePellets = 35,
+    #[description = "categorical snow"]
+    #[abbrev = "CSNOW"]
+    #[unit = "BOOL"]
+    CategoricalSnow = 36,
+    #[description = "percent frozen precipitation"]
+    #[abbrev = "CPOFP"]
+    #[unit = "%"]
+    PercentFrozenPrecipitation = 39,
+    #[description = "freezing rain"]
+    #[abbrev = "FRZR"]
+    #[unit = "kgm-2"]
+    FreezingRain = 225,
+    #[description = "frozen rain"]
+    #[abbrev = "FROZR"]
+    #[unit = "kgm-2"]
+    FrozenRain = 227,
+    Missing = 255,
 }
 
 #[repr(u8)]
@@ -332,6 +366,7 @@ pub enum MomentumProduct {
     #[abbrev = "TPWSPD"]
     #[unit = "ms-1"]
     TropicalWindSpeed = 232,
+    Missing = 255,
 }
 
 #[repr(u8)]
@@ -348,10 +383,15 @@ pub enum MassProduct {
     #[abbrev = "PTEND"]
     #[unit = "pas-1"]
     PressureTendency = 2,
+    #[description = "geopotential height"]
+    #[abbrev = "HGT"]
+    #[unit = "gpm"]
+    GeopotentialHeight = 5,
     #[description = "mslp (eta model reduction)"]
     #[abbrev = "MSLET"]
     #[unit = "pa"]
     MSLP = 192,
+    Missing = 255,
 }
 
 #[repr(u8)]
@@ -373,6 +413,7 @@ pub enum RadarProduct {
     #[abbrev = "PREC"]
     #[unit = "kgm-2"]
     Precipitation = 5,
+    Missing = 255,
 }
 
 #[repr(u8)]
@@ -390,6 +431,7 @@ pub enum ForecastRadarImagery {
     #[abbrev = "REFC"]
     #[unit = "dB"]
     CompositeReflectivity = 196,
+    Missing = 255,
 }
 
 #[repr(u8)]
@@ -624,6 +666,7 @@ pub enum WavesProduct {
     #[abbrev = "WLENG"]
     #[unit = "-"]
     WaveLength = 193,
+    Missing = 255,
 }
 
 pub fn oceanographic_parameter(category: u8, parameter: u8) -> Option<Parameter> {
@@ -679,6 +722,7 @@ pub enum MRMSLightningProduct {
     #[abbrev = "LightningJumpGrid_Max_005min"]
     #[unit = "NonDim"]
     LightningJumpGridMax = 8,
+    Missing = 255,
 }
 
 #[repr(u8)]
@@ -728,6 +772,7 @@ pub enum MRMSConvectionProduct {
     #[abbrev = "MergedReflectivityAtLowestAltitude"]
     #[unit = "dBZ"]
     MergedReflectivityAtLowestAltitude = 58,
+    Missing = 255,
 }
 
 #[repr(u8)]
@@ -777,6 +822,7 @@ pub enum MRMSPrecipitationProduct {
     #[abbrev = "RadarOnly_QPE_Since12Z"]
     #[unit = "mm"]
     RadarPrecipTwelveZ = 46,
+    Missing = 255,
 }
 
 #[repr(u8)]
@@ -818,6 +864,7 @@ pub enum MRMSCompositeReflectivityProduct {
     #[abbrev = "BREF_1HR_MAX"]
     #[unit = "dBZ"]
     BREF1HRMAX = 10,
+    Missing = 255,
 }
 
 #[repr(u8)]
@@ -839,6 +886,7 @@ pub enum MRMSMergedReflectivityProduct {
     #[abbrev = "MergedBaseReflectivity"]
     #[unit = "dBZ"]
     MergedBaseReflectivity = 3,
+    Missing = 255,
 }
 
 pub fn multiradar_parameter(category: u8, parameter: u8) -> Option<Parameter> {
