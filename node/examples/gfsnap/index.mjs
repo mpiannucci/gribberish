@@ -55,14 +55,18 @@ if (message !== undefined) {
 // const lngRange = bbox[2] - bbox[0];
 // const latRange = bbox[3] - bbox[1];
 
-const height = message.latitudes.length;
-const width = message.longitudes.length;
+const {rows, cols} = message.gridShape;
+const width = cols;
+const height = rows;
 
 const values = message.data;
 const max = args.maxThreshold !== undefined ? parseFloat(args.maxThreshold) : d3.max(values);
 const min = args.minThreshold !== undefined ? parseFloat(args.minThreshold) : d3.min(values);
 const range = max - min;
 const steps = args.steps !== undefined ? parseInt(args.steps) : 20;
+
+console.log(min)
+console.log(max)
 
 for (let i = 0; i < values.length; ++i) {
   if (isNaN(values[i])) {
