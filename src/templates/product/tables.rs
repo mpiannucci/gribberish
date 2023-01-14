@@ -276,6 +276,14 @@ pub enum MoistureProduct {
     #[abbrev = "APCP"]
     #[unit = "kgm-2"]
     TotalPrecipitation = 8,
+    #[description = "convective precipitation"]
+    #[abbrev = "ACPCP"]
+    #[unit = "gm-2"]
+    ConvectivePrecipitation = 10, 
+    #[description = "snow depth"]
+    #[abbrev = "SNOD"]
+    #[unit = "m"]
+    SnowDepth = 11, 
     #[description = "water Equivalent of accumulated snow depth"]
     #[abbrev = "WEASD"]
     #[unit = "kgm-2"]
