@@ -77,13 +77,13 @@ impl LambertConformalTemplate {
 
     pub fn latitude_of_first_grid_point(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 38).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn longitude_of_first_grid_point(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 42).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
@@ -93,25 +93,25 @@ impl LambertConformalTemplate {
 
     pub fn latitude_of_dx_dy(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 47).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn longitude_of_paralell_meridian_to_latitude_increase(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 51).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn x_direction_grid_length(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 55).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-3.0))
     }
 
     pub fn y_direction_grid_length(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 59).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-3.0))
     }
 
@@ -125,25 +125,25 @@ impl LambertConformalTemplate {
 
     pub fn latin_1(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 65).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn latin_2(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 69).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn latitude_of_southern_pole(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 73).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 
     pub fn longitude_of_southern_pole(&self) -> f64 {
         let raw_value = read_u32_from_bytes(&self.data, 77).unwrap_or(0);
-        let value = as_signed!(raw_value, i32) as f64;
+        let value = as_signed!(raw_value, 32, i32) as f64;
         value * (10f64.powf(-6.0))
     }
 

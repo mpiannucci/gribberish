@@ -23,7 +23,9 @@ fn main() {
         .read_to_end(&mut raw_grib_data)
         .expect("failed to read raw grib2 data");
 
-    let messages = read_messages(raw_grib_data.as_slice()).collect::<Vec<Message>>();
+    let messages = read_messages(raw_grib_data.as_slice())
+        .filter(|m| m.variable_abbrev().unwrap_or("".into()) == "APCP".to_string())
+        .collect::<Vec<_>>();
 
     println!("GRIB2 file read: {}", grib_path);
     println!("Message count: {}", messages.len());
@@ -45,6 +47,7 @@ fn main() {
     println!("------------------------------------------------------------------------------------------------------------");
 
     messages.iter().enumerate().for_each(|m| {
+        m.1.data();
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             m.0,

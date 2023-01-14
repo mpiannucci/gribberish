@@ -91,7 +91,7 @@ impl GribMessage {
 
   #[napi(getter)]
   pub fn grid_shape(&self) -> GridShape {
-    let (rows, cols) = self.inner.metadata.grid_shape();
+    let (rows, cols) = self.inner.metadata.grid_shape;
     GridShape {
       rows: rows as u32,
       cols: cols as u32,
