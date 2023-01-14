@@ -1,7 +1,7 @@
 extern crate chrono;
 extern crate gribberish;
 
-use gribberish::message::{Message, read_messages};
+use gribberish::message::{read_messages};
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -47,7 +47,6 @@ fn main() {
     println!("------------------------------------------------------------------------------------------------------------");
 
     messages.iter().enumerate().for_each(|m| {
-        m.1.data();
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             m.0,

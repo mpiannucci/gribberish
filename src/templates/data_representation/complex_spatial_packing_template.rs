@@ -155,45 +155,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let dmin = as_signed!(dmin, bits_for_differencing, i32);
         idx += bits_for_differencing;
 
-        println!("{} {} {} {}", d1, d2, dmin, self.number_of_octets_for_differencing());
-        println!("{idx}");
-
         let group_reference_start = idx;
-
-        // let d1 = unwrap_or_return!(
-        //     from_bits::<u16>(&filled_bit_array::<16>(&bits[0..16])),
-        //     "failed to convert value to u16".into()
-        // );
-        // let d1 = as_signed!(d1, 16, i16);
-
-        // let d2 = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
-        //     unwrap_or_return!(
-        //         from_bits::<u16>(&filled_bit_array::<16>(&bits[16..32])),
-        //         "failed to convert value to u16".into()
-        //     )
-        // } else {
-        //     0
-        // };
-        // let d2 = as_signed!(d2, 16, i16);
-
-        // let dmin_start = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
-        //     32
-        // } else {
-        //     16
-        // };
-        // let dmin = unwrap_or_return!(
-        //     from_bits::<u16>(&filled_bit_array::<16>(&bits[dmin_start..dmin_start + 16])),
-        //     "failed to convert value to u16".into()
-        // );
-        // let dmin = as_signed!(dmin, 16, i16);
-
-        // let group_reference_start = self.number_of_octets_for_differencing() as usize * 8 * match self.spatial_differencing_order() {
-        //     SpatialDifferencingOrder::First => 2,
-        //     SpatialDifferencingOrder::Second => 3,
-        // };
-
-        println!("{} {} {} {}", d1, d2, dmin, self.number_of_octets_for_differencing());
-
         let ng = self.number_of_groups() as usize;
         let n_reference_bits = self.bit_count() as usize;
         let group_reference_bit_start_index = 32 - n_reference_bits;
@@ -253,7 +215,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                         temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit];
                     }
 
-                    let raw = as_signed!(from_bits::<u32>(&temp_container).unwrap(), width, i32);
+                    let raw = as_signed!(from_bits::<u32>(&temp_container).unwrap(), 32, i32);
                     raw + reference as i32
                 })
                 .collect();
