@@ -8,7 +8,7 @@ See [`node`](node/README.md) for usage with `nodejs`
 
 ## Getting Started
 
-Add the package in `Cargo.toml` unser `[dependencies]`:
+Add the package in `Cargo.toml` to `[dependencies]`:
 
 ```toml
 gribberish = { git = "https://github.com/mpiannucci/gribberish" }
@@ -26,4 +26,4 @@ See [read.rs](tests/read.rs) for example usage for simple reading, or [message-d
 
 ## License
 
-[MIT](LICENSE) -  2022 Matthew Iannucci
+[MIT](LICENSE) -  2023 Matthew Iannucci
