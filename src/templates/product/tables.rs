@@ -408,6 +408,16 @@ pub enum MomentumProduct {
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum CloudProduct {
+    #[description = "total cloud cover"]
+    #[abbrev = "TCDC"]
+    #[unit = "%"]
+    TotalCloudCover = 1,
+    Missing = 255,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum MassProduct {
     #[abbrev = "PRES"]
     #[unit = "pa"]
@@ -478,6 +488,7 @@ pub enum PhysicalAtmosphericProperties {
     #[abbrev = "vis"]
     #[unit = "m"]
     Visibility = 0,
+    Missing = 255,
 }
 
 pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter> {
@@ -486,6 +497,7 @@ pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter
         1 => Some(Parameter::from(MoistureProduct::from(parameter))),
         2 => Some(Parameter::from(MomentumProduct::from(parameter))),
         3 => Some(Parameter::from(MassProduct::from(parameter))),
+        6 => Some(Parameter::from(CloudProduct::from(parameter))),
         15 => Some(Parameter::from(RadarProduct::from(parameter))),
         16 => Some(Parameter::from(ForecastRadarImagery::from(parameter))),
         19 => Some(Parameter::from(PhysicalAtmosphericProperties::from(
@@ -501,9 +513,38 @@ pub fn meteorological_category(category: u8) -> &'static str {
         1 => "moisture",
         2 => "momentum",
         3 => "mass",
+        6 => "cloud",
         15 => "radar",
         16 => "forecast radar imagery",
         19 => "physical atmospheric properties",
+        _ => "other",
+    }
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum VegetationProduct {
+    #[description = "land cover"]
+    #[abbrev = "lAND"]
+    #[unit = "proportion"]
+    LandCover = 0,
+    #[description = "soil temperature"]
+    #[abbrev = "TSOIL"]
+    #[unit = "K"]
+    SoilTemperature = 2,
+    Missing = 255,
+}
+
+pub fn land_surface_parameter(category: u8, parameter: u8) -> Option<Parameter> {
+    match category {
+        0 => Some(Parameter::from(VegetationProduct::from(parameter))),
+        _ => None,
+    }
+}
+
+pub fn land_surface_category(category: u8) -> &'static str {
+    match category {
+        0 => "vegetation/biomass",
         _ => "other",
     }
 }
@@ -706,9 +747,24 @@ pub enum WavesProduct {
     Missing = 255,
 }
 
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum IceProduct {
+    #[description = "ice cover"]
+    #[abbrev = "ICEC"]
+    #[unit = "porportion"]
+    IceCover = 0, 
+    #[description = "ice thickness"]
+    #[abbrev = "ICETK"]
+    #[unit = "m"]
+    IceThickness = 1,
+    Missing = 255,
+}
+
 pub fn oceanographic_parameter(category: u8, parameter: u8) -> Option<Parameter> {
     match category {
         0 => Some(Parameter::from(WavesProduct::from(parameter))),
+        2 => Some(Parameter::from(IceProduct::from(parameter))),
         _ => None,
     }
 }

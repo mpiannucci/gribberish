@@ -5,20 +5,20 @@ use gribberish_types::Parameter;
 
 use super::HorizontalAnalysisForecastTemplate;
 use super::product_template::ProductTemplate;
-use super::tables::{TypeOfStatisticalProcessing, TypeOfTimeInterval, TimeUnit, GeneratingProcess, oceanographic_parameter, meteorological_parameter, multiradar_parameter, multiradar_category, oceanographic_category, meteorological_category, FixedSurfaceType, land_surface_category, land_surface_parameter};
+use super::tables::{TypeOfStatisticalProcessing, TypeOfTimeInterval, TimeUnit, GeneratingProcess, oceanographic_parameter, meteorological_parameter, multiradar_parameter, multiradar_category, oceanographic_category, meteorological_category, FixedSurfaceType, DerivedForecastType, land_surface_parameter, land_surface_category};
 
-pub struct AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
+pub struct DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
 	data: Vec<u8>,
 	discipline: u8,
 }
 
-impl Template for AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
+impl Template for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
 	fn data(&self) -> &[u8] {
     	&self.data
  	}
 
  	fn template_number(&self) -> u16 {
- 	    8
+ 	    12
  	}
 
  	fn template_type(&self) -> TemplateType {
@@ -26,13 +26,12 @@ impl Template for AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
  	}
  	
     fn template_name(&self) -> &str {
-        "Average, Accumulation and/or Extreme values or
-        other Statistically-processed values at a horizontal level or
-        in a horizontal layer in a continuous or non-continuous time interval"
+        "Derived forecasts based on all ensemble members at a horizontal level
+        or in a horizontal layer in a continuous or non-continuous time interval"
     }
 }
 
-impl AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
+impl DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
 	pub fn new(	data: Vec<u8>, discipline: u8) -> Self {
 		Self {
             data, 
@@ -80,52 +79,60 @@ impl AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
         as_signed!(read_u32_from_bytes(&self.data, 30).unwrap_or(0), 32, i32)
     }
 
+    pub fn derived_forecast(&self) -> DerivedForecastType {
+		self.data[34].into()
+	}
+
+	pub fn number_of_forecasts_in_ensemble(&self) -> u8 {
+		self.data[35]
+	}
+
     pub fn time_interval_end(&self) -> DateTime<Utc>  {
         let data = self.data();
-        let year = read_u16_from_bytes(data, 34).unwrap_or(0) as i32;
-        let month = data[36] as u32;
-        let day = data[37] as u32;
-        let hour = data[38] as u32;
-        let minute = data[39] as u32;
-        let second = data[40] as u32;
+        let year = read_u16_from_bytes(data, 36).unwrap_or(0) as i32;
+        let month = data[38] as u32;
+        let day = data[39] as u32;
+        let hour = data[40] as u32;
+        let minute = data[41] as u32;
+        let second = data[42] as u32;
 
         Utc.with_ymd_and_hms(year as i32, month, day, hour, minute, second).unwrap()
     }
 
     pub fn number_of_time_ranges(&self) -> u8 {
-        self.data()[41]
+        self.data()[43]
     }
 
     pub fn number_of_values_missing_from_stats(&self) -> u32 {
-        read_u32_from_bytes(self.data(), 42).unwrap_or(0)
+        read_u32_from_bytes(self.data(), 44).unwrap_or(0)
     }
 
     pub fn statistical_process(&self) -> TypeOfStatisticalProcessing {
-        self.data()[46].into()
-    }
-
-    pub fn type_of_time_interval(&self) -> TypeOfTimeInterval {
-        self.data()[47].into()
-    }
-
-    pub fn statistical_process_time_unit(&self) -> TimeUnit {
         self.data()[48].into()
     }
 
+    pub fn type_of_time_interval(&self) -> TypeOfTimeInterval {
+        self.data()[49].into()
+    }
+
+    pub fn statistical_process_time_unit(&self) -> TimeUnit {
+        self.data()[50].into()
+    }
+
     pub fn statistical_process_time_interval(&self) -> u32 {
-        read_u32_from_bytes(self.data(), 49).unwrap_or(0)
+        read_u32_from_bytes(self.data(), 51).unwrap_or(0)
     }
 
     pub fn time_increment_unit(&self) -> TimeUnit {
-        self.data()[53].into()
+        self.data()[56].into()
     }
 
     pub fn time_increment_interval(&self) -> u32 {
-        read_u32_from_bytes(self.data(), 54).unwrap_or(0)
+        read_u32_from_bytes(self.data(), 56).unwrap_or(0)
     }
 }
 
-impl ProductTemplate for AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
+impl ProductTemplate for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
     fn category_value(&self) -> u8 {
         self.data[9]
     }

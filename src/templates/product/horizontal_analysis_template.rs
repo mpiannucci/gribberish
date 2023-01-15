@@ -4,7 +4,7 @@ use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use chrono::{Utc, DateTime, Duration};
 
 use super::product_template::ProductTemplate;
-use super::tables::{TimeUnit, GeneratingProcess, FixedSurfaceType, oceanographic_category, meteorological_category, multiradar_category, meteorological_parameter, oceanographic_parameter, multiradar_parameter};
+use super::tables::{TimeUnit, GeneratingProcess, FixedSurfaceType, oceanographic_category, meteorological_category, multiradar_category, meteorological_parameter, oceanographic_parameter, multiradar_parameter, land_surface_parameter, land_surface_category};
 
 pub struct HorizontalAnalysisForecastTemplate {
 	data: Vec<u8>,
@@ -41,28 +41,6 @@ impl HorizontalAnalysisForecastTemplate {
 
 	pub fn parameter_value(&self) -> u8{
 		self.data[10]
-	}
-
-	pub fn category(&self) -> &'static str {
-		let category = self.category_value();
-		match self.discipline {
-			0 => meteorological_category(category),
-			10 => oceanographic_category(category),
-			209 => multiradar_category(category),
-			_ => "",
-		}
-	}
-
-	pub fn parameter(&self) -> Option<Parameter> {
-		let category = self.category_value();
-		let parameter = self.parameter_value();
-
-		match self.discipline {
-			0 => meteorological_parameter(category, parameter),
-			10 => oceanographic_parameter(category, parameter),
-			209 => multiradar_parameter(category, parameter),
-			_ => None,
-		}
 	}
 
 	pub fn generating_process(&self) -> GeneratingProcess {
@@ -133,6 +111,7 @@ impl ProductTemplate for HorizontalAnalysisForecastTemplate {
 		let category = self.category_value();
 		match self.discipline {
 			0 => meteorological_category(category),
+			2 => land_surface_category(category),
 			10 => oceanographic_category(category),
 			209 => multiradar_category(category),
 			_ => "",
@@ -145,6 +124,7 @@ impl ProductTemplate for HorizontalAnalysisForecastTemplate {
 
 		match self.discipline {
 			0 => meteorological_parameter(category, parameter),
+			2 => land_surface_parameter(category, parameter),
 			10 => oceanographic_parameter(category, parameter),
 			209 => multiradar_parameter(category, parameter),
 			_ => None,
