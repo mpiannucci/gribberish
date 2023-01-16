@@ -1,10 +1,9 @@
-use gribberish_types::Parameter;
 use crate::templates::template::{Template, TemplateType};
 use crate::utils::{read_u32_from_bytes};
 use chrono::{Utc, DateTime, Duration};
 
 use super::product_template::ProductTemplate;
-use super::tables::{TimeUnit, GeneratingProcess, FixedSurfaceType, oceanographic_category, meteorological_category, multiradar_category, meteorological_parameter, oceanographic_parameter, multiradar_parameter, DerivedForecastType, land_surface_parameter, land_surface_category};
+use super::tables::{TimeUnit, GeneratingProcess, FixedSurfaceType, DerivedForecastType};
 
 pub struct DerivedEnsembleHorizontalAnalysisForecastTemplate {
 	data: Vec<u8>,
@@ -100,36 +99,16 @@ impl DerivedEnsembleHorizontalAnalysisForecastTemplate {
 }
 
 impl ProductTemplate for DerivedEnsembleHorizontalAnalysisForecastTemplate {
+	fn discipline(&self) -> u8 {
+		self.discipline
+	}
+
     fn category_value(&self) -> u8 {
         self.data[9]
     }
 
     fn parameter_value(&self) -> u8 {
         self.data[10]
-    }
-
-    fn category(&self) -> &'static str {
-		let category = self.category_value();
-		match self.discipline {
-			0 => meteorological_category(category),
-			2 => land_surface_category(category),
-			10 => oceanographic_category(category),
-			209 => multiradar_category(category),
-			_ => "",
-		}
-    }
-
-    fn parameter(&self) -> Option<Parameter> {
-		let category = self.category_value();
-		let parameter = self.parameter_value();
-
-		match self.discipline {
-			0 => meteorological_parameter(category, parameter),
-			2 => land_surface_parameter(category, parameter),
-			10 => oceanographic_parameter(category, parameter),
-			209 => multiradar_parameter(category, parameter),
-			_ => None,
-		}
     }
 
     fn generating_process(&self) -> GeneratingProcess {

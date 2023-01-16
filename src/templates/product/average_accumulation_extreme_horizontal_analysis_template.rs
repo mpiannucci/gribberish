@@ -1,11 +1,10 @@
 use crate::templates::template::{Template, TemplateType};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use chrono::{prelude::*, Duration};
-use gribberish_types::Parameter;
 
 use super::HorizontalAnalysisForecastTemplate;
 use super::product_template::ProductTemplate;
-use super::tables::{TypeOfStatisticalProcessing, TypeOfTimeInterval, TimeUnit, GeneratingProcess, oceanographic_parameter, meteorological_parameter, multiradar_parameter, multiradar_category, oceanographic_category, meteorological_category, FixedSurfaceType, land_surface_category, land_surface_parameter};
+use super::tables::{TypeOfStatisticalProcessing, TypeOfTimeInterval, TimeUnit, GeneratingProcess, FixedSurfaceType};
 
 pub struct AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
 	data: Vec<u8>,
@@ -126,36 +125,16 @@ impl AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
 }
 
 impl ProductTemplate for AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
+    fn discipline(&self) -> u8 {
+		self.discipline
+	}
+
     fn category_value(&self) -> u8 {
         self.data[9]
     }
 
     fn parameter_value(&self) -> u8 {
         self.data[10]
-    }
-
-    fn category(&self) -> &'static str {
-		let category = self.category_value();
-		match self.discipline {
-			0 => meteorological_category(category),
-            2 => land_surface_category(category),
-			10 => oceanographic_category(category),
-			209 => multiradar_category(category),
-			_ => "",
-		}
-    }
-
-    fn parameter(&self) -> Option<Parameter> {
-		let category = self.category_value();
-		let parameter = self.parameter_value();
-
-		match self.discipline {
-			0 => meteorological_parameter(category, parameter),
-            2 => land_surface_parameter(category, parameter),
-			10 => oceanographic_parameter(category, parameter),
-			209 => multiradar_parameter(category, parameter),
-			_ => None,
-		}
     }
 
     fn generating_process(&self) -> GeneratingProcess {
