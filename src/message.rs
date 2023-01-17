@@ -470,10 +470,10 @@ impl<'a> Message<'a> {
     }
 
     pub fn location_bbox(&self) -> Result<(f64, f64, f64, f64), String> {
-        let mut min_lat = 90.0;
-        let mut max_lat = -90.0;
-        let mut min_lng = 180.0;
-        let mut max_lng = -180.0;
+        let mut min_lat = 180.0;
+        let mut max_lat = -180.0;
+        let mut min_lng = 361.0;
+        let mut max_lng = -360.0;
         self.latlng()?.iter().for_each(|(lat, lng)| {
             if *lat < min_lat {
                 min_lat = *lat;
