@@ -170,6 +170,10 @@ impl GridDefinitionTemplate for LatLngTemplate {
         self.parallel_point_count() as usize
     }
 
+    fn grid_bounds(&self) -> ((f64, f64), (f64, f64)) {
+        ((self.start_latitude(), self.start_longitude()), (self.end_latitude(), self.end_longitude()))
+    }
+
     fn latlng(&self) -> Vec<(f64, f64)> {
         let latitudes = self.latitudes();
         let longitudes = self.longitudes();

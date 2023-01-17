@@ -7,6 +7,35 @@ pub trait GridDefinitionTemplate {
     fn longitude_count(&self) -> usize;
     fn latlng(&self) -> Vec<(f64, f64)>;
 
+    fn bbox(&self) -> (f64, f64, f64, f64) {
+        let mut min_lat = 180.0;
+        let mut max_lat = -180.0;
+        let mut min_lng = 361.0;
+        let mut max_lng = -360.0;
+        self.latlng().iter().for_each(|(lat, lng)| {
+            if *lat < min_lat {
+                min_lat = *lat;
+            }
+            if *lat > max_lat {
+                max_lat = *lat;
+            }
+
+            if *lng < min_lng {
+                min_lng = *lng;
+            }
+            if *lng > max_lng {
+                max_lng = *lng;
+            }
+        });
+
+        (min_lng, min_lat, max_lng, max_lat)
+    }
+
+    fn grid_bounds(&self) -> ((f64, f64), (f64, f64)) {
+        let bbox = self.bbox();
+        ((bbox.1, bbox.0), (bbox.3, bbox.2))
+    }
+
     fn index_for_indices(&self, indices: (usize, usize)) -> usize {
         (indices.0 * self.longitude_count()) + indices.1
     }

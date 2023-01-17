@@ -470,27 +470,20 @@ impl<'a> Message<'a> {
     }
 
     pub fn location_bbox(&self) -> Result<(f64, f64, f64, f64), String> {
-        let mut min_lat = 180.0;
-        let mut max_lat = -180.0;
-        let mut min_lng = 361.0;
-        let mut max_lng = -360.0;
-        self.latlng()?.iter().for_each(|(lat, lng)| {
-            if *lat < min_lat {
-                min_lat = *lat;
-            }
-            if *lat > max_lat {
-                max_lat = *lat;
-            }
+        let grid_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
 
-            if *lng < min_lng {
-                min_lng = *lng;
-            }
-            if *lng > max_lng {
-                max_lng = *lng;
-            }
-        });
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
 
-        Ok((min_lng, min_lat, max_lng, max_lat))
+        Ok(grid_template.bbox())
     }
 
     pub fn grid_dimensions(&self) -> Result<(usize, usize), String> {
@@ -511,6 +504,23 @@ impl<'a> Message<'a> {
             grid_template.latitude_count(),
             grid_template.longitude_count(),
         ))
+    }
+
+    pub fn grid_bounds(&self) -> Result<((f64, f64), (f64, f64)), String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        Ok(grid_template.grid_bounds())
     }
 
     pub fn latlng(&self) -> Result<Vec<(f64, f64)>, String> {
