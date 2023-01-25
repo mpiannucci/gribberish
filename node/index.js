@@ -102,6 +102,15 @@ switch (platform) {
     }
     break
   case 'darwin':
+    localFileExisted = existsSync(join(__dirname, 'gribberishjs.darwin-universal.node'))
+    try {
+      if (localFileExisted) {
+        nativeBinding = require('./gribberishjs.darwin-universal.node')
+      } else {
+        nativeBinding = require('gribberishjs-darwin-universal')
+      }
+      break
+    } catch {}
     switch (arch) {
       case 'x64':
         localFileExisted = existsSync(join(__dirname, 'gribberishjs.darwin-x64.node'))
