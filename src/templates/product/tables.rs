@@ -749,6 +749,76 @@ pub enum WavesProduct {
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum CurrentsProduct {
+    #[description = "current direction"]
+    #[abbrev = "DIRC"]
+    #[unit = "degree True"]
+    CurrentDirection = 0,
+    #[description = "current speed"]
+    #[abbrev = "SPC"]
+    #[unit = "ms-1"]
+    CurrentSpeed = 1,
+    #[description = "u component of current speed"]
+    #[abbrev = "UOGRD"]
+    #[unit = "ms-1"]
+    CurrentSpeedU = 2,
+    #[description = "v component of current speed"]
+    #[abbrev = "VOGRD"]
+    #[unit = "ms-1"]
+    CurrentSpeedV = 3,
+    #[description = "rip current occurance probability"]
+    #[abbrev = "RIPCOP"]
+    #[unit = "%"]
+    RipCurrentProbability = 4,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum SurfacePropertiesProduct {
+    #[description = "water temperature"]
+    #[abbrev = "WTMP"]
+    #[unit = "K"]
+    WaterTemperature = 0,
+    #[description = "deviation of sea level from mean"]
+    #[abbrev = "DSLM"]
+    #[unit = "m"]
+    DeviationOfSeaLevelMean = 1,
+    #[description = "total water level accounting for tide, wind and waves"]
+    #[abbrev = "TWLWAV"]
+    #[unit = "m"]
+    TotalWaterLevelTideWindWaves = 205,
+    #[description = "total water level increase due to waves"]
+    #[abbrev = "RUNUP"]
+    #[unit = "m"]
+    TotalWaterLevelIncreaseWaves = 206,
+    #[description = "mean water level increase due to waves"]
+    #[abbrev = "SETUP"]
+    #[unit = "m"]
+    MeanWaterLevelIncreaseWaves = 207,
+    #[description = "time varying water level increase due to waves"]
+    #[abbrev = "SWASH"]
+    #[unit = "m"]
+    TimeVaryingWaterLevelIncreaseWaves = 208,
+    #[description = "total water level above dune toe"]
+    #[abbrev = "TWLDT"]
+    #[unit = "m"]
+    TotalWaterLevelAboveDuneToe = 209,
+    #[description = "total water level above dune crest"]
+    #[abbrev = "TWLDC"]
+    #[unit = "m"]
+    TotalWaterLevelAboveDuneCrest = 210,
+    #[description = "erosion occurrence probability"]
+    #[abbrev = "EROSNP"]
+    #[unit = "%"]
+    ErosionOccuranceProbability = 252,
+    #[description = "overwash occurrence probability"]
+    #[abbrev = "OWASHP"]
+    #[unit = "%"]
+    OverwashOccuranceProbability = 253,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum IceProduct {
     #[description = "ice cover"]
     #[abbrev = "ICEC"]
@@ -764,7 +834,9 @@ pub enum IceProduct {
 pub fn oceanographic_parameter(category: u8, parameter: u8) -> Option<Parameter> {
     match category {
         0 => Some(Parameter::from(WavesProduct::from(parameter))),
+        1 => Some(Parameter::from(CurrentsProduct::from(parameter))),
         2 => Some(Parameter::from(IceProduct::from(parameter))),
+        3 => Some(Parameter::from(SurfacePropertiesProduct::from(parameter))),
         _ => None,
     }
 }

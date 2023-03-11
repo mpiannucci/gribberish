@@ -51,9 +51,9 @@ if (message !== undefined) {
   process.exit(0);
 }
 
-// const bbox = message.bbox;
-// const lngRange = bbox[2] - bbox[0];
-// const latRange = bbox[3] - bbox[1];
+const bbox = message.bbox;
+const lngRange = bbox[2] - bbox[0];
+const latRange = bbox[3] - bbox[1];
 
 const {rows, cols} = message.gridShape;
 const width = cols;
