@@ -114,6 +114,10 @@ impl <'a> Iterator for SectionIterator<'a> {
         let section_len = section_length(self.data, self.offset)?;
         let section_num = section_number(self.data, self.offset)?;
 
+        if self.offset + section_len > self.data.len() {
+            return None;
+        }
+
         let section_data = &self.data[self.offset..self.offset + section_len];
         self.offset += section_len;
 
