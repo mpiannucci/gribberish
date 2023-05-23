@@ -29,13 +29,14 @@ fn main() {
     println!("GRIB2 file read: {}", grib_path);
     println!("Message count: {}", messages.len());
     println!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
         "Message #",
         "Parameter Index",
         "Variable",
         "Name",
         "Units",
         "Generating Process",
+        "Statistical Process",
         "Date", 
         "Fixed Surface",
         "Product Template Id",
@@ -49,13 +50,19 @@ fn main() {
 
     messages.iter().enumerate().for_each(|m| {
         println!(
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             m.0,
             match m.1.parameter_index() {Ok(p) => p, Err (_) => "--".into()},
             match m.1.variable_abbrev() { Ok(p) => p, Err(_) => "--".into()},
             match m.1.variable_name() {Ok(p) => p, Err(_) => "--".into()},
             match m.1.unit() {Ok(p) => p, Err(_) => "--".into()},
             match m.1.generating_process() {Ok(g) => format!("{g}"), Err(_) => "--".into()},
+            match (m.1.statistical_process_type(), m.1.derived_forecast_type()) {
+                (Ok(Some(s)), Ok(Some(d))) => format!("{s:?} {d:?}"),
+                (Ok(Some(s)), Ok(None)) => format!("{s:?}"),
+                (Ok(None), Ok(Some(d))) => format!("{d:?}"),
+                _ => "--".into()
+            },
             match m.1.first_fixed_surface() {Ok(f) => format!("{} {}", f.0, f.1.unwrap_or(0.0)), Err(_) => "--".into()},
             match m.1.forecast_date() { Ok(d) => format!("{d}"), Err(_) => "--".into()},
             match m.1.product_template_id() {Ok(p) => format!("{p}"), Err(_) => "--".into()},

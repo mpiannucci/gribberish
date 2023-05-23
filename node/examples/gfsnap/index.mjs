@@ -5,9 +5,9 @@ import { Resvg } from '@resvg/resvg-js';
 import * as d3 from 'd3';
 
 const args = minimist(process.argv.slice(2), {
-  string: ['path', 'var', 'minThreshold', 'maxThreshold', 'steps', 'svgOut', 'pngOut'],
-  boolean: ['list', 'svg', 'png'],
-  default: { vars: false, svg: false, png: true },
+  string: ['path', 'var', 'minThreshold', 'maxThreshold', 'steps', 'svgOut', 'pngOut', 'geojsonOut'],
+  boolean: ['list', 'svg', 'png', 'geojson'],
+  default: { vars: false, svg: false, png: true, geojson: false },
 });
 
 const gribPath = args.path;
@@ -52,10 +52,8 @@ if (message !== undefined) {
 }
 
 const bbox = message.bbox;
-const lngRange = bbox[2] - bbox[0];
-const latRange = bbox[3] - bbox[1];
 
-const {rows, cols} = message.gridShape;
+const { rows, cols } = message.gridShape;
 const width = cols;
 const height = rows;
 
@@ -77,34 +75,84 @@ const contours = d3
   .size([width, height])
   .thresholds(Array.from({ length: steps }, (_, i) => min + (i / steps * range)));
 
-const color = d3.scaleSequential([max, 0], d3.interpolateRdBu);
+// When geojson is specified, we map the coordinates and create a FeatureCollection to write out
+if (args.geojson) {
+  const lngRange = bbox[2] - bbox[0];
+  const latRange = bbox[3] - bbox[1];
 
-// // For a different output projection, handle it with projection and scale 
-// const projection = d3.geoIdentity().scale(cols / cols);
-const path = d3.geoPath(d3.geoIdentity());
+  const polygons = countours(data)
+    .map(p => ({
+      ...p,
+      coordinates: p.coordinates
+        .map(ring =>
+          ring.map(coords =>
+            coords
+              .map(point => ([
+                minLng + (lngRange) * (point[0] / width),
+                maxLat + (latRange) * (point[1] / height)
+              ]))
+              .map(point => ([
+                point[0] > 180 ? point[0] - 360 : point[0],
+                point[1] > 90 ? point[1] - 90 : point[1],
+              ]))
+          )
+        )
+    }));
 
-console.log('Rendering contours...');
-const svgData = `
+  const features = polygons.map(p => ({
+    type: 'Feature',
+    properties: {
+      value: p.value,
+      color: scale(p.value),
+      variable,
+      units,
+    },
+    geometry: {
+      type: 'MultiPolygon',
+      coordinates: p.coordinates,
+    },
+  }));
+
+  const featureCollection = {
+    type: 'FeatureCollection',
+    features: features,
+  };
+
+  const geojsonOut = args.geojsonOut ?? `./${gribVariable}.json`;
+  fs.writeFileSync(geojsonOut, JSON.stringify(featureCollection));
+}
+
+// When png or svg is enabled, we render specifically to the identity geo transform. 
+if (args.png || args.svg) {
+  const color = d3.scaleSequential([max, 0], d3.interpolateRdBu);
+
+  // // For a different output projection, handle it with projection and scale 
+  // const projection = d3.geoIdentity().scale(cols / cols);
+  const path = d3.geoPath(d3.geoIdentity());
+
+  console.log('Rendering contours...');
+  const svgData = `
 <svg style="width: 100%; height: auto; display: block;" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink'">
   ${Array.from(contours(values), d => `<path d="${path(d)}" fill="${color(d.value)}" />`).join('\n')}
 </svg>
 `;
 
-if (args.svg) {
-  console.log('Writing to SVG file...');
-  const svgOut = args.svgOut ?? `./${gribVariable}.svg`;
-  fs.writeFileSync(svgOut, svgData);
-}
+  if (args.svg) {
+    console.log('Writing to SVG file...');
+    const svgOut = args.svgOut ?? `./${gribVariable}.svg`;
+    fs.writeFileSync(svgOut, svgData);
+  }
 
-if (args.png) {
-  console.log('Rendering svg to image...');
-  const resvg = new Resvg(svgData)
-  const pngData = resvg.render()
-  const pngBuffer = pngData.asPng()
+  if (args.png) {
+    console.log('Rendering svg to image...');
+    const resvg = new Resvg(svgData)
+    const pngData = resvg.render()
+    const pngBuffer = pngData.asPng()
 
-  console.log('Writing to PNG file...');
-  const pngOut = args.pngOut ?? `./${gribVariable}.png`;
-  fs.writeFileSync(pngOut, pngBuffer);
+    console.log('Writing to PNG file...');
+    const pngOut = args.pngOut ?? `./${gribVariable}.png`;
+    fs.writeFileSync(pngOut, pngBuffer);
+  }
 }
 
 console.log('Operation Successful!');

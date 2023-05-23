@@ -1,4 +1,4 @@
-use crate::templates::product::tables::{FixedSurfaceType, GeneratingProcess};
+use crate::templates::product::tables::{FixedSurfaceType, GeneratingProcess, DerivedForecastType, TypeOfStatisticalProcessing};
 use crate::{
     sections::{indicator::Discipline, section::Section, section::SectionIterator},
 };
@@ -342,6 +342,44 @@ impl<'a> Message<'a> {
         );
 
         Ok(product_template.generating_process())
+    }
+
+    pub fn derived_forecast_type(&self) -> Result<Option<DerivedForecastType>, String> {
+        let discipline = self.discipline()?;
+
+        let product_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            product_definition.product_definition_template(discipline as u8),
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        Ok(product_template.derived_forecast_type())
+    }
+
+    pub fn statistical_process_type(&self) -> Result<Option<TypeOfStatisticalProcessing>, String> {
+        let discipline = self.discipline()?;
+
+        let product_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            product_definition.product_definition_template(discipline as u8),
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        Ok(product_template.statistical_process_type())
     }
 
     pub fn forecast_date(&self) -> Result<DateTime<Utc>, String> {

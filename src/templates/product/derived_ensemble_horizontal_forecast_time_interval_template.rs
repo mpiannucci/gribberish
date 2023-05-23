@@ -78,10 +78,6 @@ impl DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
         as_signed!(read_u32_from_bytes(&self.data, 30).unwrap_or(0), 32, i32)
     }
 
-    pub fn derived_forecast(&self) -> DerivedForecastType {
-		self.data[34].into()
-	}
-
 	pub fn number_of_forecasts_in_ensemble(&self) -> u8 {
 		self.data[35]
 	}
@@ -104,10 +100,6 @@ impl DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
 
     pub fn number_of_values_missing_from_stats(&self) -> u32 {
         read_u32_from_bytes(self.data(), 44).unwrap_or(0)
-    }
-
-    pub fn statistical_process(&self) -> TypeOfStatisticalProcessing {
-        self.data()[48].into()
     }
 
     pub fn type_of_time_interval(&self) -> TypeOfTimeInterval {
@@ -172,5 +164,13 @@ impl ProductTemplate for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
 
     fn second_fixed_surface_value(&self) -> Option<f64> {
         HorizontalAnalysisForecastTemplate::scale_value(self.second_fixed_surface_scale_factor(), self.second_fixed_surface_scaled_value())
+    }
+
+    fn derived_forecast_type(&self) -> Option<DerivedForecastType> {
+        Some(self.data[34].into())
+    }
+
+    fn statistical_process_type(&self) -> Option<TypeOfStatisticalProcessing> {
+        Some(self.data()[48].into())
     }
 }

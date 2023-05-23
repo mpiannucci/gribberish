@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
 
-use super::tables::{FixedSurfaceType, TimeUnit, GeneratingProcess, meteorological_category, land_surface_category, oceanographic_category, multiradar_category, meteorological_parameter, land_surface_parameter, oceanographic_parameter, multiradar_parameter};
+use super::tables::{FixedSurfaceType, TimeUnit, GeneratingProcess, meteorological_category, land_surface_category, oceanographic_category, multiradar_category, meteorological_parameter, land_surface_parameter, oceanographic_parameter, multiradar_parameter, DerivedForecastType, TypeOfStatisticalProcessing};
 
 pub trait ProductTemplate {
 	fn discipline(&self) -> u8;
@@ -14,6 +14,8 @@ pub trait ProductTemplate {
 	fn first_fixed_surface_value(&self) -> Option<f64>;
     fn second_fixed_surface_type(&self) -> FixedSurfaceType;
 	fn second_fixed_surface_value(&self) -> Option<f64>;
+	fn derived_forecast_type(&self) -> Option<DerivedForecastType>;
+	fn statistical_process_type(&self) -> Option<TypeOfStatisticalProcessing>;
 
 	fn category(&self) -> &'static str {
 		let category = self.category_value();

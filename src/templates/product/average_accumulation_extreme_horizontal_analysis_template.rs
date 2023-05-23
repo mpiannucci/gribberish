@@ -99,10 +99,6 @@ impl AverageAccumulationExtremeHorizontalAnalysisForecastTemplate {
         read_u32_from_bytes(self.data(), 42).unwrap_or(0)
     }
 
-    pub fn statistical_process(&self) -> TypeOfStatisticalProcessing {
-        self.data()[46].into()
-    }
-
     pub fn type_of_time_interval(&self) -> TypeOfTimeInterval {
         self.data()[47].into()
     }
@@ -165,5 +161,13 @@ impl ProductTemplate for AverageAccumulationExtremeHorizontalAnalysisForecastTem
 
     fn second_fixed_surface_value(&self) -> Option<f64> {
         HorizontalAnalysisForecastTemplate::scale_value(self.second_fixed_surface_scale_factor(), self.second_fixed_surface_scaled_value())
+    }
+
+    fn derived_forecast_type(&self) -> Option<super::tables::DerivedForecastType> {
+        None
+    }
+
+    fn statistical_process_type(&self) -> Option<TypeOfStatisticalProcessing> {
+        Some(self.data()[46].into())
     }
 }

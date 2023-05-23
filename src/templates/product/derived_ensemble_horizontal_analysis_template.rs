@@ -67,10 +67,6 @@ impl DerivedEnsembleHorizontalAnalysisForecastTemplate {
         as_signed!(read_u32_from_bytes(&self.data, 30).unwrap_or(0), 32, i32)
     }
 
-	pub fn derived_forecast(&self) -> DerivedForecastType {
-		self.data[34].into()
-	}
-
 	pub fn number_of_forecasts_in_ensemble(&self) -> u8 {
 		self.data[35]
 	}
@@ -139,5 +135,13 @@ impl ProductTemplate for DerivedEnsembleHorizontalAnalysisForecastTemplate {
 
     fn second_fixed_surface_value(&self) -> Option<f64> {
         DerivedEnsembleHorizontalAnalysisForecastTemplate::scale_value(self.second_fixed_surface_scale_factor(), self.second_fixed_surface_scaled_value())
+    }
+
+    fn derived_forecast_type(&self) -> Option<DerivedForecastType> {
+        Some(self.data[34].into())
+    }
+
+    fn statistical_process_type(&self) -> Option<super::tables::TypeOfStatisticalProcessing> {
+        None
     }
 }
