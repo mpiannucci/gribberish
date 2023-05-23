@@ -2,8 +2,7 @@
 
 Generate images from grib messages using `gribberish`, `d3`, and `node-canvas`
 
-![Alt text](./swh.svg)
-<img src="./swh.svg">
+![example significant wave height output](./swh.png)
 
 ## Running
 
