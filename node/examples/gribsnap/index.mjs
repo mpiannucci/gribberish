@@ -40,8 +40,6 @@ if (args.list) {
 // const gribPath = '/Users/matthewiannucci/Downloads/gfs.t18z.pgrb2.0p25.f186.grib2';
 // const gribVariable = 'GUST@groundorwater_0';
 
-console.log(gribVariable);
-
 const message = messageFactory.getMessage(gribVariable);
 
 if (message !== undefined) {
@@ -62,6 +60,8 @@ const max = args.maxThreshold !== undefined ? parseFloat(args.maxThreshold) : d3
 const min = args.minThreshold !== undefined ? parseFloat(args.minThreshold) : d3.min(values);
 const range = max - min;
 const steps = args.steps !== undefined ? parseInt(args.steps) : 20;
+
+console.log(`min: ${min}, max: ${max}, steps: ${steps}`);
 
 for (let i = 0; i < values.length; ++i) {
   if (isNaN(values[i])) {
