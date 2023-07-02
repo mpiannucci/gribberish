@@ -78,6 +78,8 @@ impl FixedSurfaceType {
             FixedSurfaceType::MeanSeaLevel => true,
             FixedSurfaceType::EntireAtmosphereAsSingleLayer => true,
             FixedSurfaceType::EntireOceanAsSingleLayer => true,
+            FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel => true,
+            FixedSurfaceType::SpecifiedHeightLevelAboveGround => true,
             FixedSurfaceType::Missing => true,
             _ => false,
         }
@@ -92,8 +94,6 @@ impl FixedSurfaceType {
 
     pub fn is_vertical_level(&self) -> bool {
         match self {
-            FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel => true,
-            FixedSurfaceType::SpecifiedHeightLevelAboveGround => true,
             FixedSurfaceType::SigmaLevel => true,
             FixedSurfaceType::HybridLevel => true,
             FixedSurfaceType::EtaLevel => true,

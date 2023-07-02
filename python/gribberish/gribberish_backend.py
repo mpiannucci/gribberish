@@ -19,6 +19,7 @@ def extract_variable_data(grib_message):
     standard_name = grib_message.metadata.var_name
     units = grib_message.metadata.units
     level_type = grib_message.metadata.level_type
+    level_value = grib_message.metadata.level_value
     dims = grib_message.metadata.dims
 
     return (
@@ -29,7 +30,8 @@ def extract_variable_data(grib_message):
             'long_name': standard_name,
             'units': units,
             'crs': crs,
-            'level_type': level_type
+            'level_type': level_type, 
+            'level_value': level_value
         }
     )
 
@@ -108,20 +110,20 @@ class GribberishBackend(BackendEntrypoint):
                         parse_grib_message(raw_data, lookup[1])
                     )[1]))
 
-                # If there is only one non-spatial dimension, concatenate the data
-                # Otherwise we have to figure out what axis to concatenate on
-                if len(lookups[0][2].non_spatial_dims) == 1:
-                    data_vars[lookups[0][2].var_abbrev.lower()] = (
-                        lookups[0][2].dims, 
-                        np.concatenate([d[1] for d in data], axis=0), 
-                        {
-                            'standard_name': lookups[0][2].var_name,
-                            'long_name': lookups[0][2].var_name,
-                            'units': lookups[0][2].units,
-                            'crs': lookups[0][2].crs,
-                            'level_type': lookups[0][2].level_type
-                        }
-                    )
+                # # If there is only one non-spatial dimension, concatenate the data
+                # # Otherwise we have to figure out what axis to concatenate on
+                # if len(lookups[0][2].non_spatial_dims) == 1:
+                #     data_vars[lookups[0][2].var_abbrev.lower()] = (
+                #         lookups[0][2].dims, 
+                #         np.concatenate([d[1] for d in data], axis=0), 
+                #         {
+                #             'standard_name': lookups[0][2].var_name,
+                #             'long_name': lookups[0][2].var_name,
+                #             'units': lookups[0][2].units,
+                #             'crs': lookups[0][2].crs,
+                #             'level_type': lookups[0][2].level_type
+                #         }
+                #     )
                 else:
                     # First we have to sort the data by the non-spatial dimensions
                     data = sorted(data, key=lambda x: (lookups[x[0]][2].forecast_date, float(lookups[x[0]][2].level_value)))
@@ -143,10 +145,6 @@ class GribberishBackend(BackendEntrypoint):
                             'level_type': lookups[0][2].level_type
                         }
                     )
-
-        # Extract each variables metadata
-        # data_vars = {var: extract_variable_data(parse_grib_message(
-        #     raw_data, lookup[1])) for (var, lookup) in var_mapping.items()}
 
         # Get the coordinate arrays
         # TODO: This can be optimized
