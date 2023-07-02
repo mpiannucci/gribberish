@@ -7,7 +7,7 @@ use gribberish::message_metadata::{MessageMetadata, scan_message_metadata};
 use gribberish::templates::product::tables::FixedSurfaceType;
 use numpy::{PyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
-use pyo3::types::PyDateTime;
+use pyo3::types::{PyDateTime, PyList};
 use pyo3::wrap_pyfunction;
 use pyo3::{prelude::*};
 
@@ -87,15 +87,19 @@ impl GribMessageMetadata {
             vec!["y".into(), "x".into()]
         }
     }
-    
+
     #[getter]
-    fn dims<'py>(&self, py: Python<'py>) -> Vec<String> {
-        let mut other_dims = if self.inner.first_fixed_surface_type.is_single_level() {
+    fn non_spatial_dims<'py>(&self, py: Python<'py>) -> Vec<String> {
+        if self.inner.first_fixed_surface_type.is_single_level() {
             vec!["time".into()]
         } else {
             vec!["time".into(), self.inner.first_fixed_surface_type.coordinate_name().into()]
-        };
-
+        }
+    }
+    
+    #[getter]
+    fn dims<'py>(&self, py: Python<'py>) -> Vec<String> {
+        let mut other_dims = self.non_spatial_dims(py);
         other_dims.append(&mut self.spatial_dims(py));
         other_dims
     }
@@ -103,6 +107,11 @@ impl GribMessageMetadata {
     #[getter]
     fn dims_key<'py>(&self, py: Python<'py>) -> String {
         self.dims(py).join(":")
+    }
+
+    #[getter]
+    fn non_dims_key<'py>(&self, py: Python<'py>) -> String {
+        format!("{var_name}:{non_dims}", var_name=self.inner.var, non_dims=self.non_spatial_dims(py).join(":"))
     }
 
     fn latitudes<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
@@ -156,14 +165,25 @@ fn parse_grib_messages(data: &[u8]) -> PyResult<Vec<GribMessage>> {
 }
 
 #[pyfunction]
-fn parse_grib_mapping(data: &[u8]) -> HashMap<String, (usize, usize, GribMessageMetadata)> {
+fn parse_grib_mapping(data: &[u8], drop_variables: Option<&PyList>) -> HashMap<String, (usize, usize, GribMessageMetadata)> {
+    let drop_variables = if let Some(drop_variables) = drop_variables {
+        drop_variables.iter().map(|d| d.to_string().to_lowercase()).collect::<Vec<String>>()
+    } else {
+        Vec::new()
+    };
+
     scan_message_metadata(data)
     .into_iter()
-    .map(|(k, v)| {
+    .filter_map(|(k, v)| {
         let message: GribMessageMetadata = GribMessageMetadata {
             inner: v.2,
         };
-        (k.clone(), (v.0, v.1, message))
+
+        if drop_variables.contains(&message.get_var_name().to_lowercase()) {
+            None
+        } else {
+            Some((k.clone(), (v.0, v.1, message)))
+        }
     })
     .collect()
 }

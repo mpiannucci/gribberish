@@ -18,11 +18,8 @@ def extract_variable_data(grib_message):
     crs = grib_message.metadata.crs
     standard_name = grib_message.metadata.var_name
     units = grib_message.metadata.units
-    level = grib_message.metadata.level_value
     level_type = grib_message.metadata.level_type
     dims = grib_message.metadata.dims
-
-    # print(f'{standard_name} {dims}')
 
     return (
         dims,
@@ -32,6 +29,7 @@ def extract_variable_data(grib_message):
             'long_name': standard_name,
             'units': units,
             'crs': crs,
+            'level_type': level_type
         }
     )
 
@@ -55,7 +53,7 @@ class GribberishBackend(BackendEntrypoint):
 
         # Read the message mapping from the metadata that gives the byte offset
         # for each variables message
-        var_mapping = parse_grib_mapping(raw_data)
+        var_mapping = parse_grib_mapping(raw_data, drop_variables=drop_variables)
 
         # For now, any unsupported products get dropped 
         keys = list(var_mapping.keys())
@@ -63,21 +61,48 @@ class GribberishBackend(BackendEntrypoint):
             if var.startswith('(') or var == 'unknown': 
                 var_mapping.pop(var, None)
 
-        # If there are variables specified to drop, do so now
-        if drop_variables:
-            for var in drop_variables:
-                var_mapping.pop(var, None)
-
         # Get all dimensions
-        dims = set()
+        extra_dims = {}
         for lookup in var_mapping.values():
-            dims.add(lookup[2].dims_key)
+            dims = lookup[2].non_spatial_dims
+            if 'time' in dims:
+                if 'time' not in extra_dims:
+                    extra_dims['time'] = set([lookup[2].forecast_date])
+                else:
+                    extra_dims['time'].add(lookup[2].forecast_date)
+            
+            if len(dims) > 1:
+                level_value = lookup[2].level_value
+                if dims[1] == 'seq':
+                    level_value = int(level_value)
 
-        print(dims)
+                if dims[1] not in extra_dims:
+                    extra_dims[dims[1]] = set([level_value])
+                else:
+                    extra_dims[dims[1]].add(level_value)
+        
+        # Convert sets to lists
+        for dim, values in extra_dims.items():
+            extra_dims[dim] = list(values)
+
+        var_lookups = {}
+        for var, lookup in var_mapping.items():
+            non_dims_key = lookup[2].non_dims_key
+            if non_dims_key not in var_lookups:
+                var_lookups[non_dims_key] = [lookup]
+            else:
+                var_lookups[non_dims_key].append(lookup)
+
+        data_vars = {}
+        for non_dims_key, lookups in var_lookups.items():
+            if len(lookups) == 1:
+                data_vars[lookups[0][2].var_abbrev] = extract_variable_data(
+                    parse_grib_message(raw_data, lookups[0][1])
+                )
 
         # Extract each variables metadata
-        data_vars = {var: extract_variable_data(parse_grib_message(
-            raw_data, lookup[1])) for (var, lookup) in var_mapping.items()}
+        # data_vars = {var: extract_variable_data(parse_grib_message(
+        #     raw_data, lookup[1])) for (var, lookup) in var_mapping.items()}
 
         # Get the coordinate arrays
         # TODO: This can be optimized
@@ -117,15 +142,22 @@ class GribberishBackend(BackendEntrypoint):
             })
 
         coords = {
-            'time': (['time'], [first_message.metadata.forecast_date], {
-                'standard_name': 'time',
-                'long_name': 'time',
-                'units': 'seconds since 2010-01-01 00:00:00',
-                'axis': 'T'
-            }),
             'lat': lat,
             'lon': lon,
         }
+
+        for dim, values in extra_dims.items():
+            if dim == 'time':
+                coords['time'] = (['time'], extra_dims['time'], {
+                    'standard_name': 'time',
+                    'long_name': 'time',
+                    'units': 'seconds since 2010-01-01 00:00:00',
+                    'axis': 'T'
+                })
+            coords[dim] = (dim, values, {
+                # TODO: Actual level names
+                'standard_name': dim,
+            })
 
         # Finally put it all together and create the xarray dataset
         return xr.Dataset(

@@ -101,7 +101,7 @@ pub fn scan_message_metadata<'a>(data: &'a [u8]) -> HashMap<String, (usize, usiz
         .enumerate()
         .filter_map(
             |(index, m)| match MessageMetadata::try_from(&m) {
-                Ok(mm) => Some(((&mm.var).clone(), (index, m.byte_offset(), mm))),
+                Ok(mm) => Some(((&mm.key).clone(), (index, m.byte_offset(), mm))),
                 Err(_) => None,
             },
         )
