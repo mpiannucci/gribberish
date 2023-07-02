@@ -2,9 +2,8 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use gribberish::data_message::DataMessage;
-use gribberish::message::{read_messages, scan_messages, Message};
+use gribberish::message::{read_messages, Message};
 use gribberish::message_metadata::{MessageMetadata, scan_message_metadata};
-use gribberish::templates::product::tables::FixedSurfaceType;
 use numpy::{PyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
 use pyo3::types::{PyDateTime, PyList};
@@ -80,7 +79,7 @@ impl GribMessageMetadata {
     }
 
     #[getter]
-    fn spatial_dims<'py>(&self, py: Python<'py>) -> Vec<String> {
+    fn spatial_dims<'py>(&self, _py: Python<'py>) -> Vec<String> {
         if self.inner.is_regular_grid {
             vec!["latitude".into(), "longitude".into()]
         } else {
@@ -89,7 +88,7 @@ impl GribMessageMetadata {
     }
 
     #[getter]
-    fn non_spatial_dims<'py>(&self, py: Python<'py>) -> Vec<String> {
+    fn non_spatial_dims<'py>(&self, _py: Python<'py>) -> Vec<String> {
         if self.inner.first_fixed_surface_type.is_single_level() {
             vec!["time".into()]
         } else {
@@ -111,7 +110,7 @@ impl GribMessageMetadata {
 
     #[getter]
     fn non_dims_key<'py>(&self, py: Python<'py>) -> String {
-        format!("{var_name}:{non_dims}", var_name=self.inner.var, non_dims=self.non_spatial_dims(py).join(":"))
+        format!("{var_name}:{non_dims}", var_name=self.inner.var.to_lowercase(), non_dims=self.non_spatial_dims(py).join(":"))
     }
 
     fn latitudes<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
@@ -189,7 +188,7 @@ fn parse_grib_mapping(data: &[u8], drop_variables: Option<&PyList>) -> HashMap<S
 }
 
 #[pymodule]
-fn gribberishpy(py: Python, m: &PyModule) -> PyResult<()> {
+fn gribberishpy(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<GribMessage>()?;
     m.add_function(wrap_pyfunction!(parse_grib_message, m)?)?;
     m.add_function(wrap_pyfunction!(parse_grib_messages, m)?)?;

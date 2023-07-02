@@ -95,10 +95,54 @@ class GribberishBackend(BackendEntrypoint):
 
         data_vars = {}
         for non_dims_key, lookups in var_lookups.items():
+            # TODO: Dont assume everything has a time dimension?
             if len(lookups) == 1:
-                data_vars[lookups[0][2].var_abbrev] = extract_variable_data(
+                data_vars[lookups[0][2].var_abbrev.lower()] = extract_variable_data(
                     parse_grib_message(raw_data, lookups[0][1])
                 )
+            else: 
+                data = []
+                for i in range(0, len(lookups)):
+                    lookup = lookups[i]
+                    data.append((i, extract_variable_data(
+                        parse_grib_message(raw_data, lookup[1])
+                    )[1]))
+
+                # If there is only one non-spatial dimension, concatenate the data
+                # Otherwise we have to figure out what axis to concatenate on
+                if len(lookups[0][2].non_spatial_dims) == 1:
+                    data_vars[lookups[0][2].var_abbrev.lower()] = (
+                        lookups[0][2].dims, 
+                        np.concatenate([d[1] for d in data], axis=0), 
+                        {
+                            'standard_name': lookups[0][2].var_name,
+                            'long_name': lookups[0][2].var_name,
+                            'units': lookups[0][2].units,
+                            'crs': lookups[0][2].crs,
+                            'level_type': lookups[0][2].level_type
+                        }
+                    )
+                else:
+                    # First we have to sort the data by the non-spatial dimensions
+                    data = sorted(data, key=lambda x: (lookups[x[0]][2].forecast_date, float(lookups[x[0]][2].level_value)))
+                    data = [d[1] for d in data]
+
+                    # then reshape according to the non-spatial dimensions
+                    non_spatial_dims = lookups[0][2].non_spatial_dims
+                    non_spatial_dim_shape = [len(extra_dims[dim]) for dim in non_spatial_dims]
+                    data = np.concatenate(data, axis=0)
+                    data = data.reshape(non_spatial_dim_shape + list(data.shape[1:]))
+                    data_vars[lookups[0][2].var_abbrev.lower()] = (
+                        lookups[0][2].dims, 
+                        data, 
+                        {
+                            'standard_name': lookups[0][2].var_name,
+                            'long_name': lookups[0][2].var_name,
+                            'units': lookups[0][2].units,
+                            'crs': lookups[0][2].crs,
+                            'level_type': lookups[0][2].level_type
+                        }
+                    )
 
         # Extract each variables metadata
         # data_vars = {var: extract_variable_data(parse_grib_message(
@@ -115,13 +159,13 @@ class GribberishBackend(BackendEntrypoint):
         lng = first_message.metadata.longitudes().reshape(first_message.metadata.grid_shape)
 
         if first_message.metadata.is_regular_grid:
-            lat = (['lat'], lat[:, 0], {
+            lat = (['latitude'], lat[:, 0], {
                 'standard_name': 'latitude',
                 'long_name': 'latitude',
                 'units': 'degrees_north',
                 'axis': 'Y'
             })
-            lon = (['lon'], lng[0, :], {
+            lon = (['longitude'], lng[0, :], {
                 'standard_name': 'longitude',
                 'long_name': 'longitude',
                 'units': 'degrees_east',
@@ -142,8 +186,8 @@ class GribberishBackend(BackendEntrypoint):
             })
 
         coords = {
-            'lat': lat,
-            'lon': lon,
+            'latitude': lat,
+            'longitude': lon,
         }
 
         for dim, values in extra_dims.items():
