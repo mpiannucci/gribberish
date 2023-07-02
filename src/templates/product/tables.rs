@@ -64,6 +64,79 @@ pub enum FixedSurfaceType {
     Missing = 255,
 }
 
+impl FixedSurfaceType {
+    pub fn is_single_level(&self) -> bool {
+        match self {
+            FixedSurfaceType::GroundOrWater => true,
+            FixedSurfaceType::CloudBase => true,
+            FixedSurfaceType::CloudTop => true,
+            FixedSurfaceType::MaximumWindLevel => true,
+            FixedSurfaceType::Tropopause => true,
+            FixedSurfaceType::SeaBottom => true,
+            FixedSurfaceType::EntireAtmosphere => true,
+            FixedSurfaceType::IsothermalLevel => true,
+            FixedSurfaceType::MeanSeaLevel => true,
+            FixedSurfaceType::EntireAtmosphereAsSingleLayer => true,
+            FixedSurfaceType::EntireOceanAsSingleLayer => true,
+            FixedSurfaceType::Missing => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_sequence_level(&self) -> bool {
+        match self {
+            FixedSurfaceType::OrderedSequence => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_vertical_level(&self) -> bool {
+        match self {
+            FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel => true,
+            FixedSurfaceType::SpecifiedHeightLevelAboveGround => true,
+            FixedSurfaceType::SigmaLevel => true,
+            FixedSurfaceType::HybridLevel => true,
+            FixedSurfaceType::EtaLevel => true,
+            FixedSurfaceType::SnowLevel => true,
+            FixedSurfaceType::SigmaHeightLevel => true,
+            FixedSurfaceType::GeneralizedVerticalHeightCoordinate => true,
+            FixedSurfaceType::DepthBelowSeaLevel => true,
+            FixedSurfaceType::DepthBelowWaterSurface => true,
+            FixedSurfaceType::MixingLayer => true,
+            _ => false,
+        }
+    }
+
+    pub fn coordinate_name(&self) -> &'static str {
+        match self {
+            FixedSurfaceType::GroundOrWater => "sfc",
+            FixedSurfaceType::CloudBase => "clb",
+            FixedSurfaceType::CloudTop => "clt",
+            FixedSurfaceType::MaximumWindLevel => "mwl",
+            FixedSurfaceType::Tropopause => "tro",
+            FixedSurfaceType::SeaBottom => "bot",
+            FixedSurfaceType::EntireAtmosphere => "atm",
+            FixedSurfaceType::IsothermalLevel => "iso",
+            FixedSurfaceType::MeanSeaLevel => "msl",
+            FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel => "asl",
+            FixedSurfaceType::SpecifiedHeightLevelAboveGround => "hag",
+            FixedSurfaceType::SigmaLevel => "sigma",
+            FixedSurfaceType::HybridLevel => "hybid",
+            FixedSurfaceType::EtaLevel => "eta",
+            FixedSurfaceType::SnowLevel => "snow",
+            FixedSurfaceType::SigmaHeightLevel => "sigma_h",
+            FixedSurfaceType::GeneralizedVerticalHeightCoordinate => "height",
+            FixedSurfaceType::DepthBelowSeaLevel => "depth_bsl",
+            FixedSurfaceType::DepthBelowWaterSurface => "depth_bws",
+            FixedSurfaceType::MixingLayer => "mixing",
+            FixedSurfaceType::EntireAtmosphereAsSingleLayer => "entire_atm",
+            FixedSurfaceType::EntireOceanAsSingleLayer => "entire_ocean",
+            FixedSurfaceType::OrderedSequence => "seq",
+            FixedSurfaceType::Missing => "",
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum GeneratingProcess {

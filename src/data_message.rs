@@ -23,3 +23,14 @@ impl <'a> TryFrom<&Message<'a>> for DataMessage {
         })
     }
 }
+
+impl <'a> TryFrom<(&Message<'a>, &MessageMetadata)> for DataMessage {
+    type Error = String;
+
+    fn try_from(message: (&Message<'a>, &MessageMetadata)) -> Result<Self, Self::Error> { 
+        Ok(DataMessage {
+            metadata: message.1.clone(),
+            data: message.0.data_grid()?,
+        })
+    }
+}

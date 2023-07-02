@@ -94,15 +94,15 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
     }
 }
 
-pub fn scan_message_metadata<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize, Result<MessageMetadata, String>)> {
+pub fn scan_message_metadata<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize, MessageMetadata)> {
     let message_iter = MessageIterator::from_data(data, 0);
 
     message_iter
         .enumerate()
-        .map(
-            |(index, m)| match m.key() {
-                Ok(var) => (var, (index, m.byte_offset(), MessageMetadata::try_from(&m))),
-                Err(_) => ("unknown".into(), (index, m.byte_offset(), Err("Could not unpack metadata".into()))),
+        .filter_map(
+            |(index, m)| match MessageMetadata::try_from(&m) {
+                Ok(mm) => Some(((&mm.var).clone(), (index, m.byte_offset(), mm))),
+                Err(_) => None,
             },
         )
         .collect()

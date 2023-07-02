@@ -7,21 +7,30 @@ from xarray.backends import BackendEntrypoint
 
 
 def read_binary_data(filename: str):
+    # TODO: Make this streamed for large files, etc etc
     with open(filename, 'rb') as f:
         return f.read()
 
 
 def extract_variable_data(grib_message):
-    data = grib_message.data().reshape(grib_message.grid_shape)
+    data = grib_message.data().reshape(grib_message.metadata.grid_shape)
     data = np.expand_dims(data, axis=0)
-    crs = grib_message.crs
+    crs = grib_message.metadata.crs
+    standard_name = grib_message.metadata.var_name
+    units = grib_message.metadata.units
+    level = grib_message.metadata.level_value
+    level_type = grib_message.metadata.level_type
+    dims = grib_message.metadata.dims
+
+    # print(f'{standard_name} {dims}')
+
     return (
-        ['time', 'lat', 'lon'] if grib_message.is_regular_grid else ['time', 'y', 'x'],
+        dims,
         data,
         {
-            'standard_name': grib_message.var_abbrev,
-            'long_name': grib_message.var_name,
-            'units': grib_message.units,
+            'standard_name': standard_name,
+            'long_name': standard_name,
+            'units': units,
             'crs': crs,
         }
     )
@@ -54,10 +63,17 @@ class GribberishBackend(BackendEntrypoint):
             if var.startswith('(') or var == 'unknown': 
                 var_mapping.pop(var, None)
 
-        # If there are variabels specified to drop, do so now
+        # If there are variables specified to drop, do so now
         if drop_variables:
             for var in drop_variables:
                 var_mapping.pop(var, None)
+
+        # Get all dimensions
+        dims = set()
+        for lookup in var_mapping.values():
+            dims.add(lookup[2].dims_key)
+
+        print(dims)
 
         # Extract each variables metadata
         data_vars = {var: extract_variable_data(parse_grib_message(
@@ -70,10 +86,10 @@ class GribberishBackend(BackendEntrypoint):
             list(var_mapping.values())[0][1]
         )
 
-        lat = first_message.latitudes().reshape(first_message.grid_shape)
-        lng = first_message.longitudes().reshape(first_message.grid_shape)
+        lat = first_message.metadata.latitudes().reshape(first_message.metadata.grid_shape)
+        lng = first_message.metadata.longitudes().reshape(first_message.metadata.grid_shape)
 
-        if first_message.is_regular_grid:
+        if first_message.metadata.is_regular_grid:
             lat = (['lat'], lat[:, 0], {
                 'standard_name': 'latitude',
                 'long_name': 'latitude',
@@ -101,7 +117,7 @@ class GribberishBackend(BackendEntrypoint):
             })
 
         coords = {
-            'time': (['time'], [first_message.forecast_date], {
+            'time': (['time'], [first_message.metadata.forecast_date], {
                 'standard_name': 'time',
                 'long_name': 'time',
                 'units': 'seconds since 2010-01-01 00:00:00',

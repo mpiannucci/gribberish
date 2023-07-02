@@ -2,87 +2,141 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use gribberish::data_message::DataMessage;
-use gribberish::message::{Message, read_messages, scan_messages};
-use numpy::{Ix2, PyArray, PyArray1, PyArray2, PyArray3, PyArrayDyn};
+use gribberish::message::{read_messages, scan_messages, Message};
+use gribberish::message_metadata::{MessageMetadata, scan_message_metadata};
+use gribberish::templates::product::tables::FixedSurfaceType;
+use numpy::{PyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
 use pyo3::types::PyDateTime;
 use pyo3::wrap_pyfunction;
-use pyo3::{prelude::*, types::PyTzInfo};
+use pyo3::{prelude::*};
 
 #[pyclass]
-struct GribMessage {
-    inner: DataMessage,
+#[derive(Clone)]
+struct GribMessageMetadata {
+    inner: MessageMetadata,
 }
 
 #[pymethods]
-impl GribMessage {
+impl GribMessageMetadata {
     #[getter]
     fn get_var_name(&self) -> &str {
-        self.inner.metadata.name.as_str()
+        self.inner.name.as_str()
     }
 
     #[getter]
     fn get_var_abbrev(&self) -> &str {
-        self.inner.metadata.var.as_str()
+        self.inner.var.as_str()
     }
 
     #[getter]
     fn get_units(&self) -> &str {
-        self.inner.metadata.units.as_str()
+        self.inner.units.as_str()
     }
 
-    // #[getter]
-    // fn get_array_index(&self) -> Option<usize> {
-    //     self.inner.array_index
-    // }
+    #[getter]
+    fn get_generating_process(&self) -> String {
+        self.inner.generating_process.to_string()
+    }
+
+    #[getter]
+    fn get_level_type(&self) -> String {
+        self.inner.first_fixed_surface_type.to_string()
+    }
+
+    #[getter]
+    fn get_level_value(&self) -> Option<f64> {
+        self.inner.first_fixed_surface_value
+    }
 
     #[getter]
     fn get_forecast_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
-        PyDateTime::from_timestamp(py, self.inner.metadata.forecast_date.timestamp() as f64, None)
+        PyDateTime::from_timestamp(py, self.inner.forecast_date.timestamp() as f64, None)
     }
 
     #[getter]
     fn get_reference_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
-        PyDateTime::from_timestamp(py, self.inner.metadata.reference_date.timestamp() as f64, None)
+        PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
     }
 
     #[getter]
     fn proj(&self) -> &str {
-        self.inner.metadata.proj.as_str()
+        self.inner.proj.as_str()
     }
 
     #[getter]
     fn crs(&self) -> &str {
-        self.inner.metadata.crs.as_str()
+        self.inner.crs.as_str()
     }
 
     #[getter]
     fn is_regular_grid(&self) -> bool {
-        self.inner.metadata.is_regular_grid
+        self.inner.is_regular_grid
     }
 
     #[getter]
     fn grid_shape(&self) -> (usize, usize) {
-        self.inner.metadata.grid_shape
+        self.inner.grid_shape
     }
 
-    fn data<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        PyArray::from_slice(py, &self.inner.flattened_data())
+    #[getter]
+    fn spatial_dims<'py>(&self, py: Python<'py>) -> Vec<String> {
+        if self.inner.is_regular_grid {
+            vec!["latitude".into(), "longitude".into()]
+        } else {
+            vec!["y".into(), "x".into()]
+        }
+    }
+    
+    #[getter]
+    fn dims<'py>(&self, py: Python<'py>) -> Vec<String> {
+        let mut other_dims = if self.inner.first_fixed_surface_type.is_single_level() {
+            vec!["time".into()]
+        } else {
+            vec!["time".into(), self.inner.first_fixed_surface_type.coordinate_name().into()]
+        };
+
+        other_dims.append(&mut self.spatial_dims(py));
+        other_dims
+    }
+
+    #[getter]
+    fn dims_key<'py>(&self, py: Python<'py>) -> String {
+        self.dims(py).join(":")
     }
 
     fn latitudes<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        PyArray::from_slice(py, &self.inner.metadata.latitude)
+        PyArray::from_slice(py, &self.inner.latitude)
     }
 
     fn longitudes<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        PyArray::from_slice(py, &self.inner.metadata.longitude)
+        PyArray::from_slice(py, &self.inner.longitude)
+    }
+}
+
+#[pyclass]
+struct GribMessage {
+    inner: DataMessage,
+    #[pyo3(get)]
+    pub metadata: GribMessageMetadata,
+}
+
+#[pymethods]
+impl GribMessage {
+    fn data<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
+        PyArray::from_slice(py, &self.inner.flattened_data())
     }
 }
 
 #[pyfunction]
 fn parse_grib_message<'py>(data: &[u8], offset: usize) -> PyResult<GribMessage> {
     match Message::from_data(&data.to_vec(), offset) {
-        Some(m) => Ok(GribMessage { inner: DataMessage::try_from(&m).unwrap() }),
+        Some(m) => Ok(GribMessage {
+            inner: DataMessage::try_from(&m).unwrap(),
+            metadata: GribMessageMetadata {
+                inner: MessageMetadata::try_from(&m).unwrap(),
+            },
+        }),
         None => Err(PyTypeError::new_err("Failed to read GribMessage")),
     }
 }
@@ -90,15 +144,28 @@ fn parse_grib_message<'py>(data: &[u8], offset: usize) -> PyResult<GribMessage> 
 #[pyfunction]
 fn parse_grib_messages(data: &[u8]) -> PyResult<Vec<GribMessage>> {
     let messages = read_messages(data)
-        .map(|m| GribMessage { inner: DataMessage::try_from(&m).unwrap() })
+        .map(|m| GribMessage {
+            inner: DataMessage::try_from(&m).unwrap(),
+            metadata: GribMessageMetadata {
+                inner: MessageMetadata::try_from(&m).unwrap(),
+            },
+        })
         .collect();
 
     Ok(messages)
 }
 
 #[pyfunction]
-fn parse_grib_mapping(data: &[u8]) -> HashMap<String, (usize, usize)> {
-    scan_messages(data)
+fn parse_grib_mapping(data: &[u8]) -> HashMap<String, (usize, usize, GribMessageMetadata)> {
+    scan_message_metadata(data)
+    .into_iter()
+    .map(|(k, v)| {
+        let message: GribMessageMetadata = GribMessageMetadata {
+            inner: v.2,
+        };
+        (k.clone(), (v.0, v.1, message))
+    })
+    .collect()
 }
 
 #[pymodule]
