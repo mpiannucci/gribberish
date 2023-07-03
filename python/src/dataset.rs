@@ -203,14 +203,28 @@ impl GribDataset {
         }
     }
 
-    fn times<'py>(&self, py: Python<'py>) -> Vec<&'py PyDateTime> {
+    #[getter]
+    fn temporal_dims<'py>(&self, py: Python<'py>) -> Vec<String> {
         let mut times = HashSet::new();
         for (_, v) in self.mapping.iter() {
             times.insert(v.2.forecast_date.clone());
+            println!("{:?}", v.2.time_unit)
         }
-        times
-            .into_iter()
-            .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, None).unwrap())
-            .collect::<Vec<_>>()
+        // times
+        //     .into_iter()
+        //     .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, None).unwrap())
+        //     .collect::<Vec<_>>();
+        vec!["time".into()]
     }
+
+    // fn times<'py>(&self, py: Python<'py>) -> Vec<&'py PyDateTime> {
+    //     let mut times = HashSet::new();
+    //     for (_, v) in self.mapping.iter() {
+    //         times.insert(v.2.forecast_date.clone());
+    //     }
+    //     times
+    //         .into_iter()
+    //         .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, None).unwrap())
+    //         .collect::<Vec<_>>()
+    // }
 }

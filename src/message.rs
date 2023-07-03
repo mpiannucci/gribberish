@@ -1,6 +1,6 @@
 use crate::sections::{indicator::Discipline, section::Section, section::SectionIterator};
 use crate::templates::product::tables::{
-    DerivedForecastType, FixedSurfaceType, GeneratingProcess, TypeOfStatisticalProcessing,
+    DerivedForecastType, FixedSurfaceType, GeneratingProcess, TypeOfStatisticalProcessing, TimeUnit,
 };
 use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
@@ -409,7 +409,7 @@ impl<'a> Message<'a> {
         Ok(product_template.forecast_datetime(reference_date))
     }
 
-    pub fn forecast_time_interval_end(&self) -> Result<Option<DateTime<Utc>>, String> {
+    pub fn time_unit(&self) -> Result<TimeUnit, String> {
         let discipline = self.discipline()?;
 
         let product_definition = unwrap_or_return!(
@@ -424,9 +424,8 @@ impl<'a> Message<'a> {
             product_definition.product_definition_template(discipline as u8),
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
-
-        let reference_date = self.reference_date()?;
-        Ok(product_template.end_time(reference_date))
+        
+        Ok(product_template.time_unit())
     }
 
     pub fn first_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), String> {

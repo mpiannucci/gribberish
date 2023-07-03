@@ -216,7 +216,7 @@ impl GeneratingProcess {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum TimeUnit {
     Minute = 0,
     Hour = 1,
