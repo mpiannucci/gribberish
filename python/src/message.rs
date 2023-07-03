@@ -191,7 +191,7 @@ pub fn parse_grib_mapping(
         Vec::new()
     };
 
-    scan_message_metadata(data)
+    scan_message_metadata(data, true)
         .into_iter()
         .filter_map(|(k, v)| {
             let message: GribMessageMetadata = GribMessageMetadata { inner: v.2 };

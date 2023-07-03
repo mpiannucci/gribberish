@@ -54,7 +54,7 @@ impl GribDataset {
             Vec::new()
         };
 
-        let mapping = scan_message_metadata(data)
+        let mapping = scan_message_metadata(data, true)
             .into_iter()
             .filter_map(|(k, v)| {
                 if drop_variables.contains(&v.2.var.to_lowercase()) {
@@ -205,11 +205,20 @@ impl GribDataset {
 
     #[getter]
     fn temporal_dims<'py>(&self, py: Python<'py>) -> Vec<String> {
-        let mut times = HashSet::new();
-        for (_, v) in self.mapping.iter() {
-            times.insert(v.2.forecast_date.clone());
-            println!("{:?}", v.2.time_unit)
+        let mut time_map = HashMap::new();
+        for (var, v) in self.var_mapping.iter() {
+            let mut times = HashSet::new();
+            for k in v.iter() {
+                times.insert(self.mapping.get(k).unwrap().2.forecast_date.clone());
+            }
+            let mut times = times.into_iter().collect::<Vec<_>>();
+            times.sort();
+            let time_key = times.iter().map(|d| d.timestamp().to_string()).collect::<Vec<_>>().join("_");
+            time_map.insert(time_key, times);
         }
+
+        println!("{:?}", time_map.keys().len());
+
         // times
         //     .into_iter()
         //     .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, None).unwrap())
