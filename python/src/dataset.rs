@@ -1,7 +1,30 @@
 use std::collections::{HashMap, HashSet};
 
 use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
-use pyo3::{prelude::*, types::PyList};
+use numpy::{PyArray, PyArray1, PyArray2};
+use pyo3::{
+    prelude::*,
+    types::{PyDateTime, PyList},
+};
+
+#[pyclass]
+pub struct GribCoord {
+    #[pyo3(get)]
+    pub name: String,
+    #[pyo3(get)]
+    pub dims: Vec<String>,
+    pub raw_values: Vec<f64>,
+    #[pyo3(get)]
+    pub metadata: HashMap<String, String>,
+}
+
+#[pymethods]
+impl GribCoord {
+    #[getter]
+    fn get_values<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
+        PyArray::from_slice(py, &self.raw_values)
+    }
+}
 
 #[pyclass]
 pub struct GribDataArray {
@@ -113,5 +136,81 @@ impl GribDataset {
     #[getter]
     fn get_vars(&self) -> Vec<String> {
         self.var_names.clone()
+    }
+
+    #[getter]
+    fn get_spatial_coords(&self) -> Vec<GribCoord> {
+        let first = self.mapping.values().next().unwrap();
+
+        let mut coords = vec![];
+        if first.2.is_regular_grid {
+            coords.push(GribCoord {
+                name: "latitude".into(),
+                dims: vec!["latitude".into()],
+                raw_values: first.2.latitude.clone(),
+                metadata: HashMap::from([
+                    ("standard_name".into(), "latitude".into()),
+                    ("long_name".into(), "latitude".into()),
+                    ("unit".into(), "degrees_north".into()),
+                    ("axis".into(), "Y".into()),
+                ]),
+            });
+            coords.push(GribCoord {
+                name: "longitude".into(),
+                dims: vec!["longitude".into()],
+                raw_values: first.2.longitude.clone(),
+                metadata: HashMap::from([
+                    ("standard_name".into(), "longitude".into()),
+                    ("long_name".into(), "longitude".into()),
+                    ("unit".into(), "degrees_east".into()),
+                    ("axis".into(), "X".into()),
+                ]),
+            });
+        } else {
+            coords.push(GribCoord {
+                name: "latitude".into(),
+                dims: vec!["y".into(), "x".into()],
+                raw_values: first.2.latitude.clone(),
+                metadata: HashMap::from([
+                    ("standard_name".into(), "latitude".into()),
+                    ("long_name".into(), "latitude".into()),
+                    ("unit".into(), "degrees_north".into()),
+                    ("axis".into(), "Y".into()),
+                ]),
+            });
+            coords.push(GribCoord {
+                name: "longitude".into(),
+                dims: vec!["y".into(), "x".into()],
+                raw_values: first.2.longitude.clone(),
+                metadata: HashMap::from([
+                    ("standard_name".into(), "longitude".into()),
+                    ("long_name".into(), "longitude".into()),
+                    ("unit".into(), "degrees_east".into()),
+                    ("axis".into(), "X".into()),
+                ]),
+            });
+        }
+
+        coords
+    }
+
+    fn spatial_dims(&self) -> Vec<String> {
+        let first = self.mapping.values().next().unwrap();
+        if first.2.is_regular_grid {
+            vec!["latitude".into(), "longitude".into()]
+        } else {
+            vec!["y".into(), "x".into()]
+        }
+    }
+
+    fn times<'py>(&self, py: Python<'py>) -> Vec<&'py PyDateTime> {
+        let mut times = HashSet::new();
+        for (_, v) in self.mapping.iter() {
+            times.insert(v.2.forecast_date.clone());
+        }
+        times
+            .into_iter()
+            .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, None).unwrap())
+            .collect::<Vec<_>>()
     }
 }
