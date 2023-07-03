@@ -17,29 +17,38 @@ fn read_grib_messages(path: &str) -> Vec<u8> {
 #[test]
 fn read_multi() {
     let grib_data = read_grib_messages("tests/data/multi_1.at_10m.t12z.f147.grib2");
-    let grib_data = read_grib_messages("/Users/matthewiannucci/Downloads/hrrr.t00z.wrfsubhf18.grib2");
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
 
     assert_ne!(messages.len(), 0);
+
+    let mut keys = Vec::new();
+    let mut dups = Vec::new();
 
     for message in messages {
         //assert_eq!(message.sections.len(), 8);
 
         let Ok(key) = message.key() else {
+            println!("failed to get key");
             continue;
         };
-        println!("{key}");
 
-        let field = message.data_point_count();
-        if let Err(_) = field {
-            continue;
+        if keys.contains(&key) {
+            dups.push(key);
+        } else {
+            keys.push(key);
         }
 
-        let data = message.data();
-        if let Err(_) = data {
+        let Ok(_data_point_count) = message.data_point_count() else {
             continue;
-        }
+        };
 
-        //let data = data.unwrap();
+        let Ok(_data) = message.data() else {
+            continue;
+        };
+
+        // assert_eq!(data.len(), data_point_count);
     }
+
+    println!("{key_count} keys, {dups} duplicates", key_count=keys.len(), dups=dups.len());
+    keys.iter().for_each(|k: &String| println!("{k}"));
 }

@@ -1,6 +1,6 @@
-use crate::templates::product::tables::{FixedSurfaceType, GeneratingProcess, DerivedForecastType, TypeOfStatisticalProcessing};
-use crate::{
-    sections::{indicator::Discipline, section::Section, section::SectionIterator},
+use crate::sections::{indicator::Discipline, section::Section, section::SectionIterator};
+use crate::templates::product::tables::{
+    DerivedForecastType, FixedSurfaceType, GeneratingProcess, TypeOfStatisticalProcessing,
 };
 use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
@@ -96,11 +96,15 @@ impl<'a> Message<'a> {
     pub fn key(&self) -> Result<String, String> {
         let time = self
             .forecast_date()
-            .map(|t| format!("-{}", t.to_rfc3339()))
+            .map(|t| format!(":{}", t.format("%Y%m%d%H%M")))
             .unwrap_or("".into())
             .to_string();
         let var = self.variable_abbrev()?;
         let generating_process = self.generating_process()?.to_string();
+        let statistical_process = self
+            .statistical_process_type()
+            .unwrap_or(None)
+            .map_or("".to_string(), |s| format!("{s} "));
         let first_fixed_surface = self.first_fixed_surface()?;
         let first_level = if first_fixed_surface.0 == FixedSurfaceType::Missing {
             "".into()
@@ -112,7 +116,7 @@ impl<'a> Message<'a> {
             };
 
             format!(
-                "-{level_value} in {}",
+                ":{level_value} in {}",
                 Parameter::from(first_fixed_surface.0).name
             )
         };
@@ -128,12 +132,14 @@ impl<'a> Message<'a> {
             };
 
             format!(
-                "-{level_value} in {}",
+                ":{level_value} in {}",
                 Parameter::from(second_fixed_surface.0).name
             )
         };
 
-        Ok(format!("{var}{time}{first_level}{second_level}-{generating_process}"))
+        Ok(format!(
+            "{var}{time}{first_level}{second_level}:{statistical_process}{generating_process}"
+        ))
     }
 
     pub fn variable_names(messages: Vec<Message>) -> Vec<Option<String>> {
@@ -401,6 +407,26 @@ impl<'a> Message<'a> {
 
         let reference_date = self.reference_date()?;
         Ok(product_template.forecast_datetime(reference_date))
+    }
+
+    pub fn forecast_time_interval_end(&self) -> Result<Option<DateTime<Utc>>, String> {
+        let discipline = self.discipline()?;
+
+        let product_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            product_definition.product_definition_template(discipline as u8),
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        let reference_date = self.reference_date()?;
+        Ok(product_template.end_time(reference_date))
     }
 
     pub fn first_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), String> {

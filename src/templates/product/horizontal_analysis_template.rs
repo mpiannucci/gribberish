@@ -147,4 +147,8 @@ impl ProductTemplate for HorizontalAnalysisForecastTemplate {
     fn statistical_process_type(&self) -> Option<super::tables::TypeOfStatisticalProcessing> {
         None
     }
+
+    fn end_time(&self, _reference_date: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        None
+    }	
 }

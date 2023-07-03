@@ -224,7 +224,7 @@ impl TimeUnit {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum TypeOfStatisticalProcessing {
     Average = 0,
     Accumulation = 1,

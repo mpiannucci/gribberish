@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 
 use crate::{
     message::{Message, MessageIterator},
-    templates::product::tables::{FixedSurfaceType, GeneratingProcess},
+    templates::product::tables::{FixedSurfaceType, GeneratingProcess, TypeOfStatisticalProcessing},
 };
 
 #[derive(Clone, Debug)]
@@ -14,6 +14,7 @@ pub struct MessageMetadata {
     pub name: String,
     pub units: String,
     pub generating_process: GeneratingProcess,
+    pub statistical_process: Option<TypeOfStatisticalProcessing>,
     pub first_fixed_surface_type: FixedSurfaceType,
     pub first_fixed_surface_value: Option<f64>,
     pub second_fixed_surface_type: FixedSurfaceType,
@@ -67,6 +68,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             name: message.variable_name()?,
             units: message.unit()?,
             generating_process: message.generating_process()?,
+            statistical_process: message.statistical_process_type()?,
             first_fixed_surface_type,
             first_fixed_surface_value,
             second_fixed_surface_type,
