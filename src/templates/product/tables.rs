@@ -14,6 +14,7 @@ pub enum ClusteringMethod {
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, Clone, DisplayDescription, FromValue, ToParameter)]
 pub enum FixedSurfaceType {
+    #[name = "surface"]
     #[description = "ground or water surface"]
     GroundOrWater = 1,
     #[description = "cloud base level"]

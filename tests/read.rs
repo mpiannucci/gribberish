@@ -17,12 +17,18 @@ fn read_grib_messages(path: &str) -> Vec<u8> {
 #[test]
 fn read_multi() {
     let grib_data = read_grib_messages("tests/data/multi_1.at_10m.t12z.f147.grib2");
+    let grib_data = read_grib_messages("/Users/matthewiannucci/Downloads/hrrr.t00z.wrfsubhf18.grib2");
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
 
     assert_ne!(messages.len(), 0);
 
     for message in messages {
         //assert_eq!(message.sections.len(), 8);
+
+        let Ok(key) = message.key() else {
+            continue;
+        };
+        println!("{key}");
 
         let field = message.data_point_count();
         if let Err(_) = field {
@@ -34,7 +40,6 @@ fn read_multi() {
             continue;
         }
 
-        let data = data.unwrap();
-        println!("Data: {:?}", data);
+        //let data = data.unwrap();
     }
 }
