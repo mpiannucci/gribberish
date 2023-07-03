@@ -124,27 +124,26 @@ class GribberishBackend(BackendEntrypoint):
                 #             'level_type': lookups[0][2].level_type
                 #         }
                 #     )
-                else:
-                    # First we have to sort the data by the non-spatial dimensions
-                    data = sorted(data, key=lambda x: (lookups[x[0]][2].forecast_date, float(lookups[x[0]][2].level_value)))
-                    data = [d[1] for d in data]
+                # First we have to sort the data by the non-spatial dimensions
+                data = sorted(data, key=lambda x: (lookups[x[0]][2].forecast_date, float(lookups[x[0]][2].level_value)))
+                data = [d[1] for d in data]
 
-                    # then reshape according to the non-spatial dimensions
-                    non_spatial_dims = lookups[0][2].non_spatial_dims
-                    non_spatial_dim_shape = [len(extra_dims[dim]) for dim in non_spatial_dims]
-                    data = np.concatenate(data, axis=0)
-                    data = data.reshape(non_spatial_dim_shape + list(data.shape[1:]))
-                    data_vars[lookups[0][2].var_abbrev.lower()] = (
-                        lookups[0][2].dims, 
-                        data, 
-                        {
-                            'standard_name': lookups[0][2].var_name,
-                            'long_name': lookups[0][2].var_name,
-                            'units': lookups[0][2].units,
-                            'crs': lookups[0][2].crs,
-                            'level_type': lookups[0][2].level_type
-                        }
-                    )
+                # then reshape according to the non-spatial dimensions
+                non_spatial_dims = lookups[0][2].non_spatial_dims
+                non_spatial_dim_shape = [len(extra_dims[dim]) for dim in non_spatial_dims]
+                data = np.concatenate(data, axis=0)
+                data = data.reshape(non_spatial_dim_shape + list(data.shape[1:]))
+                data_vars[lookups[0][2].var_abbrev.lower()] = (
+                    lookups[0][2].dims, 
+                    data, 
+                    {
+                        'standard_name': lookups[0][2].var_name,
+                        'long_name': lookups[0][2].var_name,
+                        'units': lookups[0][2].units,
+                        'crs': lookups[0][2].crs,
+                        'level_type': lookups[0][2].level_type
+                    }
+                )
 
         # Get the coordinate arrays
         # TODO: This can be optimized

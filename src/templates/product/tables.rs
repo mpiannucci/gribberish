@@ -184,6 +184,37 @@ pub enum GeneratingProcess {
     PerturbedAnalysisForEnsembleInitialization = 196,
 }
 
+impl GeneratingProcess {
+    pub fn abbv(&self) -> String {
+        match self {
+            GeneratingProcess::Analysis => "anl".to_string(),
+            GeneratingProcess::Initialization => "ini".to_string(),
+            GeneratingProcess::Forecast => "fcst".to_string(),
+            GeneratingProcess::BiasCorrectedForecast => "bc".to_string(),
+            GeneratingProcess::EnsembleForecast => "ens".to_string(),
+            GeneratingProcess::ProbabilityForecast => "prob".to_string(),
+            GeneratingProcess::ForecastError => "err".to_string(),
+            GeneratingProcess::AnalysisError => "anl_err".to_string(),
+            GeneratingProcess::Observation => "obs".to_string(),
+            GeneratingProcess::Climatological => "clim".to_string(),
+            GeneratingProcess::ProbabilityWeightedForecast => "pwt".to_string(),
+            GeneratingProcess::BiasCorrectedEnsembleForecast => "bc_ens".to_string(),
+            GeneratingProcess::PostProcessedAnalysis => "pp_anl".to_string(),
+            GeneratingProcess::PostProcessedForecast => "pp_fcst".to_string(),
+            GeneratingProcess::Nowcast => "now".to_string(),
+            GeneratingProcess::Hindcast => "hind".to_string(),
+            GeneratingProcess::PhysicalRetrieval => "phy".to_string(),
+            GeneratingProcess::RegressionAnalysis => "reg".to_string(),
+            GeneratingProcess::DifferenceBetweenTwoForecasts => "diff".to_string(),
+            GeneratingProcess::ForecastConfidenceIndicator => "fci".to_string(),
+            GeneratingProcess::ProbabilityMatchedMean => "pmm".to_string(),
+            GeneratingProcess::NeighborhoodProbability => "nprob".to_string(),
+            GeneratingProcess::BiasCorrectedDownscaledEnsembleForecast => "bc_dens".to_string(),
+            GeneratingProcess::PerturbedAnalysisForEnsembleInitialization => "pert_anl".to_string(),
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum TimeUnit {
@@ -243,6 +274,27 @@ pub enum TypeOfStatisticalProcessing {
     Summation = 11,
     ReturnPeriod = 12,
 	Missing = 255,
+}
+
+impl TypeOfStatisticalProcessing {
+    pub fn abbv(&self) -> String {
+        match self {
+            TypeOfStatisticalProcessing::Average => "avg".to_string(),
+            TypeOfStatisticalProcessing::Accumulation => "acc".to_string(),
+            TypeOfStatisticalProcessing::Maximum => "max".to_string(),
+            TypeOfStatisticalProcessing::Minimum => "min".to_string(),
+            TypeOfStatisticalProcessing::Difference => "diff".to_string(),
+            TypeOfStatisticalProcessing::RootMeanSquare => "rms".to_string(),
+            TypeOfStatisticalProcessing::StandardDeviation => "std".to_string(),
+            TypeOfStatisticalProcessing::Covariance => "cov".to_string(),
+            TypeOfStatisticalProcessing::DifferenceInv => "diff_inv".to_string(),
+            TypeOfStatisticalProcessing::Ratio => "ratio".to_string(),
+            TypeOfStatisticalProcessing::StandardizedAnomaly => "std_anom".to_string(),
+            TypeOfStatisticalProcessing::Summation => "sum".to_string(),
+            TypeOfStatisticalProcessing::ReturnPeriod => "return_period".to_string(),
+            TypeOfStatisticalProcessing::Missing => "".to_string(),
+        }
+    }
 }
 
 #[repr(u8)]
