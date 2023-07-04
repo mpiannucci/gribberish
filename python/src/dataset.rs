@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
-use numpy::{PyArray, PyArray1};
+use numpy::{PyArray, PyArray1, PyArray2};
 use pyo3::{
     prelude::*,
     types::{PyDateTime, PyDict, PyList},
@@ -154,9 +154,6 @@ impl GribDataset {
         latitude_metadata.set_item("unit", "degrees_north").unwrap();
         latitude_metadata.set_item("axis", "Y").unwrap();
         latitude.set_item("attrs", latitude_metadata).unwrap();
-        latitude
-            .set_item("values", PyArray::from_slice(py, &first.2.latitude))
-            .unwrap();
 
         let longitude = PyDict::new(py);
         let longitude_metadata = PyDict::new(py);
@@ -170,16 +167,32 @@ impl GribDataset {
         longitude_metadata.set_item("axis", "X").unwrap();
         longitude.set_item("attrs", longitude_metadata).unwrap();
 
-        longitude
-            .set_item("values", PyArray::from_slice(py, &first.2.longitude))
-            .unwrap();
-
         if first.2.is_regular_grid {
             latitude.set_item("dims", vec!["latitude"]).unwrap();
+            latitude
+                .set_item("values", PyArray::from_slice(py, &first.2.latitude))
+                .unwrap();
+
             longitude.set_item("dims", vec!["longitude"]).unwrap();
+            longitude
+                .set_item("values", PyArray::from_slice(py, &first.2.longitude))
+                .unwrap();
         } else {
+            let shape = first.2.grid_shape;
+
             latitude.set_item("dims", vec!["y", "x"]).unwrap();
+            let lats = PyArray::from_slice(py, &first.2.latitude);
+            let lats = lats.reshape([shape.0, shape.1]).unwrap();
+            latitude
+                .set_item("values", lats)
+                .unwrap();
+
             longitude.set_item("dims", vec!["y", "x"]).unwrap();
+            let lngs = PyArray::from_slice(py, &first.2.longitude);
+            let lngs = lngs.reshape([shape.0, shape.1]).unwrap();
+            longitude
+                .set_item("values", lngs)
+                .unwrap();
         }
 
         coords.set_item("latitude", latitude).unwrap();
