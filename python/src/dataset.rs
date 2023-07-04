@@ -4,7 +4,7 @@ use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
 use numpy::{PyArray, PyArray1, PyArray2};
 use pyo3::{
     prelude::*,
-    types::{PyDateTime, PyList},
+    types::{PyDateTime, PyList, PyDict},
 };
 
 #[pyclass]
@@ -139,72 +139,53 @@ impl GribDataset {
     }
 
     #[getter]
-    fn get_spatial_coords(&self) -> Vec<GribCoord> {
+    fn get_coords<'py>(&self, py: Python<'py>) -> &'py PyDict {
         let first = self.mapping.values().next().unwrap();
 
-        let mut coords = vec![];
+        let coords = PyDict::new(py);
+
+        // First we handle the spatial coords, which we assume to be shareed for all variables
+        let latitude = PyDict::new(py);
+        let latitude_metadata = PyDict::new(py);
+        latitude_metadata
+            .set_item("standard_name", "latitude")
+            .unwrap();
+        latitude_metadata
+            .set_item("long_name", "latitude")
+            .unwrap();
+        latitude_metadata
+            .set_item("unit", "degrees_north")
+            .unwrap();
+        latitude_metadata.set_item("axis", "Y").unwrap();
+        latitude.set_item("values", first.2.latitude.clone()).unwrap();
+
+        let longitude = PyDict::new(py);
+        let longitude_metadata = PyDict::new(py);
+        longitude_metadata
+            .set_item("standard_name", "longitude")
+            .unwrap();
+        longitude_metadata
+            .set_item("long_name", "longitude")
+            .unwrap();
+        longitude_metadata
+            .set_item("unit", "degrees_east")
+            .unwrap();
+        longitude_metadata.set_item("axis", "X").unwrap();
+        
+        longitude.set_item("values", first.2.longitude.clone()).unwrap();
+
         if first.2.is_regular_grid {
-            coords.push(GribCoord {
-                name: "latitude".into(),
-                dims: vec!["latitude".into()],
-                raw_values: first.2.latitude.clone(),
-                metadata: HashMap::from([
-                    ("standard_name".into(), "latitude".into()),
-                    ("long_name".into(), "latitude".into()),
-                    ("unit".into(), "degrees_north".into()),
-                    ("axis".into(), "Y".into()),
-                ]),
-            });
-            coords.push(GribCoord {
-                name: "longitude".into(),
-                dims: vec!["longitude".into()],
-                raw_values: first.2.longitude.clone(),
-                metadata: HashMap::from([
-                    ("standard_name".into(), "longitude".into()),
-                    ("long_name".into(), "longitude".into()),
-                    ("unit".into(), "degrees_east".into()),
-                    ("axis".into(), "X".into()),
-                ]),
-            });
+            latitude.set_item("dims", vec!["latitude"]).unwrap();
+            longitude.set_item("dims", vec!["longitude"]).unwrap();
         } else {
-            coords.push(GribCoord {
-                name: "latitude".into(),
-                dims: vec!["y".into(), "x".into()],
-                raw_values: first.2.latitude.clone(),
-                metadata: HashMap::from([
-                    ("standard_name".into(), "latitude".into()),
-                    ("long_name".into(), "latitude".into()),
-                    ("unit".into(), "degrees_north".into()),
-                    ("axis".into(), "Y".into()),
-                ]),
-            });
-            coords.push(GribCoord {
-                name: "longitude".into(),
-                dims: vec!["y".into(), "x".into()],
-                raw_values: first.2.longitude.clone(),
-                metadata: HashMap::from([
-                    ("standard_name".into(), "longitude".into()),
-                    ("long_name".into(), "longitude".into()),
-                    ("unit".into(), "degrees_east".into()),
-                    ("axis".into(), "X".into()),
-                ]),
-            });
+            latitude.set_item("dims", vec!["y", "x"]).unwrap();
+            longitude.set_item("dims", vec!["y", "x"]).unwrap();
         }
 
-        coords
-    }
+        coords.set_item("latitude", latitude).unwrap();
+        coords.set_item("longitude", longitude).unwrap();
 
-    fn spatial_dims(&self) -> Vec<String> {
-        let first = self.mapping.values().next().unwrap();
-        if first.2.is_regular_grid {
-            vec!["latitude".into(), "longitude".into()]
-        } else {
-            vec!["y".into(), "x".into()]
-        }
-    }
-
-    #[getter]
-    fn temporal_dims<'py>(&self, py: Python<'py>) -> Vec<String> {
+        // Temporal dims
         let mut time_map = HashMap::new();
         for (var, v) in self.var_mapping.iter() {
             let mut times = HashSet::new();
@@ -213,17 +194,37 @@ impl GribDataset {
             }
             let mut times = times.into_iter().collect::<Vec<_>>();
             times.sort();
-            let time_key = times.iter().map(|d| d.timestamp().to_string()).collect::<Vec<_>>().join("_");
+            let time_key: String = times.iter().map(|d| d.timestamp().to_string()).collect::<Vec<_>>().join("_");
             time_map.insert(time_key, times);
         }
 
-        println!("{:?}", time_map.keys().len());
+        let mut time_index = 0;
+        for (var, times) in time_map.iter() {
+            let name = if time_map.len() == 1 || time_index == 0 {
+                "time".to_string()
+            } else {
+                format!("time_{time_index}")
+            };
+            time_index += 1;
 
-        // times
-        //     .into_iter()
-        //     .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, None).unwrap())
-        //     .collect::<Vec<_>>();
-        vec!["time".into()]
+            let time = PyDict::new(py);
+            let time_metadata = PyDict::new(py);
+            time_metadata
+                .set_item("standard_name", "time")
+                .unwrap();
+            time_metadata
+                .set_item("long_name", "time")
+                .unwrap();
+            time_metadata
+                .set_item("unit", "seconds since 1970-01-01 00:00:00")
+                .unwrap();
+            time_metadata.set_item("axis", "T").unwrap();
+            time.set_item("values", Vec::<f64>::new()).unwrap();
+            time.set_item("dims", vec!["time"]).unwrap();
+            coords.set_item(name, time).unwrap();
+        }
+
+        coords
     }
 
     // fn times<'py>(&self, py: Python<'py>) -> Vec<&'py PyDateTime> {
