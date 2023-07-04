@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use gribberish::{message_metadata::{scan_message_metadata}, message::Message};
-use numpy::{PyArray};
+use gribberish::{message::Message, message_metadata::scan_message_metadata};
+use numpy::PyArray;
 use pyo3::{
     prelude::*,
     types::{PyDateTime, PyDict, PyList},
@@ -44,7 +44,7 @@ pub fn parse_grid_dataset<'py>(
     for (k, v) in mapping.iter() {
         let var = v.2.var.clone();
         let hash = format!(
-            "{surf}_{stat}{gen}",
+            "{var}{surf}_{stat}{gen}",
             surf = v.2.first_fixed_surface_type.coordinate_name(),
             stat =
                 v.2.statistical_process
@@ -92,10 +92,12 @@ pub fn parse_grid_dataset<'py>(
         }
     }
 
-    let mut var_dims = var_mapping.keys()
+    let mut var_dims = var_mapping
+        .keys()
         .map(|d| (d.to_owned(), vec![]))
         .collect::<HashMap<String, Vec<String>>>();
-    let mut var_shape = var_mapping.keys()
+    let mut var_shape = var_mapping
+        .keys()
         .map(|d| (d.to_owned(), vec![]))
         .collect::<HashMap<String, Vec<usize>>>();
 
@@ -154,7 +156,7 @@ pub fn parse_grid_dataset<'py>(
         time_metadata.set_item("axis", "T").unwrap();
         time.set_item("values", times).unwrap();
         time.set_item("attrs", time_metadata).unwrap();
-        time.set_item("dims", vec!["time"]).unwrap();
+        time.set_item("dims", vec![name.clone()]).unwrap();
         coords.set_item(name, time).unwrap();
     }
 
@@ -279,12 +281,36 @@ pub fn parse_grid_dataset<'py>(
         let shape = var_shape.get(var).unwrap().clone();
         let data_var = PyDict::new(py);
         let var_metadata = PyDict::new(py);
-        var_metadata.set_item("standard_name", var).unwrap();
-        var_metadata.set_item("long_name", var).unwrap();
-        var_metadata.set_item("unit", "unknown").unwrap();
-        var_metadata.set_item("coordinates", "latitude longitude").unwrap();
+        let first = mapping.get(v.first().unwrap()).unwrap();
+        var_metadata
+            .set_item("standard_name", first.2.name.clone())
+            .unwrap();
+        var_metadata
+            .set_item("long_name", first.2.name.clone())
+            .unwrap();
+        var_metadata
+            .set_item("unit", first.2.units.clone())
+            .unwrap();
+        var_metadata
+            .set_item("coordinates", "latitude longitude")
+            .unwrap();
         data_var.set_item("attrs", var_metadata).unwrap();
         data_var.set_item("dims", dims).unwrap();
+
+        let mut v_sorted = v.clone();
+        v_sorted.sort_by(|a, b| {
+            let a = mapping.get(a).unwrap();
+            let b = mapping.get(b).unwrap();
+            (
+                a.2.forecast_date,
+                a.2.first_fixed_surface_value.unwrap_or(0.0),
+            )
+                .partial_cmp(&(
+                    b.2.forecast_date,
+                    b.2.first_fixed_surface_value.unwrap_or(0.0),
+                ))
+                .unwrap()
+        });
 
         let v = v
             .into_iter()
