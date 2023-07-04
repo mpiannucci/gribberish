@@ -2,7 +2,7 @@ import os
 import numpy as np
 import xarray as xr
 
-from .gribberishpy import parse_grib_mapping, parse_grib_message, GribDataset
+from .gribberishpy import parse_grib_mapping, parse_grib_message, GribDataset, parse_grid_dataset
 from xarray.backends import BackendEntrypoint
 
 
@@ -53,13 +53,15 @@ class GribberishBackend(BackendEntrypoint):
     ):
         raw_data = read_binary_data(filename_or_obj)
 
-        dataset = GribDataset(raw_data, drop_variables=drop_variables)
-        coords = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset.coords.items()}
-        
+        dataset = parse_grid_dataset(raw_data, drop_variables=drop_variables)
+        coords = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['coords'].items()}
+        data_vars = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['data_vars'].items()}
+        attrs = dataset['attrs']
+
         return xr.Dataset(
-            data_vars={},
+            data_vars=data_vars,
             coords=coords,
-            attrs=dataset.attrs
+            attrs=attrs
         )
 
         # Read the message mapping from the metadata that gives the byte offset

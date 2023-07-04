@@ -51,6 +51,21 @@ impl MessageMetadata {
             })
             .collect()
     }
+
+    pub fn lat(&self) -> Vec<f64> {
+        let (rows, cols) = self.grid_shape;
+        (0..rows)
+            .map(|i| i * cols)
+            .map(|i| self.latitude[i])
+            .collect()
+    }
+
+    pub fn lng(&self) -> Vec<f64> {
+        let (_, cols) = self.grid_shape;
+        (0..cols)
+            .map(|i| self.longitude[i])
+            .collect()
+    }
 }
 
 impl<'a> TryFrom<&Message<'a>> for MessageMetadata {

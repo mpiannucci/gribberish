@@ -38,13 +38,15 @@ fn read_multi() {
             keys.push(key);
         }
 
-        let Ok(_data_point_count) = message.data_point_count() else {
+        let Ok(data_point_count) = message.data_point_count() else {
             continue;
         };
 
-        let Ok(_data) = message.data() else {
+        let Ok(data) = message.data() else {
             continue;
         };
+
+        println!("data point count: {data_point_count}, {data_len}", data_point_count=data_point_count, data_len=data.len())
 
         // assert_eq!(data.len(), data_point_count);
     }
