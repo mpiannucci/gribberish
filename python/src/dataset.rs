@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
-use numpy::{PyArray, PyArray1, PyArray2};
+use numpy::{PyArray, PyArray1};
 use pyo3::{
     prelude::*,
     types::{PyDateTime, PyDict, PyList},
@@ -28,8 +28,8 @@ impl GribCoord {
 
 #[pyclass]
 pub struct GribDataArray {
-    offset: usize,
-    metadata: MessageMetadata,
+    _offset: usize,
+    _metadata: MessageMetadata,
 }
 
 #[pyclass]
@@ -153,8 +153,9 @@ impl GribDataset {
         latitude_metadata.set_item("long_name", "latitude").unwrap();
         latitude_metadata.set_item("unit", "degrees_north").unwrap();
         latitude_metadata.set_item("axis", "Y").unwrap();
+        latitude.set_item("attrs", latitude_metadata).unwrap();
         latitude
-            .set_item("values", first.2.latitude.clone())
+            .set_item("values", PyArray::from_slice(py, &first.2.latitude))
             .unwrap();
 
         let longitude = PyDict::new(py);
@@ -167,9 +168,10 @@ impl GribDataset {
             .unwrap();
         longitude_metadata.set_item("unit", "degrees_east").unwrap();
         longitude_metadata.set_item("axis", "X").unwrap();
+        longitude.set_item("attrs", longitude_metadata).unwrap();
 
         longitude
-            .set_item("values", first.2.longitude.clone())
+            .set_item("values", PyArray::from_slice(py, &first.2.longitude))
             .unwrap();
 
         if first.2.is_regular_grid {
@@ -185,7 +187,7 @@ impl GribDataset {
 
         // Temporal dims
         let mut time_map = HashMap::new();
-        for (var, v) in self.var_mapping.iter() {
+        for (_var, v) in self.var_mapping.iter() {
             let mut times = HashSet::new();
             for k in v.iter() {
                 times.insert(self.mapping.get(k).unwrap().2.forecast_date.clone());
@@ -202,7 +204,7 @@ impl GribDataset {
         }
 
         let mut time_index = 0;
-        for (var, times) in time_map.iter() {
+        for (_var, times) in time_map.iter() {
             let name = if time_map.len() == 1 || time_index == 0 {
                 "time".to_string()
             } else {
@@ -223,6 +225,7 @@ impl GribDataset {
                 .set_item("unit", "seconds since 1970-01-01 00:00:00")
                 .unwrap();
             time_metadata.set_item("axis", "T").unwrap();
+            time.set_item("attrs", time_metadata).unwrap();
             time.set_item("values", times).unwrap();
             time.set_item("dims", vec!["time"]).unwrap();
             coords.set_item(name, time).unwrap();
@@ -230,7 +233,7 @@ impl GribDataset {
 
         // Vertical dims
         let mut vertical_map = HashMap::new();
-        for (var, v) in self.var_mapping.iter() {
+        for (_var, v) in self.var_mapping.iter() {
             let mut verticals = HashSet::new();
             let mut vertical_name = String::new();
             for k in v.iter() {
@@ -252,7 +255,7 @@ impl GribDataset {
             if verticals.len() < 2 {
                 continue;
             }
-            
+
             let mut verticals = verticals
                 .into_iter()
                 .map(|f| f.parse::<f64>().unwrap())
@@ -271,6 +274,7 @@ impl GribDataset {
             //     .set_item("unit", "meters")
             //     .unwrap();
             vertical_metadata.set_item("axis", "Z").unwrap();
+            vertical.set_item("attrs", vertical_metadata).unwrap();
             vertical.set_item("values", values).unwrap();
             vertical.set_item("dims", vec![var]).unwrap();
             coords.set_item(var, vertical).unwrap();
