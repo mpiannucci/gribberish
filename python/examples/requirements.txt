@@ -1,5 +1,4 @@
 numpy 
 matplotlib
 xarray
-rio_xarray
 cf_xarray

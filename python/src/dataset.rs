@@ -4,7 +4,7 @@ use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
 use numpy::{PyArray, PyArray1, PyArray2};
 use pyo3::{
     prelude::*,
-    types::{PyDateTime, PyList, PyDict},
+    types::{PyDateTime, PyDict, PyList},
 };
 
 #[pyclass]
@@ -150,14 +150,12 @@ impl GribDataset {
         latitude_metadata
             .set_item("standard_name", "latitude")
             .unwrap();
-        latitude_metadata
-            .set_item("long_name", "latitude")
-            .unwrap();
-        latitude_metadata
-            .set_item("unit", "degrees_north")
-            .unwrap();
+        latitude_metadata.set_item("long_name", "latitude").unwrap();
+        latitude_metadata.set_item("unit", "degrees_north").unwrap();
         latitude_metadata.set_item("axis", "Y").unwrap();
-        latitude.set_item("values", first.2.latitude.clone()).unwrap();
+        latitude
+            .set_item("values", first.2.latitude.clone())
+            .unwrap();
 
         let longitude = PyDict::new(py);
         let longitude_metadata = PyDict::new(py);
@@ -167,12 +165,12 @@ impl GribDataset {
         longitude_metadata
             .set_item("long_name", "longitude")
             .unwrap();
-        longitude_metadata
-            .set_item("unit", "degrees_east")
-            .unwrap();
+        longitude_metadata.set_item("unit", "degrees_east").unwrap();
         longitude_metadata.set_item("axis", "X").unwrap();
-        
-        longitude.set_item("values", first.2.longitude.clone()).unwrap();
+
+        longitude
+            .set_item("values", first.2.longitude.clone())
+            .unwrap();
 
         if first.2.is_regular_grid {
             latitude.set_item("dims", vec!["latitude"]).unwrap();
@@ -194,7 +192,12 @@ impl GribDataset {
             }
             let mut times = times.into_iter().collect::<Vec<_>>();
             times.sort();
-            let time_key: String = times.iter().map(|d| d.timestamp().to_string()).collect::<Vec<_>>().join("_");
+            let time_key: String = times
+                .iter()
+                .map(|d| d.timestamp().to_string())
+                .collect::<Vec<_>>()
+                .join("_");
+
             time_map.insert(time_key, times);
         }
 
@@ -207,21 +210,70 @@ impl GribDataset {
             };
             time_index += 1;
 
+            let times = times
+                .iter()
+                .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, None).unwrap())
+                .collect::<Vec<_>>();
+
             let time = PyDict::new(py);
             let time_metadata = PyDict::new(py);
-            time_metadata
-                .set_item("standard_name", "time")
-                .unwrap();
-            time_metadata
-                .set_item("long_name", "time")
-                .unwrap();
+            time_metadata.set_item("standard_name", "time").unwrap();
+            time_metadata.set_item("long_name", "time").unwrap();
             time_metadata
                 .set_item("unit", "seconds since 1970-01-01 00:00:00")
                 .unwrap();
             time_metadata.set_item("axis", "T").unwrap();
-            time.set_item("values", Vec::<f64>::new()).unwrap();
+            time.set_item("values", times).unwrap();
             time.set_item("dims", vec!["time"]).unwrap();
             coords.set_item(name, time).unwrap();
+        }
+
+        // Vertical dims
+        let mut vertical_map = HashMap::new();
+        for (var, v) in self.var_mapping.iter() {
+            let mut verticals = HashSet::new();
+            let mut vertical_name = String::new();
+            for k in v.iter() {
+                vertical_name = self
+                    .mapping
+                    .get(k)
+                    .unwrap()
+                    .2
+                    .first_fixed_surface_type
+                    .coordinate_name()
+                    .to_string();
+                if let Some(vertical_value) =
+                    self.mapping.get(k).unwrap().2.first_fixed_surface_value
+                {
+                    verticals.insert(format!("{:.5}", vertical_value));
+                }
+            }
+
+            if verticals.len() < 2 {
+                continue;
+            }
+            
+            let mut verticals = verticals
+                .into_iter()
+                .map(|f| f.parse::<f64>().unwrap())
+                .collect::<Vec<_>>();
+            verticals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+            vertical_map.insert(vertical_name, verticals);
+        }
+
+        for (var, values) in vertical_map.iter() {
+            let vertical = PyDict::new(py);
+            let vertical_metadata = PyDict::new(py);
+            vertical_metadata.set_item("standard_name", var).unwrap();
+            vertical_metadata.set_item("long_name", var).unwrap();
+            // vertical_metadata
+            //     .set_item("unit", "meters")
+            //     .unwrap();
+            vertical_metadata.set_item("axis", "Z").unwrap();
+            vertical.set_item("values", values).unwrap();
+            vertical.set_item("dims", vec![var]).unwrap();
+            coords.set_item(var, vertical).unwrap();
         }
 
         coords

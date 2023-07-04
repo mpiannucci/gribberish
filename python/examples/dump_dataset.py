@@ -17,4 +17,4 @@ if __name__ == '__main__':
     dataset = gribberish.GribDataset(raw)
     print(dataset.attrs)
     print(dataset.vars)
-    print(dataset.temporal_dims)
+    print(dataset.coords)
