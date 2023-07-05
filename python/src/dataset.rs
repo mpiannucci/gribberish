@@ -1,15 +1,48 @@
 use std::collections::{HashMap, HashSet};
 
-use gribberish::{message::Message, message_metadata::scan_message_metadata, templates::product::tables::FixedSurfaceType};
-use numpy::PyArray;
+use gribberish::{
+    message::Message, message_metadata::scan_message_metadata,
+    templates::product::tables::FixedSurfaceType,
+};
+use numpy::{
+    ndarray::{Dim, IxDynImpl},
+    PyArray,
+};
 use pyo3::{
     prelude::*,
     types::{PyDateTime, PyDict, PyList},
 };
 
-pub fn parse_grib_data_vec<'py>(data: &[u8], offset: usize) -> Vec<f64> {
-    let message = Message::from_data(data, offset).unwrap();
-    message.data().unwrap()
+#[pyfunction]
+pub fn build_grib_array<'py>(
+    py: Python<'py>,
+    data: &[u8],
+    shape: Vec<usize>,
+    offsets: Vec<usize>,
+) -> &'py PyArray<f64, Dim<IxDynImpl>> {
+    // Every grib chunk is going to be assumed to be the size of one entire message spatially
+    let chunk_size = shape.iter().rev().take(2).product::<usize>();
+
+    let v = offsets
+        .iter()
+        .flat_map(|offset| {
+            let message = Message::from_data(data, *offset).unwrap();
+            // Should this be resized?
+            let mut data = message.data().unwrap();
+            data.resize(chunk_size, 0.0);
+            data
+        })
+        .collect::<Vec<_>>();
+
+    let v = PyArray::from_slice(py, &v);
+    // let full_size = shape.iter().product::<usize>();
+    // if v.len() != full_size {
+    //     unsafe {
+    //         v.resize([full_size]).unwrap();
+    //     }
+    // }
+
+    v.reshape(shape).unwrap()
 }
 
 #[pyfunction]
@@ -17,6 +50,7 @@ pub fn parse_grid_dataset<'py>(
     py: Python<'py>,
     data: &[u8],
     drop_variables: Option<&PyList>,
+    only_variables: Option<&PyList>,
 ) -> &'py PyDict {
     let drop_variables = if let Some(drop_variables) = drop_variables {
         drop_variables
@@ -27,12 +61,21 @@ pub fn parse_grid_dataset<'py>(
         Vec::new()
     };
 
+    let only_variables = if let Some(only_variables) = only_variables {
+        Some(
+            only_variables
+                .iter()
+                .map(|d| d.to_string().to_lowercase())
+                .collect::<Vec<String>>(),
+        )
+    } else {
+        None
+    };
+
     let mapping = scan_message_metadata(data, true)
         .into_iter()
         .filter_map(|(k, v)| {
-            if drop_variables.contains(&v.2.var.to_lowercase())
-                || &v.2.name.to_lowercase() == "misssing"
-            {
+            if &v.2.name.to_lowercase() == "missing" {
                 None
             } else {
                 Some((k.clone(), v))
@@ -76,7 +119,14 @@ pub fn parse_grid_dataset<'py>(
     let mut var_mapping = HashMap::new();
     for (k, v) in vars.iter_mut() {
         if v.len() == 1 {
-            var_names.push(k.to_lowercase());
+            let var_name = k.to_lowercase();
+            if only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name) {
+                continue;
+            } else if drop_variables.contains(&var_name) {
+                continue;
+            }
+
+            var_names.push(var_name);
             var_mapping.insert(
                 k.to_lowercase(),
                 v.iter()
@@ -85,7 +135,15 @@ pub fn parse_grid_dataset<'py>(
             );
         } else {
             for hash in v.iter() {
-                var_names.push(format!("{var}_{hash}", var = k.to_lowercase()));
+                let var_name = format!("{var}_{hash}", var = k.to_lowercase());
+                if only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name)
+                {
+                    continue;
+                } else if drop_variables.contains(&var_name) {
+                    continue;
+                }
+
+                var_names.push(var_name);
                 var_mapping.insert(
                     format!("{var}_{hash}", var = k.to_lowercase()),
                     hash_mapping.get(hash).unwrap().clone(),
@@ -200,16 +258,22 @@ pub fn parse_grid_dataset<'py>(
             .map(|d| format!("{:.5}", d))
             .collect::<Vec<_>>()
             .join("_");
-        let vertical_key = format!("{name}_{vertical_steps_key}", name=vertical_name);
-        
+        let vertical_key = format!("{name}_{vertical_steps_key}", name = vertical_name);
+
         if vertical_dim_map.contains_key(&vertical_key) {
-            vertical_dim_map.get_mut(&vertical_key).unwrap().push(var.clone());
+            vertical_dim_map
+                .get_mut(&vertical_key)
+                .unwrap()
+                .push(var.clone());
         } else {
             vertical_dim_map.insert(vertical_key.clone(), vec![var.clone()]);
         }
 
         if vertical_dim_name_map.contains_key(&vertical_name) {
-            vertical_dim_name_map.get_mut(&vertical_name).unwrap().insert(vertical_key.clone());
+            vertical_dim_name_map
+                .get_mut(&vertical_name)
+                .unwrap()
+                .insert(vertical_key.clone());
         } else {
             let mut vertical_key_set = HashSet::new();
             vertical_key_set.insert(vertical_key.clone());
@@ -217,7 +281,15 @@ pub fn parse_grid_dataset<'py>(
         }
 
         vertical_map.insert(vertical_key, verticals);
-        vertical_attr_map.insert(vertical_name, mapping.get(v.first().unwrap()).unwrap().2.first_fixed_surface_type.clone());
+        vertical_attr_map.insert(
+            vertical_name,
+            mapping
+                .get(v.first().unwrap())
+                .unwrap()
+                .2
+                .first_fixed_surface_type
+                .clone(),
+        );
     }
 
     for (dim, vertical_dims) in vertical_dim_name_map.iter() {
@@ -225,15 +297,23 @@ pub fn parse_grid_dataset<'py>(
         if vertical_dims.len() == 1 {
             let vertical_key = vertical_dims.iter().next().unwrap();
             let verticals = vertical_map.get(vertical_key).unwrap();
-            vertical_dim_map.get_mut(vertical_key).unwrap().iter().for_each(|v: &String| {
-                var_dims.get_mut(v).unwrap().push(dim.clone());
-                var_shape.get_mut(v).unwrap().push(verticals.len());
-            });
+            vertical_dim_map
+                .get_mut(vertical_key)
+                .unwrap()
+                .iter()
+                .for_each(|v: &String| {
+                    var_dims.get_mut(v).unwrap().push(dim.clone());
+                    var_shape.get_mut(v).unwrap().push(verticals.len());
+                });
 
             let vertical = PyDict::new(py);
             let vertical_metadata = PyDict::new(py);
-            vertical_metadata.set_item("standard_name", surface_type.to_string()).unwrap();
-            vertical_metadata.set_item("long_name", surface_type.to_string()).unwrap();
+            vertical_metadata
+                .set_item("standard_name", surface_type.to_string())
+                .unwrap();
+            vertical_metadata
+                .set_item("long_name", surface_type.to_string())
+                .unwrap();
             // vertical_metadata
             //     .set_item("unit", "meters")
             //     .unwrap();
@@ -253,15 +333,23 @@ pub fn parse_grid_dataset<'py>(
                 };
 
                 let verticals = vertical_map.get(vertical_key).unwrap();
-                vertical_dim_map.get_mut(vertical_key).unwrap().iter().for_each(|v: &String| {
-                    var_dims.get_mut(v).unwrap().push(name.clone());
-                    var_shape.get_mut(v).unwrap().push(verticals.len());
-                });
+                vertical_dim_map
+                    .get_mut(vertical_key)
+                    .unwrap()
+                    .iter()
+                    .for_each(|v: &String| {
+                        var_dims.get_mut(v).unwrap().push(name.clone());
+                        var_shape.get_mut(v).unwrap().push(verticals.len());
+                    });
 
                 let vertical = PyDict::new(py);
                 let vertical_metadata = PyDict::new(py);
-                vertical_metadata.set_item("standard_name", surface_type.to_string()).unwrap();
-                vertical_metadata.set_item("long_name", surface_type.to_string()).unwrap();
+                vertical_metadata
+                    .set_item("standard_name", surface_type.to_string())
+                    .unwrap();
+                vertical_metadata
+                    .set_item("long_name", surface_type.to_string())
+                    .unwrap();
                 // vertical_metadata
                 //     .set_item("unit", "meters")
                 //     .unwrap();
@@ -361,9 +449,13 @@ pub fn parse_grid_dataset<'py>(
         var_metadata
             .set_item("coordinates", "latitude longitude")
             .unwrap();
-        var_metadata.set_item("generating_process", first.2.generating_process.to_string()).unwrap();
+        var_metadata
+            .set_item("generating_process", first.2.generating_process.to_string())
+            .unwrap();
         if let Some(statistical_process) = first.2.statistical_process.as_ref() {
-            var_metadata.set_item("statistical_process", statistical_process.to_string()).unwrap();
+            var_metadata
+                .set_item("statistical_process", statistical_process.to_string())
+                .unwrap();
         }
         data_var.set_item("attrs", var_metadata).unwrap();
         data_var.set_item("dims", dims).unwrap();
@@ -383,29 +475,16 @@ pub fn parse_grid_dataset<'py>(
                 .unwrap()
         });
 
-        let v = v
-            .into_iter()
-            .flat_map(|chunk| {
-                let offset = mapping.get(chunk).unwrap().1;
-                parse_grib_data_vec(data, offset)
-            })
+        let offsets = v_sorted
+            .iter()
+            .map(|chunk| mapping.get(chunk).unwrap().1)
             .collect::<Vec<_>>();
 
-        let v = PyArray::from_slice(py, &v);
-        let full_size = shape.iter().product::<usize>();
-        if v.len() != full_size {
-            unsafe {
-                v.resize([full_size]).unwrap();
-            }
-        }
-        let v = v.reshape(shape);
+        let array = PyDict::new(py);
+        array.set_item("shape", shape).unwrap();
+        array.set_item("offsets", offsets).unwrap();
 
-        let Ok(v) = v else {
-            println!("Error parsing var {}", var);
-            continue;
-        };
-
-        data_var.set_item("values", v).unwrap();
+        data_var.set_item("values", array).unwrap();
         data_vars.set_item(var, data_var).unwrap();
     }
 
