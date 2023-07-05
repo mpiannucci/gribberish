@@ -20,6 +20,7 @@ pub fn parse_grid_dataset<'py>(
     py: Python<'py>,
     data: &[u8],
     drop_variables: Option<&PyList>,
+    only_variables: Option<&PyList>,
 ) -> &'py PyDict {
     let drop_variables = if let Some(drop_variables) = drop_variables {
         drop_variables
@@ -30,12 +31,21 @@ pub fn parse_grid_dataset<'py>(
         Vec::new()
     };
 
+    let only_variables = if let Some(only_variables) = only_variables {
+        Some(
+            only_variables
+            .iter()
+            .map(|d| d.to_string().to_lowercase())
+            .collect::<Vec<String>>()
+        )
+    } else {
+        None
+    };
+
     let mapping = scan_message_metadata(data, true)
         .into_iter()
         .filter_map(|(k, v)| {
-            if drop_variables.contains(&v.2.var.to_lowercase())
-                || &v.2.name.to_lowercase() == "misssing"
-            {
+            if &v.2.name.to_lowercase() == "missing" {
                 None
             } else {
                 Some((k.clone(), v))
@@ -79,7 +89,14 @@ pub fn parse_grid_dataset<'py>(
     let mut var_mapping = HashMap::new();
     for (k, v) in vars.iter_mut() {
         if v.len() == 1 {
-            var_names.push(k.to_lowercase());
+            let var_name = k.to_lowercase();
+            if only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name) {
+                continue;
+            } else if drop_variables.contains(&var_name) {
+                continue;
+            }
+
+            var_names.push(var_name);
             var_mapping.insert(
                 k.to_lowercase(),
                 v.iter()
@@ -88,7 +105,14 @@ pub fn parse_grid_dataset<'py>(
             );
         } else {
             for hash in v.iter() {
-                var_names.push(format!("{var}_{hash}", var = k.to_lowercase()));
+                let var_name = format!("{var}_{hash}", var = k.to_lowercase());
+                if only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name) {
+                    continue;
+                } else if drop_variables.contains(&var_name) {
+                    continue;
+                }
+                
+                var_names.push(var_name);
                 var_mapping.insert(
                     format!("{var}_{hash}", var = k.to_lowercase()),
                     hash_mapping.get(hash).unwrap().clone(),

@@ -23,12 +23,13 @@ class GribberishBackend(BackendEntrypoint):
         filename_or_obj,
         *,
         drop_variables=None,
+        only_variables=None,
         # other backend specific keyword arguments
         # `chunks` and `cache` DO NOT go here, they are handled by xarray
     ):
         raw_data = read_binary_data(filename_or_obj)
 
-        dataset = parse_grid_dataset(raw_data, drop_variables=drop_variables)
+        dataset = parse_grid_dataset(raw_data, drop_variables=drop_variables, only_variables=only_variables)
         coords = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['coords'].items()}
         data_vars = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['data_vars'].items()}
         attrs = dataset['attrs']
@@ -39,6 +40,7 @@ class GribberishBackend(BackendEntrypoint):
             attrs=attrs
         )
 
+    open_dataset_parameters = ["filename_or_obj", "drop_variables", "only_variables"]
 
     def guess_can_open(self, filename_or_obj):
         try:
