@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use gribberish::{message::Message, message_metadata::scan_message_metadata};
+use gribberish::{message::Message, message_metadata::scan_message_metadata, templates::product::tables::FixedSurfaceType};
 use numpy::PyArray;
 use pyo3::{
     prelude::*,
@@ -30,7 +30,9 @@ pub fn parse_grid_dataset<'py>(
     let mapping = scan_message_metadata(data, true)
         .into_iter()
         .filter_map(|(k, v)| {
-            if drop_variables.contains(&v.2.var.to_lowercase()) {
+            if drop_variables.contains(&v.2.var.to_lowercase())
+                || &v.2.name.to_lowercase() == "misssing"
+            {
                 None
             } else {
                 Some((k.clone(), v))
@@ -162,17 +164,22 @@ pub fn parse_grid_dataset<'py>(
 
     // Vertical dims
     let mut vertical_map = HashMap::new();
+    let mut vertical_dim_name_map: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut vertical_dim_map: HashMap<String, Vec<String>> = HashMap::new();
+    let mut vertical_attr_map: HashMap<String, FixedSurfaceType> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut verticals = HashSet::new();
         let mut vertical_name = String::new();
         for k in v.iter() {
-            vertical_name = mapping
-                .get(k)
-                .unwrap()
-                .2
-                .first_fixed_surface_type
-                .coordinate_name()
-                .to_string();
+            if vertical_name.is_empty() {
+                vertical_name = mapping
+                    .get(k)
+                    .unwrap()
+                    .2
+                    .first_fixed_surface_type
+                    .coordinate_name()
+                    .to_string();
+            }
             if let Some(vertical_value) = mapping.get(k).unwrap().2.first_fixed_surface_value {
                 verticals.insert(format!("{:.5}", vertical_value));
             }
@@ -182,31 +189,91 @@ pub fn parse_grid_dataset<'py>(
             continue;
         }
 
-        var_dims.get_mut(var).unwrap().push(vertical_name.clone());
-        var_shape.get_mut(var).unwrap().push(verticals.len());
-
         let mut verticals = verticals
             .into_iter()
             .map(|f| f.parse::<f64>().unwrap())
             .collect::<Vec<_>>();
         verticals.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        vertical_map.insert(vertical_name, verticals);
+        let vertical_steps_key = verticals
+            .iter()
+            .map(|d| format!("{:.5}", d))
+            .collect::<Vec<_>>()
+            .join("_");
+        let vertical_key = format!("{name}_{vertical_steps_key}", name=vertical_name);
+        
+        if vertical_dim_map.contains_key(&vertical_key) {
+            vertical_dim_map.get_mut(&vertical_key).unwrap().push(var.clone());
+        } else {
+            vertical_dim_map.insert(vertical_key.clone(), vec![var.clone()]);
+        }
+
+        if vertical_dim_name_map.contains_key(&vertical_name) {
+            vertical_dim_name_map.get_mut(&vertical_name).unwrap().insert(vertical_key.clone());
+        } else {
+            let mut vertical_key_set = HashSet::new();
+            vertical_key_set.insert(vertical_key.clone());
+            vertical_dim_name_map.insert(vertical_name.clone(), vertical_key_set);
+        }
+
+        vertical_map.insert(vertical_key, verticals);
+        vertical_attr_map.insert(vertical_name, mapping.get(v.first().unwrap()).unwrap().2.first_fixed_surface_type.clone());
     }
 
-    for (var, values) in vertical_map.iter() {
-        let vertical = PyDict::new(py);
-        let vertical_metadata = PyDict::new(py);
-        vertical_metadata.set_item("standard_name", var).unwrap();
-        vertical_metadata.set_item("long_name", var).unwrap();
-        // vertical_metadata
-        //     .set_item("unit", "meters")
-        //     .unwrap();
-        vertical_metadata.set_item("axis", "Z").unwrap();
-        vertical.set_item("attrs", vertical_metadata).unwrap();
-        vertical.set_item("values", values).unwrap();
-        vertical.set_item("dims", vec![var]).unwrap();
-        coords.set_item(var, vertical).unwrap();
+    for (dim, vertical_dims) in vertical_dim_name_map.iter() {
+        let surface_type = vertical_attr_map.get(dim).unwrap();
+        if vertical_dims.len() == 1 {
+            let vertical_key = vertical_dims.iter().next().unwrap();
+            let verticals = vertical_map.get(vertical_key).unwrap();
+            vertical_dim_map.get_mut(vertical_key).unwrap().iter().for_each(|v: &String| {
+                var_dims.get_mut(v).unwrap().push(dim.clone());
+                var_shape.get_mut(v).unwrap().push(verticals.len());
+            });
+
+            let vertical = PyDict::new(py);
+            let vertical_metadata = PyDict::new(py);
+            vertical_metadata.set_item("standard_name", surface_type.to_string()).unwrap();
+            vertical_metadata.set_item("long_name", surface_type.to_string()).unwrap();
+            // vertical_metadata
+            //     .set_item("unit", "meters")
+            //     .unwrap();
+            if surface_type.is_vertical_level() {
+                vertical_metadata.set_item("axis", "Z").unwrap();
+            }
+            vertical.set_item("attrs", vertical_metadata).unwrap();
+            vertical.set_item("values", verticals).unwrap();
+            vertical.set_item("dims", vec![dim]).unwrap();
+            coords.set_item(dim, vertical).unwrap();
+        } else {
+            for (i, vertical_key) in vertical_dims.iter().enumerate() {
+                let name = if vertical_dims.len() == 1 {
+                    dim.clone()
+                } else {
+                    format!("{}_{}", dim, i)
+                };
+
+                let verticals = vertical_map.get(vertical_key).unwrap();
+                vertical_dim_map.get_mut(vertical_key).unwrap().iter().for_each(|v: &String| {
+                    var_dims.get_mut(v).unwrap().push(name.clone());
+                    var_shape.get_mut(v).unwrap().push(verticals.len());
+                });
+
+                let vertical = PyDict::new(py);
+                let vertical_metadata = PyDict::new(py);
+                vertical_metadata.set_item("standard_name", surface_type.to_string()).unwrap();
+                vertical_metadata.set_item("long_name", surface_type.to_string()).unwrap();
+                // vertical_metadata
+                //     .set_item("unit", "meters")
+                //     .unwrap();
+                if surface_type.is_vertical_level() {
+                    vertical_metadata.set_item("axis", "Z").unwrap();
+                }
+                vertical.set_item("attrs", vertical_metadata).unwrap();
+                vertical.set_item("values", verticals).unwrap();
+                vertical.set_item("dims", vec![name.clone()]).unwrap();
+                coords.set_item(name, vertical).unwrap();
+            }
+        }
     }
 
     // Lastly the spatial coords
@@ -294,6 +361,10 @@ pub fn parse_grid_dataset<'py>(
         var_metadata
             .set_item("coordinates", "latitude longitude")
             .unwrap();
+        var_metadata.set_item("generating_process", first.2.generating_process.to_string()).unwrap();
+        if let Some(statistical_process) = first.2.statistical_process.as_ref() {
+            var_metadata.set_item("statistical_process", statistical_process.to_string()).unwrap();
+        }
         data_var.set_item("attrs", var_metadata).unwrap();
         data_var.set_item("dims", dims).unwrap();
 
