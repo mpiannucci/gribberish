@@ -4,15 +4,45 @@ use gribberish::{
     message::Message, message_metadata::scan_message_metadata,
     templates::product::tables::FixedSurfaceType,
 };
-use numpy::PyArray;
+use numpy::{
+    ndarray::{Dim, IxDynImpl},
+    PyArray,
+};
 use pyo3::{
     prelude::*,
     types::{PyDateTime, PyDict, PyList},
 };
 
-pub fn parse_grib_data_vec<'py>(data: &[u8], offset: usize) -> Vec<f64> {
-    let message = Message::from_data(data, offset).unwrap();
-    message.data().unwrap()
+#[pyfunction]
+pub fn build_grib_array<'py>(
+    py: Python<'py>,
+    data: &[u8],
+    shape: Vec<usize>,
+    offsets: Vec<usize>,
+) -> &'py PyArray<f64, Dim<IxDynImpl>> {
+    // Every grib chunk is going to be assumed to be the size of one entire message spatially
+    let chunk_size = shape.iter().rev().take(2).product::<usize>();
+
+    let v = offsets
+        .iter()
+        .flat_map(|offset| {
+            let message = Message::from_data(data, *offset).unwrap();
+            // Should this be resized?
+            let mut data = message.data().unwrap();
+            data.resize(chunk_size, 0.0);
+            data
+        })
+        .collect::<Vec<_>>();
+
+    let v = PyArray::from_slice(py, &v);
+    // let full_size = shape.iter().product::<usize>();
+    // if v.len() != full_size {
+    //     unsafe {
+    //         v.resize([full_size]).unwrap();
+    //     }
+    // }
+
+    v.reshape(shape).unwrap()
 }
 
 #[pyfunction]
@@ -34,9 +64,9 @@ pub fn parse_grid_dataset<'py>(
     let only_variables = if let Some(only_variables) = only_variables {
         Some(
             only_variables
-            .iter()
-            .map(|d| d.to_string().to_lowercase())
-            .collect::<Vec<String>>()
+                .iter()
+                .map(|d| d.to_string().to_lowercase())
+                .collect::<Vec<String>>(),
         )
     } else {
         None
@@ -106,12 +136,13 @@ pub fn parse_grid_dataset<'py>(
         } else {
             for hash in v.iter() {
                 let var_name = format!("{var}_{hash}", var = k.to_lowercase());
-                if only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name) {
+                if only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name)
+                {
                     continue;
                 } else if drop_variables.contains(&var_name) {
                     continue;
                 }
-                
+
                 var_names.push(var_name);
                 var_mapping.insert(
                     format!("{var}_{hash}", var = k.to_lowercase()),
@@ -444,29 +475,16 @@ pub fn parse_grid_dataset<'py>(
                 .unwrap()
         });
 
-        let v = v
-            .into_iter()
-            .flat_map(|chunk| {
-                let offset = mapping.get(chunk).unwrap().1;
-                parse_grib_data_vec(data, offset)
-            })
+        let offsets = v_sorted
+            .iter()
+            .map(|chunk| mapping.get(chunk).unwrap().1)
             .collect::<Vec<_>>();
 
-        let v = PyArray::from_slice(py, &v);
-        let full_size = shape.iter().product::<usize>();
-        if v.len() != full_size {
-            unsafe {
-                v.resize([full_size]).unwrap();
-            }
-        }
-        let v = v.reshape(shape);
+        let array = PyDict::new(py);
+        array.set_item("shape", shape).unwrap();
+        array.set_item("offsets", offsets).unwrap();
 
-        let Ok(v) = v else {
-            println!("Error parsing var {}", var);
-            continue;
-        };
-
-        data_var.set_item("values", v).unwrap();
+        data_var.set_item("values", array).unwrap();
         data_vars.set_item(var, data_var).unwrap();
     }
 
