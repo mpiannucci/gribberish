@@ -21,20 +21,36 @@ fn read_multi() {
 
     assert_ne!(messages.len(), 0);
 
+    let mut keys = Vec::new();
+    let mut dups = Vec::new();
+
     for message in messages {
         //assert_eq!(message.sections.len(), 8);
 
-        let field = message.data_point_count();
-        if let Err(_) = field {
+        let Ok(key) = message.key() else {
+            println!("failed to get key");
             continue;
+        };
+
+        if keys.contains(&key) {
+            dups.push(key);
+        } else {
+            keys.push(key);
         }
 
-        let data = message.data();
-        if let Err(_) = data {
+        let Ok(data_point_count) = message.data_point_count() else {
             continue;
-        }
+        };
 
-        let data = data.unwrap();
-        println!("Data: {:?}", data);
+        let Ok(data) = message.data() else {
+            continue;
+        };
+
+        println!("data point count: {data_point_count}, {data_len}", data_point_count=data_point_count, data_len=data.len())
+
+        // assert_eq!(data.len(), data_point_count);
     }
+
+    println!("{key_count} keys, {dups} duplicates", key_count=keys.len(), dups=dups.len());
+    keys.iter().for_each(|k: &String| println!("{k}"));
 }

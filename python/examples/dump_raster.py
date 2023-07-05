@@ -25,7 +25,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser('Dump a grib 2 file to a png raster')
     parser.add_argument('infile', metavar='i', type=str, help='Path to grib 2 file to ')
     args = parser.parse_args()
-
     input_filename = args.infile
 
     messages = read_gib_messages(input_filename)

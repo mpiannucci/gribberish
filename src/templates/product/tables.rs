@@ -14,6 +14,7 @@ pub enum ClusteringMethod {
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, Clone, DisplayDescription, FromValue, ToParameter)]
 pub enum FixedSurfaceType {
+    #[name = "surface"]
     #[description = "ground or water surface"]
     GroundOrWater = 1,
     #[description = "cloud base level"]
@@ -64,6 +65,79 @@ pub enum FixedSurfaceType {
     Missing = 255,
 }
 
+impl FixedSurfaceType {
+    pub fn is_single_level(&self) -> bool {
+        match self {
+            FixedSurfaceType::GroundOrWater => true,
+            FixedSurfaceType::CloudBase => true,
+            FixedSurfaceType::CloudTop => true,
+            FixedSurfaceType::MaximumWindLevel => true,
+            FixedSurfaceType::Tropopause => true,
+            FixedSurfaceType::SeaBottom => true,
+            FixedSurfaceType::EntireAtmosphere => true,
+            FixedSurfaceType::IsothermalLevel => true,
+            FixedSurfaceType::MeanSeaLevel => true,
+            FixedSurfaceType::EntireAtmosphereAsSingleLayer => true,
+            FixedSurfaceType::EntireOceanAsSingleLayer => true,
+            FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel => true,
+            FixedSurfaceType::SpecifiedHeightLevelAboveGround => true,
+            FixedSurfaceType::Missing => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_sequence_level(&self) -> bool {
+        match self {
+            FixedSurfaceType::OrderedSequence => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_vertical_level(&self) -> bool {
+        match self {
+            FixedSurfaceType::SigmaLevel => true,
+            FixedSurfaceType::HybridLevel => true,
+            FixedSurfaceType::EtaLevel => true,
+            FixedSurfaceType::SnowLevel => true,
+            FixedSurfaceType::SigmaHeightLevel => true,
+            FixedSurfaceType::GeneralizedVerticalHeightCoordinate => true,
+            FixedSurfaceType::DepthBelowSeaLevel => true,
+            FixedSurfaceType::DepthBelowWaterSurface => true,
+            FixedSurfaceType::MixingLayer => true,
+            _ => false,
+        }
+    }
+
+    pub fn coordinate_name(&self) -> &'static str {
+        match self {
+            FixedSurfaceType::GroundOrWater => "sfc",
+            FixedSurfaceType::CloudBase => "clb",
+            FixedSurfaceType::CloudTop => "clt",
+            FixedSurfaceType::MaximumWindLevel => "mwl",
+            FixedSurfaceType::Tropopause => "tro",
+            FixedSurfaceType::SeaBottom => "bot",
+            FixedSurfaceType::EntireAtmosphere => "atm",
+            FixedSurfaceType::IsothermalLevel => "iso",
+            FixedSurfaceType::MeanSeaLevel => "msl",
+            FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel => "asl",
+            FixedSurfaceType::SpecifiedHeightLevelAboveGround => "hag",
+            FixedSurfaceType::SigmaLevel => "sigma",
+            FixedSurfaceType::HybridLevel => "hybid",
+            FixedSurfaceType::EtaLevel => "eta",
+            FixedSurfaceType::SnowLevel => "snow",
+            FixedSurfaceType::SigmaHeightLevel => "sigma_h",
+            FixedSurfaceType::GeneralizedVerticalHeightCoordinate => "height",
+            FixedSurfaceType::DepthBelowSeaLevel => "depth_bsl",
+            FixedSurfaceType::DepthBelowWaterSurface => "depth_bws",
+            FixedSurfaceType::MixingLayer => "mixing",
+            FixedSurfaceType::EntireAtmosphereAsSingleLayer => "entire_atm",
+            FixedSurfaceType::EntireOceanAsSingleLayer => "entire_ocean",
+            FixedSurfaceType::OrderedSequence => "seq",
+            FixedSurfaceType::Missing => "",
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum GeneratingProcess {
@@ -110,8 +184,39 @@ pub enum GeneratingProcess {
     PerturbedAnalysisForEnsembleInitialization = 196,
 }
 
+impl GeneratingProcess {
+    pub fn abbv(&self) -> String {
+        match self {
+            GeneratingProcess::Analysis => "anl".to_string(),
+            GeneratingProcess::Initialization => "ini".to_string(),
+            GeneratingProcess::Forecast => "fcst".to_string(),
+            GeneratingProcess::BiasCorrectedForecast => "bc".to_string(),
+            GeneratingProcess::EnsembleForecast => "ens".to_string(),
+            GeneratingProcess::ProbabilityForecast => "prob".to_string(),
+            GeneratingProcess::ForecastError => "err".to_string(),
+            GeneratingProcess::AnalysisError => "anl_err".to_string(),
+            GeneratingProcess::Observation => "obs".to_string(),
+            GeneratingProcess::Climatological => "clim".to_string(),
+            GeneratingProcess::ProbabilityWeightedForecast => "pwt".to_string(),
+            GeneratingProcess::BiasCorrectedEnsembleForecast => "bc_ens".to_string(),
+            GeneratingProcess::PostProcessedAnalysis => "pp_anl".to_string(),
+            GeneratingProcess::PostProcessedForecast => "pp_fcst".to_string(),
+            GeneratingProcess::Nowcast => "now".to_string(),
+            GeneratingProcess::Hindcast => "hind".to_string(),
+            GeneratingProcess::PhysicalRetrieval => "phy".to_string(),
+            GeneratingProcess::RegressionAnalysis => "reg".to_string(),
+            GeneratingProcess::DifferenceBetweenTwoForecasts => "diff".to_string(),
+            GeneratingProcess::ForecastConfidenceIndicator => "fci".to_string(),
+            GeneratingProcess::ProbabilityMatchedMean => "pmm".to_string(),
+            GeneratingProcess::NeighborhoodProbability => "nprob".to_string(),
+            GeneratingProcess::BiasCorrectedDownscaledEnsembleForecast => "bc_dens".to_string(),
+            GeneratingProcess::PerturbedAnalysisForEnsembleInitialization => "pert_anl".to_string(),
+        }
+    }
+}
+
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum TimeUnit {
     Minute = 0,
     Hour = 1,
@@ -150,7 +255,7 @@ impl TimeUnit {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum TypeOfStatisticalProcessing {
     Average = 0,
     Accumulation = 1,
@@ -169,6 +274,27 @@ pub enum TypeOfStatisticalProcessing {
     Summation = 11,
     ReturnPeriod = 12,
 	Missing = 255,
+}
+
+impl TypeOfStatisticalProcessing {
+    pub fn abbv(&self) -> String {
+        match self {
+            TypeOfStatisticalProcessing::Average => "avg".to_string(),
+            TypeOfStatisticalProcessing::Accumulation => "acc".to_string(),
+            TypeOfStatisticalProcessing::Maximum => "max".to_string(),
+            TypeOfStatisticalProcessing::Minimum => "min".to_string(),
+            TypeOfStatisticalProcessing::Difference => "diff".to_string(),
+            TypeOfStatisticalProcessing::RootMeanSquare => "rms".to_string(),
+            TypeOfStatisticalProcessing::StandardDeviation => "std".to_string(),
+            TypeOfStatisticalProcessing::Covariance => "cov".to_string(),
+            TypeOfStatisticalProcessing::DifferenceInv => "diff_inv".to_string(),
+            TypeOfStatisticalProcessing::Ratio => "ratio".to_string(),
+            TypeOfStatisticalProcessing::StandardizedAnomaly => "std_anom".to_string(),
+            TypeOfStatisticalProcessing::Summation => "sum".to_string(),
+            TypeOfStatisticalProcessing::ReturnPeriod => "return_period".to_string(),
+            TypeOfStatisticalProcessing::Missing => "".to_string(),
+        }
+    }
 }
 
 #[repr(u8)]
