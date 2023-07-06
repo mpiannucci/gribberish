@@ -39,7 +39,6 @@ def _store_array_inline(store, z, data, var, attr):
         shape=shape,
         chunks=shape,
         dtype=data.dtype,
-        fill_value=-9999.0,
         compressor=False,
     )
     if hasattr(data, "tobytes"):
@@ -71,7 +70,6 @@ def _store_array_ref(
         shape=shape,
         chunks=shape,
         dtype=data_type,
-        fill_value=-9999.0,
         filters=[GribberishCodec(var=var, dtype=str(data_type))],
         compressor=False,
         overwrite=True,

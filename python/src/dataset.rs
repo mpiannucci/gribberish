@@ -6,7 +6,7 @@ use gribberish::{
 };
 use numpy::{
     ndarray::{Dim, IxDynImpl},
-    PyArray, PyArray1,
+    PyArray, PyArray1, datetime::{Datetime, units::Seconds},
 };
 use pyo3::{
     prelude::*,
@@ -198,8 +198,9 @@ pub fn parse_grid_dataset<'py>(
 
         let times = times
             .iter()
-            .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, None).unwrap())
+            .map(|d| Datetime::<Seconds>::from(d.timestamp()))
             .collect::<Vec<_>>();
+        let times = PyArray1::from_slice(py, &times);
 
         time_dim_map[var].iter().for_each(|v: &String| {
             var_dims.get_mut(v).unwrap().push(name.clone());
