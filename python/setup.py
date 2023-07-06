@@ -9,6 +9,11 @@ setup(
     include_package_data=True,
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,
+    requires=["numpy"],
+    extras_require={
+        "xarray": ["xarray"],
+        "kerchunk": ["kerchunk", "zarr", "numcodecs", "fsspec"],
+    },
     entry_points={
       "xarray.backends": ["gribberish=gribberish.gribberish_backend:GribberishBackend"],
     },
