@@ -10,6 +10,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct MessageMetadata {
     pub key: String,
+    pub message_size: usize,
     pub var: String,
     pub name: String,
     pub units: String,
@@ -80,6 +81,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
 
         Ok(MessageMetadata {
             key: message.key()?,
+            message_size: message.len(),
             var: message.variable_abbrev()?,
             name: message.variable_name()?,
             units: message.unit()?,
@@ -124,6 +126,7 @@ impl<'a> TryFrom<(&Message<'a>, Vec<f64>, Vec<f64>)> for MessageMetadata {
 
         Ok(MessageMetadata {
             key: message.key()?,
+            message_size: message.len(),
             var: message.variable_abbrev()?,
             name: message.variable_name()?,
             units: message.unit()?,

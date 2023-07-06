@@ -18,27 +18,32 @@ pub struct GribMessageMetadata {
 #[pymethods]
 impl GribMessageMetadata {
     #[getter]
-    fn get_var_name(&self) -> &str {
+    fn message_size(&self) -> usize {
+        self.inner.message_size
+    }
+
+    #[getter]
+    fn var_name(&self) -> &str {
         self.inner.name.as_str()
     }
 
     #[getter]
-    fn get_var_abbrev(&self) -> &str {
+    fn var_abbrev(&self) -> &str {
         self.inner.var.as_str()
     }
 
     #[getter]
-    fn get_units(&self) -> &str {
+    fn units(&self) -> &str {
         self.inner.units.as_str()
     }
 
     #[getter]
-    fn get_generating_process(&self) -> String {
+    fn generating_process(&self) -> String {
         self.inner.generating_process.to_string()
     }
 
     #[getter]
-    fn get_statistical_process(&self) -> Option<String> {
+    fn statistical_process(&self) -> Option<String> {
         self.inner
             .statistical_process
             .clone()
@@ -46,22 +51,22 @@ impl GribMessageMetadata {
     }
 
     #[getter]
-    fn get_level_type(&self) -> String {
+    fn level_type(&self) -> String {
         self.inner.first_fixed_surface_type.to_string()
     }
 
     #[getter]
-    fn get_level_value(&self) -> Option<f64> {
+    fn level_value(&self) -> Option<f64> {
         self.inner.first_fixed_surface_value
     }
 
     #[getter]
-    fn get_forecast_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
+    fn forecast_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
         PyDateTime::from_timestamp(py, self.inner.forecast_date.timestamp() as f64, None)
     }
 
     #[getter]
-    fn get_reference_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
+    fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
         PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
     }
 
@@ -83,6 +88,11 @@ impl GribMessageMetadata {
     #[getter]
     fn grid_shape(&self) -> (usize, usize) {
         self.inner.grid_shape
+    }
+
+    #[getter]
+    fn array_len(&self) -> usize {
+        self.inner.data_point_count()
     }
 
     #[getter]

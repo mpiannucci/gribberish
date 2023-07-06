@@ -450,6 +450,9 @@ pub fn parse_grid_dataset<'py>(
             .set_item("coordinates", "latitude longitude")
             .unwrap();
         var_metadata
+            .set_item("reference_date", PyDateTime::from_timestamp(py, first.2.reference_date.timestamp() as f64, None).unwrap())
+            .unwrap();
+        var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())
             .unwrap();
         if let Some(statistical_process) = first.2.statistical_process.as_ref() {

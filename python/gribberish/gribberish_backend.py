@@ -59,8 +59,9 @@ class GribberishBackend(BackendEntrypoint):
 
 class GribberishBackendArray(BackendArray):
     '''
-    Custom backend array for xarray to support lazy loading of gribberish datasets
+    Custom backend array to support lazy loading of gribberish datasets
     '''
+
     def __init__(
         self,
         filename_or_obj,
