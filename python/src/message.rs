@@ -213,7 +213,7 @@ pub fn parse_grib_mapping(
         .filter_map(|(k, v)| {
             let message: GribMessageMetadata = GribMessageMetadata { inner: v.2 };
 
-            if drop_variables.contains(&message.get_var_name().to_lowercase()) {
+            if drop_variables.contains(&message.var_name().to_lowercase()) {
                 None
             } else {
                 Some((k.clone(), (v.0, v.1, message)))

@@ -6,7 +6,7 @@ use gribberish::{
 };
 use numpy::{
     ndarray::{Dim, IxDynImpl},
-    PyArray,
+    PyArray, PyArray1,
 };
 use pyo3::{
     prelude::*,
@@ -397,12 +397,12 @@ pub fn parse_grid_dataset<'py>(
     if first.2.is_regular_grid {
         latitude.set_item("dims", vec!["latitude"]).unwrap();
         latitude
-            .set_item("values", PyArray::from_slice(py, &first.2.lat()))
+            .set_item("values", PyArray1::from_slice(py, &first.2.lat()))
             .unwrap();
 
         longitude.set_item("dims", vec!["longitude"]).unwrap();
         longitude
-            .set_item("values", PyArray::from_slice(py, &first.2.lng()))
+            .set_item("values", PyArray1::from_slice(py, &first.2.lng()))
             .unwrap();
 
         var_dims.iter_mut().for_each(|(_, v)| {
@@ -450,7 +450,7 @@ pub fn parse_grid_dataset<'py>(
             .set_item("coordinates", "latitude longitude")
             .unwrap();
         var_metadata
-            .set_item("reference_date", PyDateTime::from_timestamp(py, first.2.reference_date.timestamp() as f64, None).unwrap())
+            .set_item("reference_date", first.2.reference_date.to_rfc3339())
             .unwrap();
         var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())

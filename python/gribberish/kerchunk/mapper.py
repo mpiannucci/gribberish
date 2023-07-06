@@ -18,7 +18,6 @@ def _split_file(f, skip=0):
     part = 0
 
     while f.tell() < size:
-        logger.debug(f"extract part {part + 1}")
         start = f.tell()
         head = f.read(16)
         marker = head[:4]
@@ -86,7 +85,7 @@ def scan_gribberish(
     common=None,
     storage_options=None,
     skip=0,
-    filter={},
+    only_vars=None,
 ):
     """
     Generate references for a GRIB2 file using gribberish
@@ -115,9 +114,6 @@ def scan_gribberish(
 
     out = []
     with fsspec.open(url, "rb", **storage_options) as f:
-        raw_data = f.read()
-        # messages = parse_grib_mapping(raw_data)
-
         for offset, size, data in _split_file(f, skip=skip):
             dataset = parse_grid_dataset(data)
 
@@ -149,13 +145,11 @@ def scan_gribberish(
                 _store_array_inline(
                     store,
                     z,
-                    coord_data['values'],
+                    np.array(coord_data['values']),
                     coord_name,
-                    offset,
-                    size,
                     coord_data['attrs']
                 )
-                z[coord].attrs["_ARRAY_DIMENSIONS"] = dims
+                z[coord_name].attrs["_ARRAY_DIMENSIONS"] = dims
 
             out.append(
                 {
