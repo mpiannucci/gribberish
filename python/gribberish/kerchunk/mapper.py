@@ -5,7 +5,7 @@ import numpy as np
 
 from kerchunk.utils import class_factory, _encode_for_JSON
 from .codec import GribberishCodec
-from ..gribberishpy import parse_grib_mapping, parse_grid_dataset
+from ..gribberishpy import parse_grid_dataset
 
 
 def _split_file(f, skip=0):
@@ -70,7 +70,7 @@ def _store_array_ref(
         shape=shape,
         chunks=shape,
         dtype=data_type,
-        filters=[GribberishCodec(var=var, dtype=str(data_type))],
+        filters=[GribberishCodec(var=var, dtype=str(data_type), shape=list(shape))],
         compressor=False,
         overwrite=True,
     )
@@ -106,8 +106,6 @@ def scan_gribberish(
 
     list(dict): references dicts in Version 1 format, one per message
     """
-    import eccodes
-
     storage_options = storage_options or {}
 
     out = []

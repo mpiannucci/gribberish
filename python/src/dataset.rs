@@ -10,7 +10,7 @@ use numpy::{
 };
 use pyo3::{
     prelude::*,
-    types::{PyDateTime, PyDict, PyList},
+    types::{PyDict, PyList},
 };
 
 #[pyfunction]

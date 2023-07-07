@@ -4,6 +4,7 @@ use std::convert::TryFrom;
 use gribberish::data_message::DataMessage;
 use gribberish::message::{read_messages, Message};
 use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
+use numpy::ndarray::{Dim, IxDynImpl};
 use numpy::{PyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -161,10 +162,16 @@ impl GribMessage {
 }
 
 #[pyfunction]
-pub fn parse_grib_data<'py>(py: Python<'py>, data: &[u8], offset: usize) -> &'py PyArray1<f64> {
+pub fn parse_grib_data<'py>(py: Python<'py>, data: &[u8], offset: usize, shape: Vec<usize>) ->  &'py PyArray<f64, Dim<IxDynImpl>> {
     let message = Message::from_data(data, offset).unwrap();
-    let data = message.data().unwrap();
-    PyArray::from_slice(py, &data)
+    let mut data = message.data().unwrap();
+
+    // Every grib chunk is going to be assumed to be the size of one entire message spatially
+    let chunk_size = shape.iter().rev().take(2).product::<usize>();
+    data.resize(chunk_size, 0.0);
+
+    let v = PyArray::from_slice(py, &data);
+    v.reshape(shape).unwrap()
 }
 
 #[pyfunction]

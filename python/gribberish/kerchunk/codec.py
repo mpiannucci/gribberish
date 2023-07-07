@@ -14,8 +14,10 @@ class GribberishCodec(numcodecs.abc.Codec):
 
     codec_id = "gribberish"
 
-    def __init__(self, var, dtype=None):
+    def __init__(self, var, shape, dtype=None):
+        print('CODEC')
         self.var = var
+        self.shape = shape
         self.dtype = dtype
 
     def encode(self, buf):
@@ -23,7 +25,7 @@ class GribberishCodec(numcodecs.abc.Codec):
         return buf
 
     def decode(self, buf, out=None):
-        data = parse_grib_data(buf, 0)
+        data = parse_grib_data(buf, 0, self.shape)
         if out is not None:
             return numcodecs.compat.ndarray_copy(data, out)
         else:
