@@ -9,3 +9,4 @@ fsspec
 ujson
 dask[complete]
 ipywidgets
+scipy
