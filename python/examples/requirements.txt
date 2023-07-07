@@ -2,3 +2,9 @@ numpy
 matplotlib
 xarray
 cf_xarray
+kerchunk
+zarr
+numcodecs
+fsspec
+ujson
+dask

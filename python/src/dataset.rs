@@ -6,11 +6,11 @@ use gribberish::{
 };
 use numpy::{
     ndarray::{Dim, IxDynImpl},
-    PyArray,
+    PyArray, PyArray1, datetime::{Datetime, units::Seconds},
 };
 use pyo3::{
     prelude::*,
-    types::{PyDateTime, PyDict, PyList},
+    types::{PyDict, PyList},
 };
 
 #[pyfunction]
@@ -198,8 +198,9 @@ pub fn parse_grid_dataset<'py>(
 
         let times = times
             .iter()
-            .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, None).unwrap())
+            .map(|d| Datetime::<Seconds>::from(d.timestamp()))
             .collect::<Vec<_>>();
+        let times = PyArray1::from_slice(py, &times);
 
         time_dim_map[var].iter().for_each(|v: &String| {
             var_dims.get_mut(v).unwrap().push(name.clone());
@@ -397,12 +398,12 @@ pub fn parse_grid_dataset<'py>(
     if first.2.is_regular_grid {
         latitude.set_item("dims", vec!["latitude"]).unwrap();
         latitude
-            .set_item("values", PyArray::from_slice(py, &first.2.lat()))
+            .set_item("values", PyArray1::from_slice(py, &first.2.lat()))
             .unwrap();
 
         longitude.set_item("dims", vec!["longitude"]).unwrap();
         longitude
-            .set_item("values", PyArray::from_slice(py, &first.2.lng()))
+            .set_item("values", PyArray1::from_slice(py, &first.2.lng()))
             .unwrap();
 
         var_dims.iter_mut().for_each(|(_, v)| {
@@ -448,6 +449,9 @@ pub fn parse_grid_dataset<'py>(
             .unwrap();
         var_metadata
             .set_item("coordinates", "latitude longitude")
+            .unwrap();
+        var_metadata
+            .set_item("reference_date", first.2.reference_date.to_rfc3339())
             .unwrap();
         var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())

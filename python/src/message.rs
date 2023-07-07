@@ -4,6 +4,7 @@ use std::convert::TryFrom;
 use gribberish::data_message::DataMessage;
 use gribberish::message::{read_messages, Message};
 use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
+use numpy::ndarray::{Dim, IxDynImpl};
 use numpy::{PyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -18,27 +19,32 @@ pub struct GribMessageMetadata {
 #[pymethods]
 impl GribMessageMetadata {
     #[getter]
-    fn get_var_name(&self) -> &str {
+    fn message_size(&self) -> usize {
+        self.inner.message_size
+    }
+
+    #[getter]
+    fn var_name(&self) -> &str {
         self.inner.name.as_str()
     }
 
     #[getter]
-    fn get_var_abbrev(&self) -> &str {
+    fn var_abbrev(&self) -> &str {
         self.inner.var.as_str()
     }
 
     #[getter]
-    fn get_units(&self) -> &str {
+    fn units(&self) -> &str {
         self.inner.units.as_str()
     }
 
     #[getter]
-    fn get_generating_process(&self) -> String {
+    fn generating_process(&self) -> String {
         self.inner.generating_process.to_string()
     }
 
     #[getter]
-    fn get_statistical_process(&self) -> Option<String> {
+    fn statistical_process(&self) -> Option<String> {
         self.inner
             .statistical_process
             .clone()
@@ -46,22 +52,22 @@ impl GribMessageMetadata {
     }
 
     #[getter]
-    fn get_level_type(&self) -> String {
+    fn level_type(&self) -> String {
         self.inner.first_fixed_surface_type.to_string()
     }
 
     #[getter]
-    fn get_level_value(&self) -> Option<f64> {
+    fn level_value(&self) -> Option<f64> {
         self.inner.first_fixed_surface_value
     }
 
     #[getter]
-    fn get_forecast_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
+    fn forecast_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
         PyDateTime::from_timestamp(py, self.inner.forecast_date.timestamp() as f64, None)
     }
 
     #[getter]
-    fn get_reference_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
+    fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
         PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
     }
 
@@ -83,6 +89,11 @@ impl GribMessageMetadata {
     #[getter]
     fn grid_shape(&self) -> (usize, usize) {
         self.inner.grid_shape
+    }
+
+    #[getter]
+    fn array_len(&self) -> usize {
+        self.inner.data_point_count()
     }
 
     #[getter]
@@ -151,10 +162,16 @@ impl GribMessage {
 }
 
 #[pyfunction]
-pub fn parse_grib_data<'py>(py: Python<'py>, data: &[u8], offset: usize) -> &'py PyArray1<f64> {
+pub fn parse_grib_data<'py>(py: Python<'py>, data: &[u8], offset: usize, shape: Vec<usize>) ->  &'py PyArray<f64, Dim<IxDynImpl>> {
     let message = Message::from_data(data, offset).unwrap();
-    let data = message.data().unwrap();
-    PyArray::from_slice(py, &data)
+    let mut data = message.data().unwrap();
+
+    // Every grib chunk is going to be assumed to be the size of one entire message spatially
+    let chunk_size = shape.iter().rev().take(2).product::<usize>();
+    data.resize(chunk_size, 0.0);
+
+    let v = PyArray::from_slice(py, &data);
+    v.reshape(shape).unwrap()
 }
 
 #[pyfunction]
@@ -203,7 +220,7 @@ pub fn parse_grib_mapping(
         .filter_map(|(k, v)| {
             let message: GribMessageMetadata = GribMessageMetadata { inner: v.2 };
 
-            if drop_variables.contains(&message.get_var_name().to_lowercase()) {
+            if drop_variables.contains(&message.var_name().to_lowercase()) {
                 None
             } else {
                 Some((k.clone(), (v.0, v.1, message)))
