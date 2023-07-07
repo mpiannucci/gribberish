@@ -7,3 +7,4 @@ zarr
 numcodecs
 fsspec
 ujson
+dask

@@ -15,7 +15,6 @@ class GribberishCodec(numcodecs.abc.Codec):
     codec_id = "gribberish"
 
     def __init__(self, var, shape, dtype=None):
-        print('CODEC')
         self.var = var
         self.shape = shape
         self.dtype = dtype

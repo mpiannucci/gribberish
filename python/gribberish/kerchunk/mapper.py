@@ -39,6 +39,7 @@ def _store_array_inline(store, z, data, var, attr):
         shape=shape,
         chunks=shape,
         dtype=data.dtype,
+        fill_value=None,
         compressor=False,
     )
     if hasattr(data, "tobytes"):
@@ -72,6 +73,7 @@ def _store_array_ref(
         dtype=data_type,
         filters=[GribberishCodec(var=var, dtype=str(data_type), shape=list(shape))],
         compressor=False,
+        fill_value=None,
         overwrite=True,
     )
     store[f"{var}/" + ".".join(["0"] * len(shape))] = ["{{u}}", offset, size]
@@ -138,14 +140,15 @@ def scan_gribberish(
 
             for coord_name, coord_data in dataset['coords'].items():
                 # TODO: Prob dont store inline for non regular grids
+                coord_array = np.array(coord_data['values'])
                 _store_array_inline(
                     store,
                     z,
-                    np.array(coord_data['values']),
+                    coord_array,
                     coord_name,
                     coord_data['attrs']
                 )
-                z[coord_name].attrs["_ARRAY_DIMENSIONS"] = dims
+                z[coord_name].attrs["_ARRAY_DIMENSIONS"] = coord_data['dims']
 
             out.append(
                 {
