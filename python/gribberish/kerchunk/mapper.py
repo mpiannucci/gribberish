@@ -8,14 +8,13 @@ from .codec import GribberishCodec
 from ..gribberishpy import parse_grid_dataset
 
 
-def _split_file(f, skip=0):
+def _split_file(f):
     if hasattr(f, "size"):
         size = f.size
     else:
         f.seek(0, 2)
         size = f.tell()
         f.seek(0)
-    part = 0
 
     while f.tell() < size:
         start = f.tell()
@@ -27,9 +26,6 @@ def _split_file(f, skip=0):
         part_size = int.from_bytes(head[12:], "big")
         f.seek(start)
         yield start, part_size, f.read(part_size)
-        part += 1
-        if skip and part >= skip:
-            break
 
 
 def _store_array_inline(store, z, data, var, attr):
@@ -112,7 +108,7 @@ def scan_gribberish(
 
     out = []
     with fsspec.open(url, "rb", **storage_options) as f:
-        for offset, size, data in _split_file(f, skip=skip):
+        for offset, size, data in _split_file(f):
             dataset = parse_grid_dataset(data)
 
             # Only reading one variable from each data chunk (1 message)
@@ -157,6 +153,9 @@ def scan_gribberish(
                     "templates": {"u": url},
                 }
             )
+
+            if skip and len(out) >= skip:
+                break
     return out
 
 
