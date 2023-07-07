@@ -7,4 +7,5 @@ zarr
 numcodecs
 fsspec
 ujson
-dask
+dask[complete]
+ipywidgets
