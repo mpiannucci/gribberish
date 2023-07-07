@@ -8,12 +8,6 @@ from xarray.core import indexing
 from .gribberishpy import parse_grid_dataset, build_grib_array
 
 
-def read_binary_data(filename: str):
-    # TODO: Make this streamed for large files, etc etc
-    with open(filename, 'rb') as f:
-        return f.read()
-
-
 DATA_VAR_LOCK = xr.backends.locks.SerializableLock()
 
 
@@ -30,13 +24,17 @@ class GribberishBackend(BackendEntrypoint):
         *,
         drop_variables=None,
         only_variables=None,
-        # other backend specific keyword arguments
-        # `chunks` and `cache` DO NOT go here, they are handled by xarray
+        perserve_dims=None,
     ):
         with open(filename_or_obj, 'rb') as f:
             raw_data = f.read()
 
-            dataset = parse_grid_dataset(raw_data, drop_variables=drop_variables, only_variables=only_variables)
+            dataset = parse_grid_dataset(
+                raw_data, 
+                drop_variables=drop_variables, 
+                only_variables=only_variables, 
+                perserve_dims=perserve_dims
+            )
             coords = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['coords'].items()}
             data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, array_metadata=v['values']) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
             attrs = dataset['attrs']
@@ -47,7 +45,7 @@ class GribberishBackend(BackendEntrypoint):
                 attrs=attrs
             )
 
-    open_dataset_parameters = ["filename_or_obj", "drop_variables", "only_variables"]
+    open_dataset_parameters = ["filename_or_obj", "drop_variables", "only_variables", "perserve_dims"]
 
     def guess_can_open(self, filename_or_obj):
         try:

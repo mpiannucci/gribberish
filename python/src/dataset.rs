@@ -51,6 +51,7 @@ pub fn parse_grid_dataset<'py>(
     data: &[u8],
     drop_variables: Option<&PyList>,
     only_variables: Option<&PyList>,
+    perserve_dims: Option<&PyList>,
 ) -> &'py PyDict {
     let drop_variables = if let Some(drop_variables) = drop_variables {
         drop_variables
@@ -70,6 +71,15 @@ pub fn parse_grid_dataset<'py>(
         )
     } else {
         None
+    };
+
+    let perserve_dims: Vec<String> = if let Some(perserve_dims) = perserve_dims {
+        perserve_dims
+            .iter()
+            .map(|d| d.to_string().to_lowercase())
+            .collect::<Vec<String>>()
+    } else {
+        Vec::new()
     };
 
     let mapping = scan_message_metadata(data, true)
@@ -244,7 +254,7 @@ pub fn parse_grid_dataset<'py>(
             }
         }
 
-        if verticals.len() < 2 {
+        if !perserve_dims.contains(&vertical_name.to_lowercase()) && verticals.len() < 2 {
             continue;
         }
 

@@ -82,6 +82,7 @@ def scan_gribberish(
     storage_options=None,
     skip=0,
     only_vars=None,
+    perserve_dims=None,
 ):
     """
     Generate references for a GRIB2 file using gribberish
@@ -98,6 +99,8 @@ def scan_gribberish(
         If non-zero, stop processing the file after this many messages
     only_vars: list(str)
         If given, only store these variables
+    perserve_dims: list(str)
+        If given, dont shrink down these dimensions when their size is 1
 
     Returns
     -------
@@ -109,7 +112,7 @@ def scan_gribberish(
     out = []
     with fsspec.open(url, "rb", **storage_options) as f:
         for offset, size, data in _split_file(f):
-            dataset = parse_grid_dataset(data)
+            dataset = parse_grid_dataset(data, perserve_dims=perserve_dims)
 
             # Only reading one variable from each data chunk (1 message)
             var_name, var_data = next(iter(dataset['data_vars'].items()))
