@@ -162,7 +162,7 @@ impl GribMessage {
 }
 
 #[pyfunction]
-pub fn parse_grib_data<'py>(py: Python<'py>, data: &[u8], offset: usize, shape: Vec<usize>) ->  &'py PyArray<f64, Dim<IxDynImpl>> {
+pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize, shape: Vec<usize>) ->  &'py PyArray1<f64> {
     let message = Message::from_data(data, offset).unwrap();
     let mut data = message.data().unwrap();
 
@@ -170,8 +170,7 @@ pub fn parse_grib_data<'py>(py: Python<'py>, data: &[u8], offset: usize, shape: 
     let chunk_size = shape.iter().rev().take(2).product::<usize>();
     data.resize(chunk_size, 0.0);
 
-    let v = PyArray::from_slice(py, &data);
-    v.reshape(shape).unwrap()
+    PyArray::from_slice(py, &data)
 }
 
 #[pyfunction]

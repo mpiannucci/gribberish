@@ -1,6 +1,6 @@
 import numcodecs
 
-from ..gribberishpy import parse_grib_data
+from ..gribberishpy import parse_grib_array
 
 
 class GribberishCodec(numcodecs.abc.Codec):
@@ -24,7 +24,7 @@ class GribberishCodec(numcodecs.abc.Codec):
         return buf
 
     def decode(self, buf, out=None):
-        data = parse_grib_data(buf, 0, self.shape)
+        data = parse_grib_array(buf, 0, self.shape)
         if out is not None:
             return numcodecs.compat.ndarray_copy(data, out)
         else:
