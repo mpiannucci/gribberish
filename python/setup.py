@@ -15,6 +15,11 @@ setup(
         "kerchunk": ["kerchunk", "zarr", "numcodecs", "fsspec"],
     },
     entry_points={
-      "xarray.backends": ["gribberish=gribberish.gribberish_backend:GribberishBackend"],
+      "xarray.backends": [
+          "gribberish = gribberish.gribberish_backend:GribberishBackend",
+      ],
+      "numcodecs.codecs": [
+          "gribberish = gribberish.kerchunk:GribberishCodec",
+      ],
     },
 )
