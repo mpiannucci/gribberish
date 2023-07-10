@@ -1,3 +1,4 @@
+import threading
 import numcodecs
 
 from ..gribberishpy import parse_grib_array
@@ -9,8 +10,6 @@ class GribberishCodec(numcodecs.abc.Codec):
 
     Adapted from https://github.com/fsspec/kerchunk/blob/main/kerchunk/codecs.py
     """
-
-    # eclock = threading.RLock()
 
     codec_id = "gribberish"
 
