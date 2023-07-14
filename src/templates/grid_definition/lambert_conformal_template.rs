@@ -2,7 +2,11 @@ use mappers::{projections::LambertConformalConic, Ellipsoid, Projection};
 
 use crate::{
     templates::template::{Template, TemplateType},
-    utils::{bit_array_from_bytes, read_u32_from_bytes},
+    utils::{
+        bit_array_from_bytes,
+        iter::projection::{LatLngProjection, RegularCoordinateIterator},
+        read_u32_from_bytes,
+    },
 };
 
 use super::{
@@ -147,13 +151,25 @@ impl LambertConformalTemplate {
         value * (10f64.powf(-6.0))
     }
 
-    pub fn projection(&self) -> Result<LambertConformalConic, String> {
-        let mut lng = self.longitude_of_paralell_meridian_to_latitude_increase(); 
-        lng = if lng > 180.0 {
-            lng - 360.0
+    pub fn x_step(&self) -> f64 {
+        if self.scanning_mode_flags()[0] == ScanningMode::PlusI {
+            self.x_direction_grid_length()
         } else {
-            lng
-        };
+            -self.x_direction_grid_length()
+        }
+    }
+
+    pub fn y_step(&self) -> f64 {
+        if self.scanning_mode_flags()[1] == ScanningMode::PlusJ {
+            self.y_direction_grid_length()
+        } else {
+            -self.y_direction_grid_length()
+        }
+    }
+
+    pub fn projection(&self) -> Result<LambertConformalConic, String> {
+        let mut lng = self.longitude_of_paralell_meridian_to_latitude_increase();
+        lng = if lng > 180.0 { lng - 360.0 } else { lng };
 
         LambertConformalConic::new(
             lng,
@@ -166,7 +182,7 @@ impl LambertConformalTemplate {
     }
 
     pub fn project_axes(&self) -> Result<(LambertConformalConic, Vec<f64>, Vec<f64>), String> {
-        let mut start_lng = self.longitude_of_first_grid_point(); 
+        let mut start_lng = self.longitude_of_first_grid_point();
         start_lng = if start_lng > 180.0 {
             start_lng - 360.0
         } else {
@@ -175,18 +191,23 @@ impl LambertConformalTemplate {
 
         let projection = self.projection()?;
         let (start_x, start_y) = projection
-            .project(
-                start_lng,
-                self.latitude_of_first_grid_point(),
-            )
+            .project(start_lng, self.latitude_of_first_grid_point())
             .map_err(|e| {
                 format!(
                     "Failed to project start coordinates to lambert conformal conic coords: {e}"
                 )
             })?;
 
-        let dx = if self.scanning_mode_flags()[0] == ScanningMode::PlusI {self.x_direction_grid_length() } else {-self.x_direction_grid_length()};
-        let dy = if self.scanning_mode_flags()[1] == ScanningMode::PlusJ {self.y_direction_grid_length() } else {-self.y_direction_grid_length()};
+        let dx = if self.scanning_mode_flags()[0] == ScanningMode::PlusI {
+            self.x_direction_grid_length()
+        } else {
+            -self.x_direction_grid_length()
+        };
+        let dy = if self.scanning_mode_flags()[1] == ScanningMode::PlusJ {
+            self.y_direction_grid_length()
+        } else {
+            -self.y_direction_grid_length()
+        };
 
         let x = (0..self.number_of_points_on_x_axis())
             .map(|i| start_x + dx * i as f64)
@@ -224,30 +245,44 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
         false
     }
 
-    fn latitude_count(&self) -> usize {
+    fn y_count(&self) -> usize {
         self.number_of_points_on_y_axis() as usize
     }
 
-    fn longitude_count(&self) -> usize {
+    fn x_count(&self) -> usize {
         self.number_of_points_on_x_axis() as usize
     }
 
-    fn latlng(&self) -> Vec<(f64, f64)> {
-        let (projection, x, y) = self
-            .project_axes()
-            .expect("Failed to project LCC coordinates");
+    fn projector(&self) -> LatLngProjection {
+        let mut start_lng = self.longitude_of_first_grid_point();
+        start_lng = if start_lng > 180.0 {
+            start_lng - 360.0
+        } else {
+            start_lng
+        };
 
-        y.iter()
-            .flat_map(|y_coord| {
-                x.iter()
-                    .map(|x_coord| {
-                        let projected = projection
-                            .inverse_project(*x_coord, *y_coord)
-                            .expect("Failed to inverse project from xy to lnglat");
-                        (projected.1, projected.0)
-                    })
-                    .collect::<Vec<(f64, f64)>>()
-            })
-            .collect::<Vec<(f64, f64)>>()
+        let projection = self.projection().expect("Invalid projection");
+
+        let (start_x, start_y) = projection
+            .project(start_lng, self.latitude_of_first_grid_point())
+            .map_err(|e| {
+                format!(
+                    "Failed to project start coordinates to lambert conformal conic coords: {e}"
+                )
+            }).expect("Failed to project");
+
+        let y_iter = RegularCoordinateIterator::new(
+            start_y,
+            self.y_step(),
+            self.number_of_points_on_y_axis() as usize,
+        );
+
+        let x_iter = RegularCoordinateIterator::new(
+            start_x,
+            self.x_step(),
+            self.number_of_points_on_x_axis() as usize,
+        );
+
+        LatLngProjection::LambertConformal(y_iter, x_iter, projection)
     }
 }

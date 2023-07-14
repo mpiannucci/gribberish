@@ -82,7 +82,7 @@ pub fn parse_grid_dataset<'py>(
         Vec::new()
     };
 
-    let mapping = scan_message_metadata(data, true)
+    let mapping = scan_message_metadata(data)
         .into_iter()
         .filter_map(|(k, v)| {
             if &v.2.name.to_lowercase() == "missing" {
@@ -407,13 +407,15 @@ pub fn parse_grid_dataset<'py>(
 
     if first.2.is_regular_grid {
         latitude.set_item("dims", vec!["latitude"]).unwrap();
+
+        let (lat, lng) = first.2.latlng();
         latitude
-            .set_item("values", PyArray1::from_slice(py, &first.2.lat()))
+            .set_item("values", PyArray1::from_slice(py, &lat))
             .unwrap();
 
         longitude.set_item("dims", vec!["longitude"]).unwrap();
         longitude
-            .set_item("values", PyArray1::from_slice(py, &first.2.lng()))
+            .set_item("values", PyArray1::from_slice(py, &lng))
             .unwrap();
 
         var_dims.iter_mut().for_each(|(_, v)| {
@@ -422,12 +424,14 @@ pub fn parse_grid_dataset<'py>(
         });
     } else {
         latitude.set_item("dims", vec!["y", "x"]).unwrap();
-        let lats = PyArray::from_slice(py, &first.2.latitude);
+
+        let (lat, lng) = first.2.latlng();
+        let lats = PyArray::from_slice(py, &lat);
         let lats = lats.reshape([grid_shape.0, grid_shape.1]).unwrap();
         latitude.set_item("values", lats).unwrap();
 
         longitude.set_item("dims", vec!["y", "x"]).unwrap();
-        let lngs = PyArray::from_slice(py, &first.2.longitude);
+        let lngs = PyArray::from_slice(py, &lng);
         let lngs = lngs.reshape([grid_shape.0, grid_shape.1]).unwrap();
         longitude.set_item("values", lngs).unwrap();
 

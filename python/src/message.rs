@@ -4,7 +4,6 @@ use std::convert::TryFrom;
 use gribberish::data_message::DataMessage;
 use gribberish::message::{read_messages, Message};
 use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
-use numpy::ndarray::{Dim, IxDynImpl};
 use numpy::{PyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -138,12 +137,9 @@ impl GribMessageMetadata {
         )
     }
 
-    fn latitudes<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        PyArray::from_slice(py, &self.inner.latitude)
-    }
-
-    fn longitudes<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        PyArray::from_slice(py, &self.inner.longitude)
+    fn latlng<'py>(&self, py: Python<'py>) -> (&'py PyArray1<f64>, &'py PyArray1<f64>) {
+        let (lat, lng) = self.inner.latlng();
+        (PyArray::from_slice(py, &lat), PyArray::from_slice(py, &lng))
     }
 }
 
@@ -157,7 +153,7 @@ pub struct GribMessage {
 #[pymethods]
 impl GribMessage {
     fn data<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        PyArray::from_slice(py, &self.inner.flattened_data())
+        PyArray::from_slice(py, &self.inner.data)
     }
 }
 
@@ -214,7 +210,7 @@ pub fn parse_grib_mapping(
         Vec::new()
     };
 
-    scan_message_metadata(data, true)
+    scan_message_metadata(data)
         .into_iter()
         .filter_map(|(k, v)| {
             let message: GribMessageMetadata = GribMessageMetadata { inner: v.2 };

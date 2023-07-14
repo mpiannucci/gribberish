@@ -1,6 +1,7 @@
 use super::grid_definition_template::GridDefinitionTemplate;
 use super::tables::{EarthShape, ScanningModeFlags, ScanningMode};
 use crate::templates::template::{Template, TemplateType};
+use crate::utils::iter::projection::{RegularCoordinateIterator, LatLngProjection};
 use crate::utils::{bit_array_from_bytes, read_u32_from_bytes};
 
 use std::iter::Iterator;
@@ -130,20 +131,24 @@ impl LatLngTemplate {
         ScanningMode::read_flags(self.data[71])
     }
 
-    fn latitudes(&self) -> Vec<f64> {
+    pub fn latitudes(&self) -> Vec<f64> {
         let latitude_start = self.start_latitude();
         let latitude_step = self.j_direction_increment();
-        (0..self.latitude_count())
+        (0..self.y_count())
             .map(|i| latitude_start + i as f64 * latitude_step)
             .collect()
     }
 
-    fn longitudes(&self) -> Vec<f64> {
+    pub fn longitudes(&self) -> Vec<f64> {
         let longitude_start = self.start_longitude();
         let longitude_step = self.i_direction_increment();
-        (0..self.longitude_count())
+        (0..self.x_count())
             .map(|i| longitude_start + i as f64 * longitude_step)
             .collect()
+    }
+
+    pub fn grid_bounds(&self) -> ((f64, f64), (f64, f64)) {
+        ((self.start_latitude(), self.start_longitude()), (self.end_latitude(), self.end_longitude()))
     }
 }
 
@@ -164,29 +169,27 @@ impl GridDefinitionTemplate for LatLngTemplate {
         true
     }
 
-    fn latitude_count(&self) -> usize {
+    fn y_count(&self) -> usize {
         self.meridian_point_count() as usize
     }
 
-    fn longitude_count(&self) -> usize {
+    fn x_count(&self) -> usize {
         self.parallel_point_count() as usize
     }
 
-    fn grid_bounds(&self) -> ((f64, f64), (f64, f64)) {
-        ((self.start_latitude(), self.start_longitude()), (self.end_latitude(), self.end_longitude()))
-    }
+    fn projector(&self) -> LatLngProjection {
+        let lat_iter = RegularCoordinateIterator::new(
+            self.start_latitude(),
+            self.j_direction_increment(),
+            self.y_count()
+        );
 
-    fn latlng(&self) -> Vec<(f64, f64)> {
-        let latitudes = self.latitudes();
-        let longitudes = self.longitudes();
+        let lon_iter = RegularCoordinateIterator::new(
+            self.start_longitude(),
+            self.i_direction_increment(),
+            self.x_count()
+        );
 
-        let mut locations = Vec::with_capacity(latitudes.len() * longitudes.len());
-        for lat_i in 0..latitudes.len() {
-            for lon_i in 0..longitudes.len() {
-                locations.push((latitudes[lat_i], longitudes[lon_i]));
-            }
-        }
-
-        return locations;
+        LatLngProjection::PlateCaree(lat_iter, lon_iter)
     }
 }

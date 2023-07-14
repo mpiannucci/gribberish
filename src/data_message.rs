@@ -3,13 +3,7 @@ use crate::{message::Message, message_metadata::MessageMetadata};
 
 pub struct DataMessage {
     pub metadata: MessageMetadata,
-    pub data: Vec<Vec<f64>>
-}
-
-impl DataMessage {
-    pub fn flattened_data(&self) -> Vec<f64> {
-        self.data.clone().into_iter().flatten().collect()
-    }
+    pub data: Vec<f64>
 }
 
 impl <'a> TryFrom<&Message<'a>> for DataMessage {
@@ -19,7 +13,7 @@ impl <'a> TryFrom<&Message<'a>> for DataMessage {
         let metadata = MessageMetadata::try_from(message)?;
         Ok(DataMessage {
             metadata, 
-            data: message.data_grid()?,
+            data: message.data()?,
         })
     }
 }
@@ -30,7 +24,7 @@ impl <'a> TryFrom<(&Message<'a>, &MessageMetadata)> for DataMessage {
     fn try_from(message: (&Message<'a>, &MessageMetadata)) -> Result<Self, Self::Error> { 
         Ok(DataMessage {
             metadata: message.1.clone(),
-            data: message.0.data_grid()?,
+            data: message.0.data()?,
         })
     }
 }

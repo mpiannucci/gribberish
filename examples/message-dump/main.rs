@@ -1,7 +1,7 @@
 extern crate chrono;
 extern crate gribberish;
 
-use gribberish::message::{read_messages};
+use gribberish::message::read_messages;
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -49,6 +49,8 @@ fn main() {
     println!("------------------------------------------------------------------------------------------------------------");
 
     messages.iter().enumerate().for_each(|m| {
+        let bbox = m.1.latlng_projector().unwrap().bbox();
+
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             m.0,
@@ -67,7 +69,7 @@ fn main() {
             match m.1.forecast_date() { Ok(d) => format!("{d}"), Err(_) => "--".into()},
             match m.1.product_template_id() {Ok(p) => format!("{p}"), Err(_) => "--".into()},
             match m.1.grid_template_id() {Ok(d) => format!("{d}"), Err(_) => "--".into()},
-            match m.1.grid_bounds() {Ok(r) => format!("{:?}", r), Err(_) => "--".into()},
+            format!("{:?}", bbox),
             match m.1.grid_dimensions() {Ok(r) => format!("{:?}", r), Err(_) => "--".into()},
             match m.1.data_template_number() {Ok(t) => format!("{t}"), Err(_) => "--".into()},
             match m.1.data_point_count() {Ok(c) => format!("{c}"), Err(_) => "--".into()},
