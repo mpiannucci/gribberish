@@ -40,11 +40,11 @@ pub type ProjectionCenterFlags = [ProjectionCenter; 2];
 
 impl ProjectionCenter {
     pub fn read_flags(data: u8) -> ProjectionCenterFlags {
-        let pole = match data & 1 == 0 {
+        let pole = match data & 128 == 0 {
             true => ProjectionCenter::NorthPole,
             false => ProjectionCenter::SouthPole,
         };
-        let center = match data & 2 == 0 {
+        let center = match data & 64 == 0 {
             true => ProjectionCenter::OneCenter, 
             false => ProjectionCenter::BiPolar,
         }; 
@@ -96,35 +96,35 @@ pub type ScanningModeFlags = [ScanningMode; 8];
 
 impl ScanningMode {
     pub fn read_flags(data: u8) -> ScanningModeFlags {
-        let first = match data & 1 == 0 {
+        let first = match data & 128 == 0 {
             true => ScanningMode::PlusI, 
             false => ScanningMode::MinusI, 
         };
-        let second = match data & 2 == 0 {
+        let second = match data & 64 == 0 {
             true => ScanningMode::MinusJ, 
             false => ScanningMode::PlusJ, 
         };
-        let third = match data & 4 == 0 {
+        let third = match data & 32 == 0 {
             true => ScanningMode::ConsecutiveI, 
             false => ScanningMode::ConsecutiveJ, 
         };
-        let fourth = match data & 8 == 0 {
+        let fourth = match data & 16 == 0 {
             true => ScanningMode::SameDirection, 
             false => ScanningMode::AdjecentOppositeDirection, 
         };
-        let fifth = match data & 16 == 0 {
+        let fifth = match data & 8 == 0 {
             true => ScanningMode::OddNotOffset, 
             false => ScanningMode::OddOffset, 
         };
-        let sixth = match data & 32 == 0 {
+        let sixth = match data & 4 == 0 {
             true => ScanningMode::EvenNotOffset, 
             false => ScanningMode::EvenOffset, 
         };
-        let seventh = match data & 64 == 0 {
+        let seventh = match data & 2 == 0 {
             true => ScanningMode::NotOffsetJ, 
             false => ScanningMode::OffsetJ, 
         };
-        let eigth = match data & 128 == 0 {
+        let eigth = match data & 1 == 0 {
             true => ScanningMode::Normal, 
             false => ScanningMode::Staggerred, 
         };
@@ -146,17 +146,17 @@ mod tests {
         assert_eq!(flags[0], ProjectionCenter::NorthPole);
         assert_eq!(flags[1], ProjectionCenter::OneCenter);
 
-        let second = 0b00000001_u8;
+        let second = 0b10000001_u8;
         let flags = ProjectionCenter::read_flags(second);
         assert_eq!(flags[0], ProjectionCenter::SouthPole);
         assert_eq!(flags[1], ProjectionCenter::OneCenter);
 
-        let third = 0b00000011_u8;
+        let third = 0b11000000_u8;
         let flags = ProjectionCenter::read_flags(third);
         assert_eq!(flags[0], ProjectionCenter::SouthPole);
         assert_eq!(flags[1], ProjectionCenter::BiPolar);
 
-        let fourth = 0b00000010_u8;
+        let fourth = 0b01000000_u8;
         let flags = ProjectionCenter::read_flags(fourth);
         assert_eq!(flags[0], ProjectionCenter::NorthPole);
         assert_eq!(flags[1], ProjectionCenter::BiPolar);
@@ -169,8 +169,9 @@ mod tests {
         assert_eq!(flags[0], ScanningMode::PlusI);
         assert_eq!(flags[1], ScanningMode::MinusJ);
 
-        let second = 0b00000001_u8;
+        let second = 0b10000000_u8;
         let flags = ScanningMode::read_flags(second);
+        println!("{:?}", flags);
         assert_eq!(flags[0], ScanningMode::MinusI);
         assert_eq!(flags[1], ScanningMode::MinusJ);
     }

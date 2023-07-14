@@ -106,14 +106,20 @@ impl LatLngTemplate {
 
     pub fn i_direction_increment(&self) -> f64 {
         let value = read_u32_from_bytes(&self.data, 63).unwrap_or(0) as f64;
-        value * (10f64.powf(-6.0))
+        let value = value * (10f64.powf(-6.0));
+
+        if self.scanning_mode_flags()[0] == ScanningMode::MinusI {
+            value * -1.0
+        } else {
+            value
+        }
     }
 
     pub fn j_direction_increment(&self) -> f64 {
         let value = read_u32_from_bytes(&self.data, 67).unwrap_or(0) as f64;
         let value = value * (10f64.powf(-6.0));
 
-        if self.is_descending_latitude() {
+        if self.scanning_mode_flags()[1] == ScanningMode::MinusJ {
             value * -1.0
         } else {
             value
@@ -122,10 +128,6 @@ impl LatLngTemplate {
 
     pub fn scanning_mode_flags(&self) -> ScanningModeFlags {
         ScanningMode::read_flags(self.data[71])
-    }
-
-    fn is_descending_latitude(&self) -> bool {
-        self.start_latitude() > self.end_latitude()
     }
 
     fn latitudes(&self) -> Vec<f64> {
