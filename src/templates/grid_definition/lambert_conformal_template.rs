@@ -186,7 +186,7 @@ impl LambertConformalTemplate {
             })?;
 
         let dx = if self.scanning_mode_flags()[0] == ScanningMode::PlusI {self.x_direction_grid_length() } else {-self.x_direction_grid_length()};
-        let dy = if self.scanning_mode_flags()[1] == ScanningMode::PlusJ {-self.y_direction_grid_length() } else {self.y_direction_grid_length()};
+        let dy = if self.scanning_mode_flags()[1] == ScanningMode::PlusJ {self.y_direction_grid_length() } else {-self.y_direction_grid_length()};
 
         let x = (0..self.number_of_points_on_x_axis())
             .map(|i| start_x + dx * i as f64)
@@ -237,13 +237,14 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
             .project_axes()
             .expect("Failed to project LCC coordinates");
 
-        x.iter()
-            .flat_map(|x_coord| {
-                y.iter()
-                    .map(|y_coord| {
-                        projection
+        y.iter()
+            .flat_map(|y_coord| {
+                x.iter()
+                    .map(|x_coord| {
+                        let projected = projection
                             .inverse_project(*x_coord, *y_coord)
-                            .expect("Failed to inverse project from xy to lnglat")
+                            .expect("Failed to inverse project from xy to lnglat");
+                        (projected.1, projected.0)
                     })
                     .collect::<Vec<(f64, f64)>>()
             })
