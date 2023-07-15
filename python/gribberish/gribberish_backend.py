@@ -1,11 +1,12 @@
 import os
+import time
 
 import numpy as np
 import xarray as xr
 from xarray.backends.common import BackendEntrypoint, BackendArray
 from xarray.core import indexing
 
-from .gribberishpy import parse_grid_dataset, build_grib_array
+from .gribberishpy import parse_grid_dataset, parse_grib_array
 
 
 DATA_VAR_LOCK = xr.backends.locks.SerializableLock()
@@ -84,9 +85,22 @@ class GribberishBackendArray(BackendArray):
 
     def _raw_indexing_method(self, key: tuple) -> np.typing.ArrayLike:
         # thread safe method that access to data on disk
+        arrs = []
         with self.lock:
             with open(self.filename_or_obj, 'rb') as f:
-                raw_data = f.read()
-                data = build_grib_array(raw_data, self.shape, self.offsets)
+                for offset, size in self.offsets:
+                    f.seek(offset, 0)
+                    raw_data = f.read(size)
 
+                    # Current offset is the beginning of the raw data chunk
+                    # The shape is the shape of the spatial portion of the 
+                    # data chunk
+                    chunk_data = parse_grib_array(raw_data, 0, self.shape[-2:])
+                    arrs.append(chunk_data)
+    
+        # Concatentate the flattened arrays, the reshape to the target shape
+        data = np.concatenate(arrs)
+        data = data.reshape(self.shape)
+
+        # Return the applied index
         return data[key]

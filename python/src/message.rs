@@ -160,6 +160,7 @@ impl GribMessage {
 #[pyfunction]
 pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize, shape: Vec<usize>) ->  &'py PyArray1<f64> {
     let message = Message::from_data(data, offset).unwrap();
+
     let mut data = message.data().unwrap();
 
     // Every grib chunk is going to be assumed to be the size of one entire message spatially

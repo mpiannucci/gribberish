@@ -495,7 +495,7 @@ pub fn parse_grid_dataset<'py>(
 
         let offsets = v_sorted
             .iter()
-            .map(|chunk| mapping.get(chunk).unwrap().1)
+            .map(|chunk| (mapping.get(chunk).unwrap().1, mapping.get(chunk).unwrap().2.message_size))
             .collect::<Vec<_>>();
 
         let array = PyDict::new(py);
