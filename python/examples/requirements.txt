@@ -10,3 +10,5 @@ ujson
 dask[complete]
 ipywidgets
 scipy
+xoak
+scikit-learn

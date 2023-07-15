@@ -1,6 +1,6 @@
 use std::iter;
 
-use itertools::{izip};
+use itertools::izip;
 
 use crate::{
     templates::template::{Template, TemplateType},

@@ -475,6 +475,10 @@ pub fn parse_grid_dataset<'py>(
                 .set_item("statistical_process", statistical_process.to_string())
                 .unwrap();
         }
+        var_metadata
+            .set_item("crs", first.2.proj.clone())
+            .unwrap();
+
         data_var.set_item("attrs", var_metadata).unwrap();
         data_var.set_item("dims", dims).unwrap();
 
