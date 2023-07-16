@@ -30,7 +30,7 @@ class GribberishBackend(BackendEntrypoint):
         with open(filename_or_obj, 'rb') as f:
             raw_data = f.read()
 
-            dataset = parse_grid_dataset(
+            dataset =  parse_grid_dataset(
                 raw_data, 
                 drop_variables=drop_variables, 
                 only_variables=only_variables, 

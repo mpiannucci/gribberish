@@ -42,6 +42,40 @@ impl LatLngProjection {
         }
     }
 
+    pub fn x(&self) -> Vec<f64> {
+        match self {
+            LatLngProjection::PlateCaree(_, longitudes) => longitudes.clone().collect(),
+            LatLngProjection::LambertConformal(_, x, _) => x.clone().collect(),
+        }
+    }
+
+    pub fn y(&self) -> Vec<f64> {
+        match self {
+            LatLngProjection::PlateCaree(latitudes, _) => latitudes.clone().collect(),
+            LatLngProjection::LambertConformal(y, _, _) => y.clone().collect(),
+        }
+    }
+
+    pub fn project_xy(&self, x: f64, y: f64) -> (f64, f64) {
+        match self {
+            LatLngProjection::PlateCaree(_, _) => (x, y),
+            LatLngProjection::LambertConformal(_, _, projection) => {
+                let projected = projection.project(x, y).unwrap();
+                (projected.1, projected.0)
+            }
+        }
+    }
+
+    pub fn project_latlng(&self, lat: f64, lng: f64) -> (f64, f64) {
+        match self {
+            LatLngProjection::PlateCaree(_, _) => (lng, lat),
+            LatLngProjection::LambertConformal(_, _, projection) => {
+                let projected = projection.inverse_project(lng, lat).unwrap();
+                (projected.1, projected.0)
+            }
+        }
+    }
+
     pub fn bbox(&self) -> (f64, f64, f64, f64) {
         match self {
             LatLngProjection::PlateCaree(latitudes, longitudes) => {

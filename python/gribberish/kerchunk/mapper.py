@@ -112,7 +112,11 @@ def scan_gribberish(
     out = []
     with fsspec.open(url, "rb", **storage_options) as f:
         for offset, size, data in _split_file(f):
-            dataset = parse_grid_dataset(data, perserve_dims=perserve_dims)
+            try:
+                dataset = parse_grid_dataset(data, perserve_dims=perserve_dims)
+            except Exception as e:
+                # Skip messages that gribberish cannot handle yet
+                continue
 
             # Only reading one variable from each data chunk (1 message)
             var_name, var_data = next(iter(dataset['data_vars'].items()))

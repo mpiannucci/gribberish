@@ -5,12 +5,13 @@ use gribberish::{
     templates::product::tables::FixedSurfaceType,
 };
 use numpy::{
+    datetime::{units::Seconds, Datetime},
     ndarray::{Dim, IxDynImpl},
-    PyArray, PyArray1, datetime::{Datetime, units::Seconds},
+    PyArray, PyArray1,
 };
 use pyo3::{
     prelude::*,
-    types::{PyDict, PyList},
+    types::{PyDict, PyList}, exceptions::PyValueError,
 };
 
 #[pyfunction]
@@ -52,7 +53,7 @@ pub fn parse_grid_dataset<'py>(
     drop_variables: Option<&PyList>,
     only_variables: Option<&PyList>,
     perserve_dims: Option<&PyList>,
-) -> &'py PyDict {
+) -> PyResult<&'py PyDict> {
     let drop_variables = if let Some(drop_variables) = drop_variables {
         drop_variables
             .iter()
@@ -92,6 +93,12 @@ pub fn parse_grid_dataset<'py>(
             }
         })
         .collect::<HashMap<_, _>>();
+
+    if mapping.keys().len() == 0 {
+        return Err(PyValueError::new_err(
+            "No valid GRIB messages found",
+        ));
+    }
 
     let mut vars: HashMap<String, HashSet<String>> = HashMap::new();
     let mut hash_mapping: HashMap<String, Vec<String>> = HashMap::new();
@@ -383,7 +390,6 @@ pub fn parse_grid_dataset<'py>(
         .unwrap();
     latitude_metadata.set_item("long_name", "latitude").unwrap();
     latitude_metadata.set_item("unit", "degrees_north").unwrap();
-    latitude_metadata.set_item("axis", "Y").unwrap();
     latitude.set_item("attrs", latitude_metadata).unwrap();
 
     let longitude = PyDict::new(py);
@@ -395,7 +401,6 @@ pub fn parse_grid_dataset<'py>(
         .set_item("long_name", "longitude")
         .unwrap();
     longitude_metadata.set_item("unit", "degrees_east").unwrap();
-    longitude_metadata.set_item("axis", "X").unwrap();
     longitude.set_item("attrs", longitude_metadata).unwrap();
 
     let first = mapping.values().next().unwrap();
@@ -407,6 +412,7 @@ pub fn parse_grid_dataset<'py>(
 
     if first.2.is_regular_grid {
         latitude.set_item("dims", vec!["latitude"]).unwrap();
+        latitude_metadata.set_item("axis", "Y").unwrap();
 
         let (lat, lng) = first.2.latlng();
         latitude
@@ -414,6 +420,7 @@ pub fn parse_grid_dataset<'py>(
             .unwrap();
 
         longitude.set_item("dims", vec!["longitude"]).unwrap();
+        longitude_metadata.set_item("axis", "X").unwrap();
         longitude
             .set_item("values", PyArray1::from_slice(py, &lng))
             .unwrap();
@@ -423,8 +430,39 @@ pub fn parse_grid_dataset<'py>(
             v.push("longitude".to_string());
         });
     } else {
-        latitude.set_item("dims", vec!["y", "x"]).unwrap();
+        let y: &PyDict = PyDict::new(py);
+        let y_metadata = PyDict::new(py);
+        y_metadata.set_item("axis", "Y").unwrap();
+        y_metadata
+            .set_item("standard_name", "projection_y_coordinate")
+            .unwrap();
+        y_metadata
+            .set_item("long_name", "y coordinate of projection")
+            .unwrap();
+        y_metadata.set_item("unit", "m").unwrap();
+        y.set_item("attrs", y_metadata).unwrap();
+        y.set_item("dims", vec!["y"]).unwrap();
+        y.set_item("values", PyArray::from_slice(py, &first.2.projector.y()))
+            .unwrap();
+        coords.set_item("y", y).unwrap();
 
+        let x = PyDict::new(py);
+        let x_metadata = PyDict::new(py);
+        x_metadata.set_item("axis", "X").unwrap();
+        x_metadata
+            .set_item("standard_name", "projection_x_coordinate")
+            .unwrap();
+        x_metadata
+            .set_item("long_name", "x coordinate of projection")
+            .unwrap();
+        x_metadata.set_item("unit", "m").unwrap();
+        x.set_item("attrs", x_metadata).unwrap();
+        x.set_item("dims", vec!["x"]).unwrap();
+        x.set_item("values", PyArray::from_slice(py, &first.2.projector.x()))
+            .unwrap();
+        coords.set_item("x", x).unwrap();
+
+        latitude.set_item("dims", vec!["y", "x"]).unwrap();
         let (lat, lng) = first.2.latlng();
         let lats = PyArray::from_slice(py, &lat);
         let lats = lats.reshape([grid_shape.0, grid_shape.1]).unwrap();
@@ -475,9 +513,7 @@ pub fn parse_grid_dataset<'py>(
                 .set_item("statistical_process", statistical_process.to_string())
                 .unwrap();
         }
-        var_metadata
-            .set_item("crs", first.2.proj.clone())
-            .unwrap();
+        var_metadata.set_item("crs", first.2.proj.clone()).unwrap();
 
         data_var.set_item("attrs", var_metadata).unwrap();
         data_var.set_item("dims", dims).unwrap();
@@ -499,7 +535,12 @@ pub fn parse_grid_dataset<'py>(
 
         let offsets = v_sorted
             .iter()
-            .map(|chunk| (mapping.get(chunk).unwrap().1, mapping.get(chunk).unwrap().2.message_size))
+            .map(|chunk| {
+                (
+                    mapping.get(chunk).unwrap().1,
+                    mapping.get(chunk).unwrap().2.message_size,
+                )
+            })
             .collect::<Vec<_>>();
 
         let array = PyDict::new(py);
@@ -521,5 +562,5 @@ pub fn parse_grid_dataset<'py>(
     dataset.set_item("coords", coords).unwrap();
     dataset.set_item("data_vars", data_vars).unwrap();
     dataset.set_item("attrs", attrs).unwrap();
-    dataset
+    Ok(dataset)
 }
