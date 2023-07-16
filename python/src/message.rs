@@ -158,7 +158,12 @@ impl GribMessage {
 }
 
 #[pyfunction]
-pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize, shape: Vec<usize>) ->  &'py PyArray1<f64> {
+pub fn parse_grib_array<'py>(
+    py: Python<'py>,
+    data: &[u8],
+    offset: usize,
+    shape: Vec<usize>,
+) -> &'py PyArray1<f64> {
     let message = Message::from_data(data, offset).unwrap();
 
     let mut data = message.data().unwrap();
@@ -168,6 +173,13 @@ pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize, shape:
     data.resize(chunk_size, 0.0);
 
     PyArray::from_slice(py, &data)
+}
+
+#[pyfunction]
+pub fn parse_grib_message_metadata(data: &[u8], offset: usize) -> PyResult<GribMessageMetadata> {
+    let message = Message::from_data(data, offset).unwrap();
+    let metadata = MessageMetadata::try_from(&message).unwrap();
+    Ok(GribMessageMetadata { inner: metadata })
 }
 
 #[pyfunction]

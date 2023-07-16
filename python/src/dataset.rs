@@ -10,8 +10,9 @@ use numpy::{
     PyArray, PyArray1,
 };
 use pyo3::{
+    exceptions::PyValueError,
     prelude::*,
-    types::{PyDict, PyList}, exceptions::PyValueError,
+    types::{PyDict, PyList},
 };
 
 #[pyfunction]
@@ -53,6 +54,7 @@ pub fn parse_grid_dataset<'py>(
     drop_variables: Option<&PyList>,
     only_variables: Option<&PyList>,
     perserve_dims: Option<&PyList>,
+    filter_by_attrs: Option<&PyDict>,
 ) -> PyResult<&'py PyDict> {
     let drop_variables = if let Some(drop_variables) = drop_variables {
         drop_variables
@@ -83,6 +85,12 @@ pub fn parse_grid_dataset<'py>(
         Vec::new()
     };
 
+    let filter_by_attrs = if let Some(filter_by_attrs) = filter_by_attrs {
+        filter_by_attrs
+    } else {
+        PyDict::new(py)
+    };
+
     let mapping = scan_message_metadata(data)
         .into_iter()
         .filter_map(|(k, v)| {
@@ -95,9 +103,7 @@ pub fn parse_grid_dataset<'py>(
         .collect::<HashMap<_, _>>();
 
     if mapping.keys().len() == 0 {
-        return Err(PyValueError::new_err(
-            "No valid GRIB messages found",
-        ));
+        return Err(PyValueError::new_err("No valid GRIB messages found"));
     }
 
     let mut vars: HashMap<String, HashSet<String>> = HashMap::new();
@@ -463,15 +469,17 @@ pub fn parse_grid_dataset<'py>(
         coords.set_item("x", x).unwrap();
 
         latitude.set_item("dims", vec!["y", "x"]).unwrap();
-        let (lat, lng) = first.2.latlng();
-        let lats = PyArray::from_slice(py, &lat);
-        let lats = lats.reshape([grid_shape.0, grid_shape.1]).unwrap();
-        latitude.set_item("values", lats).unwrap();
+        let lats_array = PyDict::new(py);
+        lats_array.set_item("shape", [grid_shape.0, grid_shape.1]).unwrap();
+        lats_array.set_item("offsets", [first.1]).unwrap();
+        latitude.set_item("values", lats_array).unwrap();
+        latitude.set_item("shape", [grid_shape.0, grid_shape.1]).unwrap();
 
         longitude.set_item("dims", vec!["y", "x"]).unwrap();
-        let lngs = PyArray::from_slice(py, &lng);
-        let lngs = lngs.reshape([grid_shape.0, grid_shape.1]).unwrap();
-        longitude.set_item("values", lngs).unwrap();
+        let lngs_array = PyDict::new(py);
+        lngs_array.set_item("shape", [grid_shape.0, grid_shape.1]).unwrap();
+        lngs_array.set_item("offsets", [first.1]).unwrap();
+        longitude.set_item("values", lngs_array).unwrap();
 
         var_dims.iter_mut().for_each(|(_, v)| {
             v.push("y".to_string());
@@ -506,14 +514,39 @@ pub fn parse_grid_dataset<'py>(
             .set_item("reference_date", first.2.reference_date.to_rfc3339())
             .unwrap();
         var_metadata
+            .set_item("forecast_date", first.2.forecast_date.to_rfc3339())
+            .unwrap();
+        var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())
             .unwrap();
-        if let Some(statistical_process) = first.2.statistical_process.as_ref() {
-            var_metadata
-                .set_item("statistical_process", statistical_process.to_string())
-                .unwrap();
-        }
+        var_metadata
+            .set_item(
+                "statistical_process",
+                first
+                    .2
+                    .statistical_process
+                    .as_ref()
+                    .map(|s| s.to_string())
+                    .unwrap_or("".to_string()),
+            )
+            .unwrap();
         var_metadata.set_item("crs", first.2.proj.clone()).unwrap();
+
+        let mut filtered = false;
+        for attr in var_metadata.keys() {
+            if filter_by_attrs.contains(attr).unwrap() {
+                let filter_value = filter_by_attrs.get_item(attr).unwrap().to_string();
+                let var_value = var_metadata.get_item(attr).unwrap().to_string();
+                if filter_value != var_value {
+                    filtered = true;
+                    break;
+                }
+            }
+        }
+        
+        if filtered {
+            continue;
+        }
 
         data_var.set_item("attrs", var_metadata).unwrap();
         data_var.set_item("dims", dims).unwrap();

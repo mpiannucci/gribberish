@@ -142,15 +142,27 @@ def scan_gribberish(
             z[var_name].attrs["_ARRAY_DIMENSIONS"] = dims
 
             for coord_name, coord_data in dataset['coords'].items():
-                # TODO: Prob dont store inline for non regular grids
-                coord_array = np.array(coord_data['values'])
-                _store_array_inline(
-                    store,
-                    z,
-                    coord_array,
-                    coord_name,
-                    coord_data['attrs']
-                )
+                coord_values = coord_data["values"]
+                if "offsets" in coord_values:
+                    _store_array_ref(
+                        store,
+                        z,
+                        coord_data['values']['shape'],
+                        coord_name,
+                        offset,
+                        size,
+                        coord_data['attrs']
+                    )
+                else:
+                    coord_array = np.array(coord_data['values'])
+                    _store_array_inline(
+                        store,
+                        z,
+                        coord_array,
+                        coord_name,
+                        coord_data['attrs']
+                    )
+
                 z[coord_name].attrs["_ARRAY_DIMENSIONS"] = coord_data['dims']
 
             out.append(
