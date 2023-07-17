@@ -1,37 +1,55 @@
+use std::collections::HashMap;
+
 use itertools::Itertools;
 use mappers::{projections::LambertConformalConic, Projection};
 
 #[derive(Clone, Debug)]
+pub struct PlateCareeProjection {
+    pub latitudes: RegularCoordinateIterator,
+    pub longitudes: RegularCoordinateIterator,
+    pub projection_name: String,
+    pub projection_params: HashMap<String, f64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct LambertConformalConicProjection {
+    pub x: RegularCoordinateIterator,
+    pub y: RegularCoordinateIterator,
+    pub projection: LambertConformalConic,
+    pub projection_name: String,
+    pub projection_params: HashMap<String, f64>,
+}
+
+#[derive(Clone, Debug)]
 pub enum LatLngProjection {
-    PlateCaree(RegularCoordinateIterator, RegularCoordinateIterator),
-    LambertConformal(
-        RegularCoordinateIterator,
-        RegularCoordinateIterator,
-        LambertConformalConic,
-    ),
+    PlateCaree(PlateCareeProjection),
+    LambertConformal(LambertConformalConicProjection),
 }
 
 impl LatLngProjection {
     pub fn is_regular_latlng_grid(&self) -> bool {
         match self {
-            LatLngProjection::PlateCaree(_, _) => true,
-            LatLngProjection::LambertConformal(_, _, _) => false,
+            LatLngProjection::PlateCaree(_) => true,
+            LatLngProjection::LambertConformal(_) => false,
         }
     }
 
     pub fn lat_lng(&self) -> (Vec<f64>, Vec<f64>) {
         match self {
-            LatLngProjection::PlateCaree(latitudes, longitudes) => {
-                (latitudes.clone().collect(), longitudes.clone().collect())
-            }
-            LatLngProjection::LambertConformal(y, x, projection) => y
+            LatLngProjection::PlateCaree(projection) => (
+                projection.latitudes.clone().collect(),
+                projection.longitudes.clone().collect(),
+            ),
+            LatLngProjection::LambertConformal(projection) => projection
+                .y
                 .clone()
                 .flat_map(|y_coord| {
-                    let mut x = x.clone();
+                    let mut x = projection.x.clone();
                     x.current_index = 0;
                     x.clone()
                         .map(|x_coord| {
                             let projected = projection
+                                .projection
                                 .inverse_project(x_coord, y_coord)
                                 .expect("Failed to inverse project from xy to lnglat");
                             (projected.1, projected.0)
@@ -44,23 +62,23 @@ impl LatLngProjection {
 
     pub fn x(&self) -> Vec<f64> {
         match self {
-            LatLngProjection::PlateCaree(_, longitudes) => longitudes.clone().collect(),
-            LatLngProjection::LambertConformal(_, x, _) => x.clone().collect(),
+            LatLngProjection::PlateCaree(projection) => projection.longitudes.clone().collect(),
+            LatLngProjection::LambertConformal(projection) => projection.x.clone().collect(),
         }
     }
 
     pub fn y(&self) -> Vec<f64> {
         match self {
-            LatLngProjection::PlateCaree(latitudes, _) => latitudes.clone().collect(),
-            LatLngProjection::LambertConformal(y, _, _) => y.clone().collect(),
+            LatLngProjection::PlateCaree(projection) => projection.latitudes.clone().collect(),
+            LatLngProjection::LambertConformal(projection) => projection.y.clone().collect(),
         }
     }
 
     pub fn project_xy(&self, x: f64, y: f64) -> (f64, f64) {
         match self {
-            LatLngProjection::PlateCaree(_, _) => (x, y),
-            LatLngProjection::LambertConformal(_, _, projection) => {
-                let projected = projection.project(x, y).unwrap();
+            LatLngProjection::PlateCaree(_) => (x, y),
+            LatLngProjection::LambertConformal(projection) => {
+                let projected = projection.projection.project(x, y).unwrap();
                 (projected.1, projected.0)
             }
         }
@@ -68,9 +86,9 @@ impl LatLngProjection {
 
     pub fn project_latlng(&self, lat: f64, lng: f64) -> (f64, f64) {
         match self {
-            LatLngProjection::PlateCaree(_, _) => (lng, lat),
-            LatLngProjection::LambertConformal(_, _, projection) => {
-                let projected = projection.inverse_project(lng, lat).unwrap();
+            LatLngProjection::PlateCaree(_) => (lng, lat),
+            LatLngProjection::LambertConformal(projection) => {
+                let projected = projection.projection.inverse_project(lng, lat).unwrap();
                 (projected.1, projected.0)
             }
         }
@@ -78,19 +96,33 @@ impl LatLngProjection {
 
     pub fn bbox(&self) -> (f64, f64, f64, f64) {
         match self {
-            LatLngProjection::PlateCaree(latitudes, longitudes) => {
-                let minmax_lat = latitudes.clone().minmax();
+            LatLngProjection::PlateCaree(projection) => {
+                let minmax_lat = projection.latitudes.clone().minmax();
                 let (min_lat, max_lat) = minmax_lat.into_option().unwrap();
-                let minmax_lng = longitudes.clone().minmax();
+                let minmax_lng = projection.longitudes.clone().minmax();
                 let (min_lng, max_lng) = minmax_lng.into_option().unwrap();
                 (min_lat, min_lng, max_lat, max_lng)
             }
-            LatLngProjection::LambertConformal(_, _, _) => {
+            LatLngProjection::LambertConformal(_) => {
                 let (lat, lng) = self.lat_lng();
                 let (min_lat, max_lat) = lat.into_iter().minmax().into_option().unwrap();
                 let (min_lng, max_lng) = lng.into_iter().minmax().into_option().unwrap();
                 (min_lat, min_lng, max_lat, max_lng)
             }
+        }
+    }
+
+    pub fn proj_name(&self) -> String {
+        match self {
+            LatLngProjection::PlateCaree(projection) => projection.projection_name.clone(),
+            LatLngProjection::LambertConformal(projection) => projection.projection_name.clone(),
+        }
+    }
+
+    pub fn proj_params(&self) -> HashMap<String, f64> {
+        match self {
+            LatLngProjection::PlateCaree(projection) => projection.projection_params.clone(),
+            LatLngProjection::LambertConformal(projection) => projection.projection_params.clone(),
         }
     }
 }
@@ -135,6 +167,8 @@ impl Iterator for RegularCoordinateIterator {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     #[test]
     fn test_regular_grid_iterator() {
         let iter = super::RegularCoordinateIterator::new(0.0, 1.0, 10);
@@ -146,9 +180,14 @@ mod tests {
 
     #[test]
     fn test_regular_grid_latlng_projection() {
-        let lat = super::RegularCoordinateIterator::new(0.0, 1.0, 10);
-        let lng = super::RegularCoordinateIterator::new(0.0, 2.0, 5);
-        let projection = super::LatLngProjection::PlateCaree(lat, lng);
+        let latitudes = super::RegularCoordinateIterator::new(0.0, 1.0, 10);
+        let longitudes = super::RegularCoordinateIterator::new(0.0, 2.0, 5);
+        let projection = super::LatLngProjection::PlateCaree(crate::utils::iter::projection::PlateCareeProjection { 
+            latitudes, 
+            longitudes,
+            projection_name: "latlon".into(), 
+            projection_params: HashMap::from([("a".into(), 6367470.), ("b".into(), 6367470.)]),
+        });
         let (lats, lngs) = projection.lat_lng();
         assert_eq!(lats.len(), 10);
         assert_eq!(lngs.len(), 5);

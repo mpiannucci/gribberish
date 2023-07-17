@@ -1,7 +1,7 @@
 use super::grid_definition_template::GridDefinitionTemplate;
 use super::tables::{EarthShape, ScanningModeFlags, ScanningMode};
 use crate::templates::template::{Template, TemplateType};
-use crate::utils::iter::projection::{RegularCoordinateIterator, LatLngProjection};
+use crate::utils::iter::projection::{RegularCoordinateIterator, LatLngProjection, PlateCareeProjection};
 use crate::utils::{bit_array_from_bytes, read_u32_from_bytes};
 
 use std::iter::Iterator;
@@ -153,6 +153,17 @@ impl LatLngTemplate {
 }
 
 impl GridDefinitionTemplate for LatLngTemplate {
+    fn proj_name(&self) -> String {
+        "latlon".to_string()
+    }
+
+    fn proj_params(&self) -> std::collections::HashMap<String, f64> {
+        let mut params = std::collections::HashMap::new();
+        params.insert("a".to_string(), 6367470.0);
+        params.insert("b".to_string(), 6367470.0);
+        params
+    }
+
     fn proj_string(&self) -> String {
         format!("+proj=latlon +a=6367470 +b=6367470")
     }
@@ -190,6 +201,11 @@ impl GridDefinitionTemplate for LatLngTemplate {
             self.x_count()
         );
 
-        LatLngProjection::PlateCaree(lat_iter, lon_iter)
+        LatLngProjection::PlateCaree(PlateCareeProjection {
+            latitudes: lat_iter, 
+            longitudes: lon_iter,
+            projection_name: self.proj_name(),
+            projection_params: self.proj_params(),
+        })
     }
 }

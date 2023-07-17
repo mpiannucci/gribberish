@@ -6,7 +6,7 @@ import xarray as xr
 from xarray.backends.common import BackendEntrypoint, BackendArray
 from xarray.core import indexing
 
-from .gribberishpy import parse_grid_dataset, parse_grib_array
+from .gribberishpy import parse_grib_dataset, parse_grib_array
 
 
 DATA_VAR_LOCK = xr.backends.locks.SerializableLock()
@@ -31,7 +31,7 @@ class GribberishBackend(BackendEntrypoint):
         with open(filename_or_obj, 'rb') as f:
             raw_data = f.read()
 
-            dataset =  parse_grid_dataset(
+            dataset =  parse_grib_dataset(
                 raw_data, 
                 drop_variables=drop_variables, 
                 only_variables=only_variables, 

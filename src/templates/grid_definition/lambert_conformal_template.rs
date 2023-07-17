@@ -4,7 +4,7 @@ use crate::{
     templates::template::{Template, TemplateType},
     utils::{
         bit_array_from_bytes,
-        iter::projection::{LatLngProjection, RegularCoordinateIterator},
+        iter::projection::{LatLngProjection, RegularCoordinateIterator, LambertConformalConicProjection},
         read_u32_from_bytes,
     },
 };
@@ -222,6 +222,22 @@ impl LambertConformalTemplate {
 }
 
 impl GridDefinitionTemplate for LambertConformalTemplate {
+    fn proj_name(&self) -> String {
+        "lcc".to_string()
+    }
+
+    fn proj_params(&self) -> std::collections::HashMap<String, f64> {
+        let mut params = std::collections::HashMap::new();
+        params.insert(
+            "lon_0".to_string(),
+            self.longitude_of_paralell_meridian_to_latitude_increase(),
+        );
+        params.insert("lat_0".to_string(), self.latitude_of_dx_dy());
+        params.insert("lat_1".to_string(), self.latin_1());
+        params.insert("lat_2".to_string(), self.latin_2());
+        params
+    }
+
     fn proj_string(&self) -> String {
         format!(
             "+proj=lcc lon_0={} lat_0={} lat_1={} lat_2={}",
@@ -283,6 +299,12 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
             self.number_of_points_on_x_axis() as usize,
         );
 
-        LatLngProjection::LambertConformal(y_iter, x_iter, projection)
+        LatLngProjection::LambertConformal(LambertConformalConicProjection{
+            x: x_iter,
+            y: y_iter,
+            projection,
+            projection_name: self.proj_name(),
+            projection_params: self.proj_params(),
+        })
     }
 }

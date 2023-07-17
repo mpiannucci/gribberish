@@ -5,7 +5,7 @@ import numpy as np
 
 from kerchunk.utils import class_factory, _encode_for_JSON
 from .codec import GribberishCodec
-from ..gribberishpy import parse_grid_dataset
+from ..gribberishpy import parse_grib_dataset
 
 
 def _split_file(f):
@@ -113,7 +113,7 @@ def scan_gribberish(
     with fsspec.open(url, "rb", **storage_options) as f:
         for offset, size, data in _split_file(f):
             try:
-                dataset = parse_grid_dataset(data, perserve_dims=perserve_dims)
+                dataset = parse_grib_dataset(data, perserve_dims=perserve_dims, encode_coords=True)
             except Exception as e:
                 # Skip messages that gribberish cannot handle yet
                 continue
