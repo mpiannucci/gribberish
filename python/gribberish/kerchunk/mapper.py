@@ -146,7 +146,16 @@ def scan_gribberish(
 
             for coord_name, coord_data in dataset['coords'].items():
                 coord_values = coord_data["values"]
-                if "offsets" in coord_values:
+                if isinstance(coord_values, (list, np.ndarray)):
+                    coord_array = np.array(coord_data['values'])
+                    _store_array_inline(
+                        store,
+                        z,
+                        coord_array,
+                        coord_name,
+                        coord_data['attrs']
+                    )
+                else:
                     _store_array_ref(
                         store,
                         z,
@@ -154,15 +163,6 @@ def scan_gribberish(
                         coord_name,
                         offset,
                         size,
-                        coord_data['attrs']
-                    )
-                else:
-                    coord_array = np.array(coord_data['values'])
-                    _store_array_inline(
-                        store,
-                        z,
-                        coord_array,
-                        coord_name,
                         coord_data['attrs']
                     )
 
