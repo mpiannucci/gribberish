@@ -81,8 +81,9 @@ def scan_gribberish(
     common=None,
     storage_options=None,
     skip=0,
-    only_vars=None,
+    only_variables=None,
     perserve_dims=None,
+    filter_by_attrs=None,
 ):
     """
     Generate references for a GRIB2 file using gribberish
@@ -97,10 +98,12 @@ def scan_gribberish(
         For accessing the data, passed to filesystem
     skip: int
         If non-zero, stop processing the file after this many messages
-    only_vars: list(str)
+    only_variables: list(str)
         If given, only store these variables
     perserve_dims: list(str)
         If given, dont shrink down these dimensions when their size is 1
+    filter_by_attrs: dict
+        If given, only store variables that match these attributes
 
     Returns
     -------
@@ -113,14 +116,14 @@ def scan_gribberish(
     with fsspec.open(url, "rb", **storage_options) as f:
         for offset, size, data in _split_file(f):
             try:
-                dataset = parse_grib_dataset(data, perserve_dims=perserve_dims, encode_coords=True)
+                dataset = parse_grib_dataset(data, perserve_dims=perserve_dims, encode_coords=True, filter_by_attrs=filter_by_attrs)
+                var_name, var_data = next(iter(dataset['data_vars'].items()))
             except Exception as e:
-                # Skip messages that gribberish cannot handle yet
+                # Skip messages that gribberish cannot handle yet or that are filtered out
                 continue
 
             # Only reading one variable from each data chunk (1 message)
-            var_name, var_data = next(iter(dataset['data_vars'].items()))
-            if only_vars and var_name not in only_vars:
+            if only_variables and var_name not in only_variables:
                 continue
 
             store = {}

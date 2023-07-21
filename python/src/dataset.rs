@@ -480,12 +480,16 @@ pub fn parse_grib_dataset<'py>(
 
         if encode_coords {
             let lats_array = PyDict::new(py);
-            lats_array.set_item("shape", [grid_shape.0, grid_shape.1]).unwrap();
+            lats_array
+                .set_item("shape", [grid_shape.0, grid_shape.1])
+                .unwrap();
             lats_array.set_item("offsets", [first.1]).unwrap();
             latitude.set_item("values", lats_array).unwrap();
 
             let lngs_array = PyDict::new(py);
-            lngs_array.set_item("shape", [grid_shape.0, grid_shape.1]).unwrap();
+            lngs_array
+                .set_item("shape", [grid_shape.0, grid_shape.1])
+                .unwrap();
             lngs_array.set_item("offsets", [first.1]).unwrap();
             longitude.set_item("values", lngs_array).unwrap();
         } else {
@@ -535,6 +539,21 @@ pub fn parse_grib_dataset<'py>(
             .set_item("forecast_date", first.2.forecast_date.to_rfc3339())
             .unwrap();
         var_metadata
+            .set_item(
+                "fixed_surface_type",
+                first.2.first_fixed_surface_type.to_string(),
+            )
+            .unwrap();
+        var_metadata
+            .set_item(
+                "fixed_surface_value",
+                first
+                    .2
+                    .first_fixed_surface_value
+                    .map_or("".to_string(), |f| f.to_string()),
+            )
+            .unwrap();
+        var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())
             .unwrap();
         var_metadata
@@ -553,12 +572,9 @@ pub fn parse_grib_dataset<'py>(
         proj_params
             .set_item("proj", first.2.projector.proj_name())
             .unwrap();
-        first.2.projector
-            .proj_params()
-            .iter()
-            .for_each(|(k, v)| {
-                proj_params.set_item(k, v).unwrap();
-            });
+        first.2.projector.proj_params().iter().for_each(|(k, v)| {
+            proj_params.set_item(k, v).unwrap();
+        });
         var_metadata.set_item("proj_params", proj_params).unwrap();
 
         var_metadata.set_item("crs", first.2.proj.clone()).unwrap();
@@ -574,7 +590,7 @@ pub fn parse_grib_dataset<'py>(
                 }
             }
         }
-        
+
         if filtered {
             continue;
         }

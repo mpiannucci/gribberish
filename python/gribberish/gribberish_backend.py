@@ -48,7 +48,7 @@ class GribberishBackend(BackendEntrypoint):
                 attrs=attrs
             )
 
-    open_dataset_parameters = ["filename_or_obj", "drop_variables", "only_variables", "perserve_dims"]
+    open_dataset_parameters = ["filename_or_obj", "drop_variables", "only_variables", "perserve_dims", "filter_by_attrs"]
 
     def guess_can_open(self, filename_or_obj):
         try:
