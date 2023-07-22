@@ -4,6 +4,7 @@ import zarr
 import numpy as np
 
 from kerchunk.utils import class_factory, _encode_for_JSON
+from kerchunk.codecs import GRIBCodec
 from .codec import GribberishCodec
 from ..gribberishpy import parse_grib_dataset
 
@@ -58,16 +59,23 @@ def _store_array_ref(
     var,
     offset,
     size,
-    attr
+    attr, 
+    use_cfgrib_codec=False
 ):
     shape = tuple(data_shape or ())
     data_type = np.dtype('float64')
+
+    if use_cfgrib_codec:
+        filters = [GRIBCodec(var=var, dtype=str(data_type))]
+    else:
+        filters = [GribberishCodec(var=var, dtype=str(data_type))]
+
     d = z.create_dataset(
         name=var,
         shape=shape,
         chunks=shape,
         dtype=data_type,
-        filters=[GribberishCodec(var=var, dtype=str(data_type))],
+        filters=filters,
         compressor=False,
         fill_value=None,
         overwrite=True,
@@ -84,6 +92,7 @@ def scan_gribberish(
     only_variables=None,
     perserve_dims=None,
     filter_by_attrs=None,
+    use_cfgrib_codec=False,
 ):
     """
     Generate references for a GRIB2 file using gribberish
@@ -104,6 +113,9 @@ def scan_gribberish(
         If given, dont shrink down these dimensions when their size is 1
     filter_by_attrs: dict
         If given, only store variables that match these attributes
+    use_cfgrib_codec: bool
+        If True, use the builtin kerchunk cfgrib codec instead of the
+            default gribberish codec
 
     Returns
     -------
@@ -137,7 +149,8 @@ def scan_gribberish(
                 var_name,
                 offset,
                 size,
-                var_data['attrs']
+                var_data['attrs'], 
+                use_cfgrib_codec,
             )
 
             # Coords
@@ -163,7 +176,8 @@ def scan_gribberish(
                         coord_name,
                         offset,
                         size,
-                        coord_data['attrs']
+                        coord_data['attrs'], 
+                        use_cfgrib_codec,
                     )
 
                 z[coord_name].attrs["_ARRAY_DIMENSIONS"] = coord_data['dims']

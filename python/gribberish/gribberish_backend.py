@@ -97,7 +97,7 @@ class GribberishBackendArray(BackendArray):
                     # Current offset is the beginning of the raw data chunk
                     # The shape is the shape of the spatial portion of the 
                     # data chunk
-                    chunk_data = parse_grib_array(raw_data, 0, self.shape[-2:])
+                    chunk_data = parse_grib_array(raw_data, 0)
                     arrs.append(chunk_data)
     
         # Concatentate the flattened arrays, the reshape to the target shape

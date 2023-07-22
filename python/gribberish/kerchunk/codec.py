@@ -21,10 +21,10 @@ class GribberishCodec(numcodecs.abc.Codec):
         return buf
 
     def decode(self, buf, out=None):
-        if self.var == 'latitudes' or self.var == 'longitudes':
+        if self.var == 'latitude' or self.var == 'longitude':
             message = parse_grib_message_metadata(buf, 0)
             lat, lng = message.latlng()
-            data = lat if self.var == 'latitudes' else lng
+            data = lat if self.var == 'latitude' else lng
         else:
             data = parse_grib_array(buf, 0)
 
