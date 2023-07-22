@@ -67,7 +67,7 @@ def _store_array_ref(
         shape=shape,
         chunks=shape,
         dtype=data_type,
-        filters=[GribberishCodec(var=var, dtype=str(data_type), shape=list(shape))],
+        filters=[GribberishCodec(var=var, dtype=str(data_type))],
         compressor=False,
         fill_value=None,
         overwrite=True,

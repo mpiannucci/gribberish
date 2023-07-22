@@ -1,4 +1,3 @@
-import threading
 import numcodecs
 
 from ..gribberishpy import parse_grib_array, parse_grib_message_metadata
@@ -13,9 +12,8 @@ class GribberishCodec(numcodecs.abc.Codec):
 
     codec_id = "gribberish"
 
-    def __init__(self, var, shape, dtype=None):
+    def __init__(self, var, dtype=None):
         self.var = var
-        self.shape = shape
         self.dtype = dtype
 
     def encode(self, buf):
@@ -23,12 +21,12 @@ class GribberishCodec(numcodecs.abc.Codec):
         return buf
 
     def decode(self, buf, out=None):
-        if self.var == 'latitude' or self.var == 'longitude':
+        if self.var == 'latitudes' or self.var == 'longitudes':
             message = parse_grib_message_metadata(buf, 0)
             lat, lng = message.latlng()
-            data = lat if self.var == 'latitude' else lng
+            data = lat if self.var == 'latitudes' else lng
         else:
-            data = parse_grib_array(buf, 0, self.shape)
+            data = parse_grib_array(buf, 0)
 
         if out is not None:
             return numcodecs.compat.ndarray_copy(data, out)
