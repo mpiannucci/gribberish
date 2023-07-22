@@ -61,13 +61,24 @@ impl GribMessageMetadata {
     }
 
     #[getter]
+    fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
+        PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
+    }
+
+    #[getter]
     fn forecast_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
         PyDateTime::from_timestamp(py, self.inner.forecast_date.timestamp() as f64, None)
     }
 
     #[getter]
-    fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
-        PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
+    fn time_interval_end<'py>(&self, py: Python<'py>) -> PyResult<Option<&'py PyDateTime>> {
+        if let Some(time_interval_end) = self.inner.time_interval_end {
+            let timestamp =
+                PyDateTime::from_timestamp(py, time_interval_end.timestamp() as f64, None)?;
+            Ok(Some(timestamp))
+        } else {
+            Ok(None)
+        }
     }
 
     #[getter]
@@ -158,11 +169,7 @@ impl GribMessage {
 }
 
 #[pyfunction]
-pub fn parse_grib_array<'py>(
-    py: Python<'py>,
-    data: &[u8],
-    offset: usize,
-) -> &'py PyArray1<f64> {
+pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize) -> &'py PyArray1<f64> {
     let message = Message::from_data(data, offset).unwrap();
 
     let mut data = message.data().unwrap();

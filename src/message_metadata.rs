@@ -30,6 +30,7 @@ pub struct MessageMetadata {
     pub has_bitmap: bool,
     pub forecast_date: DateTime<Utc>,
     pub reference_date: DateTime<Utc>,
+    pub time_interval_end: Option<DateTime<Utc>>,
     pub proj: String,
     pub crs: String,
     pub is_regular_grid: bool,
@@ -79,8 +80,9 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
                     .unwrap_or("Unknown".to_string())
             ),
             has_bitmap: message.has_bitmap(),
-            forecast_date: message.forecast_date()?,
             reference_date: message.reference_date()?,
+            forecast_date: message.forecast_date()?,
+            time_interval_end: message.time_interval_end()?,
             proj: message.proj_string()?,
             crs: message.crs()?,
             is_regular_grid: message.is_regular_grid()?,

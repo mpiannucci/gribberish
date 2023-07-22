@@ -27,6 +27,7 @@ class GribberishBackend(BackendEntrypoint):
         only_variables=None,
         perserve_dims=None,
         filter_by_attrs=None,
+        filter_by_variable_attrs=None,
     ):
         with open(filename_or_obj, 'rb') as f:
             raw_data = f.read()
@@ -36,7 +37,8 @@ class GribberishBackend(BackendEntrypoint):
                 drop_variables=drop_variables, 
                 only_variables=only_variables, 
                 perserve_dims=perserve_dims, 
-                filter_by_attrs=filter_by_attrs
+                filter_by_attrs=filter_by_attrs, 
+                filter_by_variable_attrs=filter_by_variable_attrs,
             )
             coords = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['coords'].items()}
             data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, array_metadata=v['values']) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
@@ -48,7 +50,14 @@ class GribberishBackend(BackendEntrypoint):
                 attrs=attrs
             )
 
-    open_dataset_parameters = ["filename_or_obj", "drop_variables", "only_variables", "perserve_dims", "filter_by_attrs"]
+    open_dataset_parameters = [
+        "filename_or_obj",
+        "drop_variables", 
+        "only_variables", 
+        "perserve_dims", 
+        "filter_by_attrs", 
+        "filter_by_variable_attrs"
+    ]
 
     def guess_can_open(self, filename_or_obj):
         try:

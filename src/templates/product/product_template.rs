@@ -10,7 +10,7 @@ pub trait ProductTemplate {
 	fn generating_process(&self) -> GeneratingProcess;
 	fn time_unit(&self) -> TimeUnit;
 	fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc>;
-	fn end_time(&self, reference_date: DateTime<Utc>) -> Option<DateTime<Utc>>;
+	fn time_interval_end(&self) -> Option<DateTime<Utc>>;
     fn first_fixed_surface_type(&self) -> FixedSurfaceType;
 	fn first_fixed_surface_value(&self) -> Option<f64>;
     fn second_fixed_surface_type(&self) -> FixedSurfaceType;

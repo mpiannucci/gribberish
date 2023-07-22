@@ -83,9 +83,10 @@ fn main() {
                 Ok(f) => format!("{} {}", f.0, f.1.unwrap_or(0.0)),
                 Err(_) => "--".into(),
             },
-            match m.1.forecast_date() {
-                Ok(d) => format!("{d}"),
-                Err(_) => "--".into(),
+            match (m.1.time_interval_end(), m.1.forecast_date()) {
+                (Ok(None), Ok(d)) => format!("{d}"),
+                (Ok(Some(d)), _) => format!("{d}"),
+                _ => "--".into(),
             },
             match m.1.product_template_id() {
                 Ok(p) => format!("{p}"),

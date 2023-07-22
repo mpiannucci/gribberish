@@ -21,16 +21,26 @@ pub enum FixedSurfaceType {
     CloudBase = 2,
     #[description = "cloud tops level"]
     CloudTop = 3,
+    #[description = "level of 0oc isotherm"]
+    ZeroDegreeIsotherm = 4,
+    #[description = "level of adiabatic condensation lifted from the surface"]
+    AdiabaticCondensationLifted = 5,
     #[description = "maximum wind level"]
     MaximumWindLevel = 6,
     #[description = "tropopause"]
     Tropopause = 7,
     #[description = "sea bottom"]
     SeaBottom = 9,
+    #[description = "nominal top of the atmosphere"]
+    NominalTopOfAtmosphere = 8,
     #[description = "entire atmosphere"]
     EntireAtmosphere = 10,
+    #[description = "level of free convection"]
+    LevelOfFreeConvection = 14,
     #[description = "isothermal level"]
     IsothermalLevel = 20,
+    #[description = "isobaric surface"]
+    IsobaricSurface = 100,
     #[description = "mean sea level"]
     MeanSeaLevel = 101,
     #[description = "specific altitude above mean sea level"]
@@ -41,6 +51,10 @@ pub enum FixedSurfaceType {
     SigmaLevel = 104,
     #[description = "hybrid level"]
     HybridLevel = 105,
+    #[description = "depth below land surface"]
+    DepthBelowLandSurface = 106,
+    #[description = "level at specified pressure difference from ground to level"]
+    LevelAtSpecifiedPressureDifferenceFromGroundToLevel = 108,
     #[description = "eta level"]
     EtaLevel = 111,
     #[description = "snow level"]
@@ -59,31 +73,30 @@ pub enum FixedSurfaceType {
     EntireAtmosphereAsSingleLayer = 200,
     #[description = "entire ocean as a single layer"]
     EntireOceanAsSingleLayer = 201,
+    #[description = "highest tropospheric freezing level"]
+    HighestTroposphericFreezingLevel = 204,
+    #[description = "boundary layer cloud layer"]
+    BoundaryLayerCloudLayer = 211,
+    #[description = "low cloud layer"]
+    LowCloudLayer = 214,
+    #[description = "cloud ceiling"]
+    CloudCeiling = 215,
+    #[description = "middle cloud layer"]
+    MiddleCloudLayer = 224,
+    #[description = "high cloud layer"]
+    HighCloudLayer = 234,
     #[description = "ordered Sequence of Data"]
     OrderedSequence = 241,
+    #[description = "equilibrium level"]
+    EquilibriumLevel = 247,
     #[description = "missing"]
     Missing = 255,
 }
 
 impl FixedSurfaceType {
     pub fn is_single_level(&self) -> bool {
-        match self {
-            FixedSurfaceType::GroundOrWater => true,
-            FixedSurfaceType::CloudBase => true,
-            FixedSurfaceType::CloudTop => true,
-            FixedSurfaceType::MaximumWindLevel => true,
-            FixedSurfaceType::Tropopause => true,
-            FixedSurfaceType::SeaBottom => true,
-            FixedSurfaceType::EntireAtmosphere => true,
-            FixedSurfaceType::IsothermalLevel => true,
-            FixedSurfaceType::MeanSeaLevel => true,
-            FixedSurfaceType::EntireAtmosphereAsSingleLayer => true,
-            FixedSurfaceType::EntireOceanAsSingleLayer => true,
-            FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel => true,
-            FixedSurfaceType::SpecifiedHeightLevelAboveGround => true,
-            FixedSurfaceType::Missing => true,
-            _ => false,
-        }
+        !self.is_vertical_level() && !self.is_sequence_level()
+
     }
 
     pub fn is_sequence_level(&self) -> bool {
@@ -104,6 +117,8 @@ impl FixedSurfaceType {
             FixedSurfaceType::DepthBelowSeaLevel => true,
             FixedSurfaceType::DepthBelowWaterSurface => true,
             FixedSurfaceType::MixingLayer => true,
+            FixedSurfaceType::IsobaricSurface => true,
+            FixedSurfaceType::LevelAtSpecifiedPressureDifferenceFromGroundToLevel => true,
             _ => false,
         }
     }
@@ -117,7 +132,7 @@ impl FixedSurfaceType {
             FixedSurfaceType::Tropopause => "tro",
             FixedSurfaceType::SeaBottom => "bot",
             FixedSurfaceType::EntireAtmosphere => "atm",
-            FixedSurfaceType::IsothermalLevel => "iso",
+            FixedSurfaceType::IsothermalLevel => "isotherm",
             FixedSurfaceType::MeanSeaLevel => "msl",
             FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel => "asl",
             FixedSurfaceType::SpecifiedHeightLevelAboveGround => "hag",
@@ -134,6 +149,20 @@ impl FixedSurfaceType {
             FixedSurfaceType::EntireOceanAsSingleLayer => "entire_ocean",
             FixedSurfaceType::OrderedSequence => "seq",
             FixedSurfaceType::Missing => "",
+            FixedSurfaceType::ZeroDegreeIsotherm => "zero_deg_isotherm",
+            FixedSurfaceType::AdiabaticCondensationLifted => "adiabatic_condensation_lifted",
+            FixedSurfaceType::NominalTopOfAtmosphere => "nominal_top",
+            FixedSurfaceType::LevelOfFreeConvection => "lfc",
+            FixedSurfaceType::DepthBelowLandSurface => "depth_bls",
+            FixedSurfaceType::HighestTroposphericFreezingLevel => "htfl",
+            FixedSurfaceType::BoundaryLayerCloudLayer => "bndry_cloud",
+            FixedSurfaceType::LowCloudLayer => "lcl",
+            FixedSurfaceType::CloudCeiling => "cld_ceiling",
+            FixedSurfaceType::MiddleCloudLayer => "mcl",
+            FixedSurfaceType::HighCloudLayer => "hcl",
+            FixedSurfaceType::EquilibriumLevel => "eqm",
+            FixedSurfaceType::IsobaricSurface => "isobar",
+            FixedSurfaceType::LevelAtSpecifiedPressureDifferenceFromGroundToLevel => "pres_diff",
         }
     }
 }
@@ -539,6 +568,22 @@ pub enum CloudProduct {
     #[abbrev = "TCDC"]
     #[unit = "%"]
     TotalCloudCover = 1,
+    #[description = "convective cloud cover"]
+    #[abbrev = "CDCON"]
+    #[unit = "%"]
+    ConvectiveCloudCover = 2,
+    #[description = "low cloud cover"]
+    #[abbrev = "LCDC"]
+    #[unit = "%"]
+    LowCloudCover = 3,
+    #[description = "middle cloud cover"]
+    #[abbrev = "MCDC"]
+    #[unit = "%"]
+    MediumCloudCover = 4,
+    #[description = "high cloud cover"]
+    #[abbrev = "HCDC"]
+    #[unit = "%"]
+    HighCloudCover = 5,
     Missing = 255,
 }
 

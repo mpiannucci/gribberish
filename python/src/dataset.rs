@@ -55,6 +55,7 @@ pub fn parse_grib_dataset<'py>(
     only_variables: Option<&PyList>,
     perserve_dims: Option<&PyList>,
     filter_by_attrs: Option<&PyDict>,
+    filter_by_variable_attrs: Option<&PyDict>,
     encode_coords: Option<bool>,
 ) -> PyResult<&'py PyDict> {
     let drop_variables = if let Some(drop_variables) = drop_variables {
@@ -91,6 +92,13 @@ pub fn parse_grib_dataset<'py>(
     } else {
         PyDict::new(py)
     };
+
+    let (filter_by_variable_attrs, filter_by_variable_attrs_defined) =
+        if let Some(filter_by_variable_attrs) = filter_by_variable_attrs {
+            (filter_by_variable_attrs, true)
+        } else {
+            (PyDict::new(py), false)
+        };
 
     let encode_coords = if let Some(encode_coords) = encode_coords {
         encode_coords
@@ -199,7 +207,11 @@ pub fn parse_grib_dataset<'py>(
     for (var, v) in var_mapping.iter() {
         let mut times = HashSet::new();
         for k in v.iter() {
-            times.insert(mapping.get(k).unwrap().2.forecast_date.clone());
+            if let Some(time_interval_end) = mapping.get(k).unwrap().2.time_interval_end {
+                times.insert(time_interval_end);
+            } else {
+                times.insert(mapping.get(k).unwrap().2.forecast_date.clone());
+            }
         }
         let mut times = times.into_iter().collect::<Vec<_>>();
         times.sort();
@@ -540,6 +552,15 @@ pub fn parse_grib_dataset<'py>(
             .unwrap();
         var_metadata
             .set_item(
+                "time_interval_end",
+                first
+                    .2
+                    .time_interval_end
+                    .map_or("".to_string(), |d| d.to_rfc3339()),
+            )
+            .unwrap();
+        var_metadata
+            .set_item(
                 "fixed_surface_type",
                 first.2.first_fixed_surface_type.to_string(),
             )
@@ -580,13 +601,32 @@ pub fn parse_grib_dataset<'py>(
         var_metadata.set_item("crs", first.2.proj.clone()).unwrap();
 
         let mut filtered = false;
-        for attr in var_metadata.keys() {
-            if filter_by_attrs.contains(attr).unwrap() {
-                let filter_value = filter_by_attrs.get_item(attr).unwrap().to_string();
-                let var_value = var_metadata.get_item(attr).unwrap().to_string();
-                if filter_value != var_value {
-                    filtered = true;
-                    break;
+        if filter_by_variable_attrs_defined {
+            if let Some(filter_by_variable_attrs) = filter_by_variable_attrs.get_item(var) {
+                let filter_by_variable_attrs = filter_by_variable_attrs
+                    .downcast::<PyDict>()
+                    .unwrap();
+                for attr in filter_by_variable_attrs.keys() {
+                    if filter_by_variable_attrs.contains(attr).unwrap() {
+                        let filter_value =
+                            filter_by_variable_attrs.get_item(attr).unwrap().to_string();
+                        let var_value = var_metadata.get_item(attr).unwrap().to_string();
+                        if filter_value != var_value {
+                            filtered = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            for attr in var_metadata.keys() {
+                if filter_by_attrs.contains(attr).unwrap() {
+                    let filter_value = filter_by_attrs.get_item(attr).unwrap().to_string();
+                    let var_value = var_metadata.get_item(attr).unwrap().to_string();
+                    if filter_value != var_value {
+                        filtered = true;
+                        break;
+                    }
                 }
             }
         }

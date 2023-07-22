@@ -1,6 +1,6 @@
 use crate::sections::{indicator::Discipline, section::Section, section::SectionIterator};
 use crate::templates::product::tables::{
-    DerivedForecastType, FixedSurfaceType, GeneratingProcess, TypeOfStatisticalProcessing, TimeUnit,
+    DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
 };
 use crate::utils::iter::projection::LatLngProjection;
 use chrono::{DateTime, Utc};
@@ -425,8 +425,27 @@ impl<'a> Message<'a> {
             product_definition.product_definition_template(discipline as u8),
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
-        
+
         Ok(product_template.time_unit())
+    }
+
+    pub fn time_interval_end(&self) -> Result<Option<DateTime<Utc>>, String> {
+        let discipline = self.discipline()?;
+
+        let product_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::ProductDefinition(product_definition) => Some(product_definition),
+                _ => None,
+            }),
+            "Product definition section not found when reading variable data".into()
+        );
+
+        let product_template = unwrap_or_return!(
+            product_definition.product_definition_template(discipline as u8),
+            "Only HorizontalAnalysisForecast templates are supported at this time".into()
+        );
+
+        Ok(product_template.time_interval_end())
     }
 
     pub fn first_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), String> {
@@ -548,10 +567,7 @@ impl<'a> Message<'a> {
             "Only latitude longitude templates supported at this time".into()
         );
 
-        Ok((
-            grid_template.y_count(),
-            grid_template.x_count(),
-        ))
+        Ok((grid_template.y_count(), grid_template.x_count()))
     }
 
     pub fn latlng_projector(&self) -> Result<LatLngProjection, String> {

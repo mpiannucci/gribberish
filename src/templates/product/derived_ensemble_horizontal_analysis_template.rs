@@ -145,7 +145,7 @@ impl ProductTemplate for DerivedEnsembleHorizontalAnalysisForecastTemplate {
         None
     }
 
-    fn end_time(&self, _reference_date: DateTime<Utc>) -> Option<DateTime<Utc>> {
+    fn time_interval_end(&self) -> Option<DateTime<Utc>> {
         None
     }
 }

@@ -92,6 +92,7 @@ def scan_gribberish(
     only_variables=None,
     perserve_dims=None,
     filter_by_attrs=None,
+    filter_by_variable_attrs=None,
     use_cfgrib_codec=False,
 ):
     """
@@ -113,6 +114,10 @@ def scan_gribberish(
         If given, dont shrink down these dimensions when their size is 1
     filter_by_attrs: dict
         If given, only store variables that match these attributes
+    filter_by_variable_attrs: dict
+        If given, check the attributes for these variables and only store
+            variables that match the listed attributes. If this is defined, 
+            filter_by_attrs is ignored.
     use_cfgrib_codec: bool
         If True, use the builtin kerchunk cfgrib codec instead of the
             default gribberish codec
@@ -128,7 +133,7 @@ def scan_gribberish(
     with fsspec.open(url, "rb", **storage_options) as f:
         for offset, size, data in _split_file(f):
             try:
-                dataset = parse_grib_dataset(data, perserve_dims=perserve_dims, encode_coords=True, filter_by_attrs=filter_by_attrs)
+                dataset = parse_grib_dataset(data, perserve_dims=perserve_dims, encode_coords=True, filter_by_attrs=filter_by_attrs, filter_by_variable_attrs=filter_by_variable_attrs)
                 var_name, var_data = next(iter(dataset['data_vars'].items()))
             except Exception as e:
                 # Skip messages that gribberish cannot handle yet or that are filtered out

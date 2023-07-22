@@ -174,7 +174,7 @@ impl ProductTemplate for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
         Some(self.data()[48].into())
     }
 
-    fn end_time(&self, _reference_date: DateTime<Utc>) -> Option<DateTime<Utc>> {
+    fn time_interval_end(&self) -> Option<DateTime<Utc>> {
         Some(self.time_interval_end())
     }    
 }
