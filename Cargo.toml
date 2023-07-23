@@ -21,3 +21,6 @@ debug = true
 default = ["png", "jpeg"]
 png = ["dep:png"]
 jpeg = ["dep:openjpeg-sys"]
+
+[dev-dependencies]
+clap = { version = "4.3.19", features = ["derive"] }

@@ -1,7 +1,7 @@
 extern crate chrono;
 extern crate gribberish;
 
-use gribberish::message::read_messages;
+use gribberish::message::{MessageIterator};
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -23,10 +23,9 @@ fn main() {
         .read_to_end(&mut raw_grib_data)
         .expect("failed to read raw grib2 data");
 
-    let messages = read_messages(raw_grib_data.as_slice()).collect::<Vec<_>>();
+    let message_iter = MessageIterator::from_data(raw_grib_data.as_slice(), 0);
 
     println!("GRIB2 file read: {}", grib_path);
-    println!("Message count: {}", messages.len());
     println!(
         "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
         "Message #",
@@ -47,65 +46,65 @@ fn main() {
     );
     println!("------------------------------------------------------------------------------------------------------------");
 
-    messages.iter().enumerate().for_each(|m| {
-        let bbox = m.1.latlng_projector().unwrap().bbox();
+    message_iter.enumerate().for_each(|(idx, m)| {
+        let bbox = m.latlng_projector().expect("Failed to get message projection").bbox();
 
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            m.0,
-            match m.1.parameter_index() {
+            idx,
+            match m.parameter_index() {
                 Ok(p) => p,
                 Err(_) => "--".into(),
             },
-            match m.1.variable_abbrev() {
+            match m.variable_abbrev() {
                 Ok(p) => p,
                 Err(_) => "--".into(),
             },
-            match m.1.variable_name() {
+            match m.variable_name() {
                 Ok(p) => p,
                 Err(_) => "--".into(),
             },
-            match m.1.unit() {
+            match m.unit() {
                 Ok(p) => p,
                 Err(_) => "--".into(),
             },
-            match m.1.generating_process() {
+            match m.generating_process() {
                 Ok(g) => format!("{g}"),
                 Err(_) => "--".into(),
             },
-            match (m.1.statistical_process_type(), m.1.derived_forecast_type()) {
+            match (m.statistical_process_type(), m.derived_forecast_type()) {
                 (Ok(Some(s)), Ok(Some(d))) => format!("{s:?} {d:?}"),
                 (Ok(Some(s)), Ok(None)) => format!("{s:?}"),
                 (Ok(None), Ok(Some(d))) => format!("{d:?}"),
                 _ => "--".into(),
             },
-            match m.1.first_fixed_surface() {
+            match m.first_fixed_surface() {
                 Ok(f) => format!("{} {}", f.0, f.1.unwrap_or(0.0)),
                 Err(_) => "--".into(),
             },
-            match (m.1.time_interval_end(), m.1.forecast_date()) {
+            match (m.time_interval_end(), m.forecast_date()) {
                 (Ok(None), Ok(d)) => format!("{d}"),
                 (Ok(Some(d)), _) => format!("{d}"),
                 _ => "--".into(),
             },
-            match m.1.product_template_id() {
+            match m.product_template_id() {
                 Ok(p) => format!("{p}"),
                 Err(_) => "--".into(),
             },
-            match m.1.grid_template_id() {
+            match m.grid_template_id() {
                 Ok(d) => format!("{d}"),
                 Err(_) => "--".into(),
             },
             format!("{:?}", bbox),
-            match m.1.grid_dimensions() {
+            match m.grid_dimensions() {
                 Ok(r) => format!("{:?}", r),
                 Err(_) => "--".into(),
             },
-            match m.1.data_template_number() {
+            match m.data_template_number() {
                 Ok(t) => format!("{t}"),
                 Err(_) => "--".into(),
             },
-            match m.1.data_point_count() {
+            match m.data_point_count() {
                 Ok(c) => format!("{c}"),
                 Err(_) => "--".into(),
             },
