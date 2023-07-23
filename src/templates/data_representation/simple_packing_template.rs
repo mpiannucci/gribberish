@@ -1,9 +1,8 @@
-use bitvec::macros::internal::funty::Fundamental;
 use bitvec::prelude::*;
 
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::OriginalFieldValue;
-use crate::utils::{from_bits, read_f32_from_bytes};
+use crate::utils::read_f32_from_bytes;
 use crate::{
     templates::template::{Template, TemplateType},
     utils::{iter::ScaleGribValueIterator, read_u16_from_bytes},
@@ -80,26 +79,16 @@ impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate
             return Err("Invalid bits per value size of 0".into());
         }
 
-        let bit_start_index: usize = 32 - bits_per_val;
-
-        let mut val_bits: [u8; 32] = [0; 32];
-
         let values = (0..bits.len())
             .step_by(bits_per_val)
             .map(|i| {
-                val_bits = [0; 32];
-
                 let mut i_end_index = i + bits_per_val;
                 if i_end_index >= bits.len() {
                     i_end_index = bits.len() - 1;
                 }
     
                 let relevent_bits = &bits[i..i_end_index];
-                for (j, bit) in relevent_bits.iter().enumerate() {
-                    val_bits[j + bit_start_index] = bit.as_u8();
-                }
-
-                from_bits::<u32>(&val_bits).unwrap()
+                relevent_bits.load_be::<u32>()
             })
             .scale_value_by(
                 self.binary_scale_factor(),
