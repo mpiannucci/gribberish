@@ -7,7 +7,7 @@ use itertools::izip;
 use crate::{
     templates::template::{Template, TemplateType},
     utils::{
-        filled_bit_array, from_bits, read_f32_from_bytes,
+        from_bits, read_f32_from_bytes,
         read_u32_from_bytes, read_u16_from_bytes, iter::ScaleGribValueIterator,
     },
 };
@@ -131,30 +131,21 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
         let bits_for_differencing = self.number_of_octets_for_differencing() as usize * 8;
         let mut idx = 0;
-        let d1 = unwrap_or_return!(
-            from_bits::<u32>(&filled_bit_array::<32>(&bits[idx..idx + bits_for_differencing])),
-            "failed to convert value to u32".into()
-        );
-        let d1 = as_signed!(d1, bits_for_differencing, i32);
+        let d1: u32 = (&bits[idx..idx + bits_for_differencing]).load_be();
+        let d1: i32 = as_signed!(d1, bits_for_differencing, i32);
         idx += bits_for_differencing;
 
-        let d2 = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
-            let val = unwrap_or_return!(
-                from_bits::<u32>(&filled_bit_array::<32>(&bits[idx..idx + bits_for_differencing])),
-                "failed to convert value to u32".into()
-            ); 
+        let d2: u32 = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
+            let val = (&bits[idx..idx + bits_for_differencing]).load_be();
             idx += bits_for_differencing;
             val
         } else {
             0
         };
-        let d2 = as_signed!(d2, bits_for_differencing, i32);
+        let d2: i32 = as_signed!(d2, bits_for_differencing, i32);
 
-        let dmin = unwrap_or_return!(
-            from_bits::<u32>(&filled_bit_array::<32>(&bits[idx..idx + bits_for_differencing])),
-            "failed to convert value to u32".into()
-        );
-        let dmin = as_signed!(dmin, bits_for_differencing, i32);
+        let dmin: u32 = (&bits[idx..idx + bits_for_differencing]).load_be();
+        let dmin: i32 = as_signed!(dmin, bits_for_differencing, i32);
         idx += bits_for_differencing;
 
         let group_reference_start = idx;

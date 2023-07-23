@@ -55,9 +55,28 @@ fn read_grib_messages(path: &str) -> Vec<u8> {
 //     println!("jpeg unpacking data() took an average of {duration_mean}ms per message");
 // }
 
+// #[test]
+// fn read_simple() {
+//     let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-UGRD.grib2");
+//     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+//     assert_eq!(messages.len(), 1);
+
+//     let message = messages.pop();
+//     assert!(message.is_some());
+//     let message = message.unwrap();
+
+//     let start = Instant::now();
+//     let data = message.data();
+//     let end = Instant::now();
+//     assert!(data.is_ok());
+//     let data = data.unwrap();
+//     println!("simple unpacking data() took {:?} for {} data points", end.duration_since(start), data.len());
+//     assert!((data[1000] - -4.46501350402832).abs() < 0.0000001);
+// }
+
 #[test]
-fn read_simple() {
-    let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-UGRD.grib2");
+fn read_spatial_differenced_complex() {
+    let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-TMP.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
     assert_eq!(messages.len(), 1);
 
@@ -70,23 +89,6 @@ fn read_simple() {
     let end = Instant::now();
     assert!(data.is_ok());
     let data = data.unwrap();
-    println!("simple unpacking data() took {:?} for {} data points", end.duration_since(start), data.len());
-    assert!((data[1000] - -4.46501350402832).abs() < 0.0000001);
+    println!("spatial complex unpacking data() took {:?} for {} data points", end.duration_since(start), data.len());
+    assert!((data[1000] - 303.7372741699219).abs() < 0.0000001);
 }
-
-// #[test]
-// fn read_spatial_differenced_complex() {
-//     let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-TMP.grib2");
-//     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
-//     assert_eq!(messages.len(), 1);
-
-//     let message = messages.pop();
-//     assert!(message.is_some());
-//     let message = message.unwrap();
-
-//     let start = Instant::now();
-//     let data = message.data();
-//     let end = Instant::now();
-//     assert!(data.is_ok());
-//     println!("spatial complex unpacking data() took {:?} for {} data points", end.duration_since(start), data.unwrap().len());
-// }
