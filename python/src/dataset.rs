@@ -22,28 +22,15 @@ pub fn build_grib_array<'py>(
     shape: Vec<usize>,
     offsets: Vec<usize>,
 ) -> &'py PyArray<f64, Dim<IxDynImpl>> {
-    // Every grib chunk is going to be assumed to be the size of one entire message spatially
-    let chunk_size = shape.iter().rev().take(2).product::<usize>();
-
     let v = offsets
         .iter()
         .flat_map(|offset| {
             let message = Message::from_data(data, *offset).unwrap();
-            // Should this be resized?
-            let mut data = message.data().unwrap();
-            data.resize(chunk_size, 0.0);
-            data
+            message.data().unwrap()
         })
         .collect::<Vec<_>>();
 
     let v = PyArray::from_slice(py, &v);
-    // let full_size = shape.iter().product::<usize>();
-    // if v.len() != full_size {
-    //     unsafe {
-    //         v.resize([full_size]).unwrap();
-    //     }
-    // }
-
     v.reshape(shape).unwrap()
 }
 
