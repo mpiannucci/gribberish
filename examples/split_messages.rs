@@ -47,7 +47,7 @@ pub fn main() {
     messages.iter().for_each(|(key, (idx, offset, metadata))| {
         let mut message_path = PathBuf::from(&output_folder);
         let root_name = grib_name.to_str().expect("Failed to get filename string");
-        let filename = format!("{root_name}-{key}-{idx}");
+        let filename = format!("{root_name}-{key}-{idx}.grib2");
         message_path.push(filename);
         let mut message_file = File::create(message_path).expect("Failed to create message file");
 

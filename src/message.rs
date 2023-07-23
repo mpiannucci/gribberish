@@ -687,11 +687,16 @@ impl<'a> Message<'a> {
             "Bitmap section not found when reading message data".into()
         );
 
-        if bitmap_section.has_bitmap() {
+        let mut data = if bitmap_section.has_bitmap() {
             let mapped_scaled_data = bitmap_section.map_data(scaled_unpacked_data);
-            Ok(mapped_scaled_data)
+            mapped_scaled_data
         } else {
-            Ok(scaled_unpacked_data)
-        }
+            scaled_unpacked_data
+        };
+
+        let shape = self.grid_dimensions()?;
+        let count = shape.0 * shape.1;
+        data.resize(count, 0.0);
+        Ok(data)
     }
 }

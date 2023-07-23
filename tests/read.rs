@@ -40,3 +40,17 @@ fn read_multi() {
         assert!(data.is_ok());
     }
 }
+
+#[test]
+fn read_hrrr_ugrd_surface() {
+    let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-UGRD.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop();
+    assert!(message.is_some());
+    let message = message.unwrap();
+
+    let data = message.data();
+    assert!(data.is_ok());
+}
