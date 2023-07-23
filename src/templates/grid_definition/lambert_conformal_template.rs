@@ -1,9 +1,10 @@
+use bitvec::prelude::*;
+
 use mappers::{projections::LambertConformalConic, Ellipsoid, Projection};
 
 use crate::{
     templates::template::{Template, TemplateType},
     utils::{
-        bit_array_from_bytes,
         iter::projection::{LatLngProjection, RegularCoordinateIterator, LambertConformalConicProjection},
         read_u32_from_bytes,
     },
@@ -91,8 +92,8 @@ impl LambertConformalTemplate {
         value * (10f64.powf(-6.0))
     }
 
-    pub fn resolution_component_flags(&self) -> Vec<u8> {
-        bit_array_from_bytes(&self.data[46..47])
+    pub fn resolution_component_flags(&self) -> &BitSlice<u8, Msb0> {
+        (&self.data[46..47]).view_bits()
     }
 
     pub fn latitude_of_dx_dy(&self) -> f64 {

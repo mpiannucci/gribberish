@@ -1,7 +1,9 @@
+use bitvec::prelude::*;
+
 use crate::{templates::template::{Template, TemplateType}, utils::{extract_jpeg_data, iter::ScaleGribValueIterator, read_u16_from_bytes}};
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::{CompressionType, OriginalFieldValue};
-use crate::utils::{read_f32_from_bytes, bits_to_bytes};
+use crate::utils::read_f32_from_bytes;
 
 pub struct JPEGDataRepresentationTemplate {
     data: Vec<u8>,
@@ -68,8 +70,8 @@ impl DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate {
 		self.bit_count() as usize
     }
 	
-	fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
-        let bytes = bits_to_bytes(bits).unwrap();
+	fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
+        let bytes = bits.to_bitvec().into();
 
         let output_value: Vec<f64> = extract_jpeg_data(&bytes)?
             .into_iter()

@@ -1,3 +1,5 @@
+use bitvec::prelude::*;
+
 use std::iter;
 
 use itertools::izip;
@@ -5,8 +7,7 @@ use itertools::izip;
 use crate::{
     templates::template::{Template, TemplateType},
     utils::{
-        filled_bit_array, from_bits, read_f32_from_bytes,
-        read_u32_from_bytes, read_u16_from_bytes, iter::ScaleGribValueIterator,
+        iter::ScaleGribValueIterator, read_f32_from_bytes, read_u16_from_bytes, read_u32_from_bytes,
     },
 };
 
@@ -49,11 +50,19 @@ impl ComplexSpatialPackingDataRepresentationTemplate {
     }
 
     pub fn binary_scale_factor(&self) -> i16 {
-        as_signed!(read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0), 16, i16)
+        as_signed!(
+            read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0),
+            16,
+            i16
+        )
     }
 
     pub fn decimal_scale_factor(&self) -> i16 {
-        as_signed!(read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0), 16, i16)
+        as_signed!(
+            read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0),
+            16,
+            i16
+        )
     }
 
     pub fn bit_count(&self) -> u8 {
@@ -126,78 +135,57 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
         let bits_for_differencing = self.number_of_octets_for_differencing() as usize * 8;
         let mut idx = 0;
-        let d1 = unwrap_or_return!(
-            from_bits::<u32>(&filled_bit_array::<32>(&bits[idx..idx + bits_for_differencing])),
-            "failed to convert value to u32".into()
-        );
-        let d1 = as_signed!(d1, bits_for_differencing, i32);
+        let d1: u32 = (&bits[idx..idx + bits_for_differencing]).load_be();
+        let d1: i32 = as_signed!(d1, bits_for_differencing, i32);
         idx += bits_for_differencing;
 
-        let d2 = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
-            let val = unwrap_or_return!(
-                from_bits::<u32>(&filled_bit_array::<32>(&bits[idx..idx + bits_for_differencing])),
-                "failed to convert value to u32".into()
-            ); 
+        let d2: u32 = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
+            let val = (&bits[idx..idx + bits_for_differencing]).load_be();
             idx += bits_for_differencing;
             val
         } else {
             0
         };
-        let d2 = as_signed!(d2, bits_for_differencing, i32);
+        let d2: i32 = as_signed!(d2, bits_for_differencing, i32);
 
-        let dmin = unwrap_or_return!(
-            from_bits::<u32>(&filled_bit_array::<32>(&bits[idx..idx + bits_for_differencing])),
-            "failed to convert value to u32".into()
-        );
-        let dmin = as_signed!(dmin, bits_for_differencing, i32);
+        let dmin: u32 = (&bits[idx..idx + bits_for_differencing]).load_be();
+        let dmin: i32 = as_signed!(dmin, bits_for_differencing, i32);
         idx += bits_for_differencing;
 
         let group_reference_start = idx;
         let ng = self.number_of_groups() as usize;
         let n_reference_bits = self.bit_count() as usize;
-        let group_reference_bit_start_index = 32 - n_reference_bits;
         let group_references = (0..ng).map(|ig| {
             let start = group_reference_start + ig * n_reference_bits;
-            let mut temp_container: [u8; 32] = [0; 32];
-            for i in 0..n_reference_bits {
-                temp_container[group_reference_bit_start_index + i] = bits[start + i];
-            }
-
-            from_bits::<u32>(&temp_container).unwrap()
+            bits[start..start + n_reference_bits].load_be::<u32>()
         });
 
-        let group_widths_start = group_reference_start + (((ng * n_reference_bits) as f32 / 8.0).ceil() as usize * 8);
+        let group_widths_start =
+            group_reference_start + (((ng * n_reference_bits) as f32 / 8.0).ceil() as usize * 8);
         let n_width_bits = self.group_width_bits() as usize;
-        let group_width_bit_start_index = 32 - n_width_bits;
+
         let group_widths = (0..ng).map(|ig| {
             let start = group_widths_start + ig * n_width_bits;
-            let mut temp_container: [u8; 32] = [0; 32];
-            for i in 0..n_width_bits {
-                temp_container[group_width_bit_start_index + i] = bits[start + i];
-            }
-
-            from_bits::<u32>(&temp_container).unwrap() + self.group_width_reference() as u32
+            let value = bits[start..start + n_width_bits].load_be::<u32>();
+            value + self.group_width_reference() as u32
         });
 
-        let group_lengths_start = group_widths_start + (((ng * n_width_bits) as f32 / 8.0).ceil() as usize * 8);
+        let group_lengths_start =
+            group_widths_start + (((ng * n_width_bits) as f32 / 8.0).ceil() as usize * 8);
         let n_length_bits = self.group_length_bits() as usize;
-        let group_length_bit_start_index = 32 - n_length_bits;
-        let group_lengths = (0..ng - 1).map(|ig| {
-            let start = group_lengths_start + ig * n_length_bits;
-            let mut temp_container: [u8; 32] = [0; 32];
-            for i in 0..n_length_bits {
-                temp_container[group_length_bit_start_index + i] = bits[start + i];
-            }
+        let group_lengths = (0..ng - 1)
+            .map(|ig| {
+                let start = group_lengths_start + ig * n_length_bits;
+                let value = bits[start..start + n_length_bits].load_be::<u32>();
+                value * self.group_length_increment() as u32 + self.group_length_reference()
+            })
+            .chain(iter::once(self.group_last_length()));
 
-            from_bits::<u32>(&temp_container).unwrap() * self.group_length_increment() as u32
-                + self.group_length_reference()
-        })
-        .chain(iter::once(self.group_last_length()));
-
-        let mut pos = group_lengths_start + (((ng * n_length_bits) as f32 / 8.0).ceil() as usize * 8);
+        let mut pos =
+            group_lengths_start + (((ng * n_length_bits) as f32 / 8.0).ceil() as usize * 8);
         let mut raw_values = Vec::with_capacity(ng);
         for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
             if width == 0 {
@@ -206,16 +194,12 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             }
 
             let n_bits = (width * length) as usize;
-            let mut temp_container: [u8; 32] = [0; 32];
-            let bit_start_index = 32 - width as usize;
             let group_values: Vec<i32> = (0..length)
                 .map(|i| {
-                    temp_container = [0; 32];
-                    for bit in 0..width as usize {
-                        temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit];
-                    }
-
-                    let raw = as_signed!(from_bits::<u32>(&temp_container).unwrap(), 32, i32);
+                    let value = bits
+                        [pos + (i * width) as usize..pos + (i * width) as usize + width as usize]
+                        .load_be::<u32>();
+                    let raw = as_signed!(value, 32, i32);
                     raw + reference as i32
                 })
                 .collect();
@@ -234,20 +218,24 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                     let val = raw_values[i] + values[i - 1] + dmin as i32;
                     values.push(val);
                 }
-            },
+            }
             SpatialDifferencingOrder::Second => {
-                values.push(d1 as i32); 
+                values.push(d1 as i32);
                 values.push(d2 as i32);
                 for i in 2..raw_values.len() {
                     let val = raw_values[i] + 2 * values[i - 1] - values[i - 2] + dmin as i32;
                     values.push(val);
                 }
-            },
+            }
         };
 
         let values = values
             .into_iter()
-            .scale_value_by(self.binary_scale_factor(), self.decimal_scale_factor(), self.reference_value())
+            .scale_value_by(
+                self.binary_scale_factor(),
+                self.decimal_scale_factor(),
+                self.reference_value(),
+            )
             .collect();
 
         Ok(values)

@@ -1,9 +1,12 @@
+use bitvec::macros::internal::funty::Fundamental;
+use bitvec::prelude::*;
+
+use crate::utils::iter::ScaleGribValueIterator;
 use itertools::izip;
-use crate::utils::iter::{ScaleGribValueIterator};
 
 use crate::{
     templates::template::{Template, TemplateType},
-    utils::{from_bits, read_f32_from_bytes, read_u32_from_bytes, read_u16_from_bytes},
+    utils::{read_f32_from_bytes, read_u16_from_bytes, read_u32_from_bytes},
 };
 
 use super::{
@@ -43,11 +46,19 @@ impl ComplexPackingDataRepresentationTemplate {
     }
 
     pub fn binary_scale_factor(&self) -> i16 {
-        as_signed!(read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0), 16, i16)
+        as_signed!(
+            read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0),
+            16,
+            i16
+        )
     }
 
     pub fn decimal_scale_factor(&self) -> i16 {
-        as_signed!(read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0), 16, i16)
+        as_signed!(
+            read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0),
+            16,
+            i16
+        )
     }
 
     pub fn bit_count(&self) -> u8 {
@@ -112,49 +123,33 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
         let ng = self.number_of_groups() as usize;
         let nbits = self.bit_count() as usize;
 
-        let group_reference_start_index = 32 - nbits;
         let group_references = (0..ng).map(|ig| {
             let start = ig * nbits;
-            let mut temp_container: [u8; 32] = [0; 32];
-            for i in 0..nbits {
-                temp_container[group_reference_start_index + i] = bits[start + i];
-            }
-
-            from_bits::<u32>(&temp_container).unwrap()
+            bits[start..start + nbits].load::<u32>()
         });
 
         let group_widths_start = ((ng * nbits) as f32 / 8.0).ceil() as usize * 8;
         let n_width_bits = self.group_width_bits() as usize;
-        let group_width_start_index = 32 - n_width_bits;
         let group_widths = (0..ng).map(|ig| {
             let start = group_widths_start + ig * n_width_bits;
-            let mut temp_container: [u8; 32] = [0; 32];
-            for i in 0..nbits {
-                temp_container[group_width_start_index + i] = bits[start + i];
-            }
-
-            from_bits::<u32>(&temp_container).unwrap() + self.group_width_reference() as u32
+            bits[start..start + n_width_bits].load::<u32>() + self.group_width_reference() as u32
         });
 
-        let group_lengths_start = group_widths_start + (((n_width_bits * ng) as f32 / 8.0).ceil() as usize * 8);
+        let group_lengths_start =
+            group_widths_start + (((n_width_bits * ng) as f32 / 8.0).ceil() as usize * 8);
         let n_length_bits = self.group_length_bits() as usize;
-        let group_length_start_index = 32 - n_length_bits;
         let group_lengths = (0..ng).map(|ig| {
             let start = group_lengths_start + ig * n_length_bits;
-            let mut temp_container: [u8; 32] = [0; 32];
-            for i in 0..nbits {
-                temp_container[group_length_start_index + i] = bits[start + i];
-            }
-
-            from_bits::<u32>(&temp_container).unwrap() * self.group_length_increment() as u32
+            bits[start..start + n_length_bits].load::<u32>() * self.group_length_increment() as u32
                 + self.group_length_reference()
         });
 
-        let mut pos = group_lengths_start + (((n_length_bits * ng) as f32 / 8.0).ceil() as usize * 8);
+        let mut pos =
+            group_lengths_start + (((n_length_bits * ng) as f32 / 8.0).ceil() as usize * 8);
         let mut raw_values = Vec::with_capacity(ng);
         for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
             if width == 0 {
@@ -168,10 +163,14 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
                 .map(|i| {
                     temp_container = [0; 32];
                     for bit in 0..width as usize {
-                        temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit];
+                        temp_container[bit_start_index + bit as usize] =
+                            bits[pos + (i * width) as usize + bit].as_u8();
                     }
 
-                    let raw = from_bits::<u32>(&temp_container).unwrap(); 
+                    let raw = bits
+                        [pos + (i * width) as usize..pos + (i * width) as usize + width as usize]
+                        .load::<u32>();
+
                     as_signed!(raw, 32, i32) + reference as i32
                 })
                 .collect();
@@ -182,10 +181,14 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         }
 
         let values: Vec<f64> = raw_values
-        .into_iter()
-        .flatten()
-        .scale_value_by(self.binary_scale_factor(), self.decimal_scale_factor(), self.reference_value())
-        .collect();
+            .into_iter()
+            .flatten()
+            .scale_value_by(
+                self.binary_scale_factor(),
+                self.decimal_scale_factor(),
+                self.reference_value(),
+            )
+            .collect();
 
         Ok(values)
     }

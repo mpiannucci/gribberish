@@ -1,8 +1,10 @@
+use bitvec::prelude::*;
+
 use super::grid_definition_template::GridDefinitionTemplate;
 use super::tables::{EarthShape, ScanningModeFlags, ScanningMode};
 use crate::templates::template::{Template, TemplateType};
 use crate::utils::iter::projection::{RegularCoordinateIterator, LatLngProjection, PlateCareeProjection};
-use crate::utils::{bit_array_from_bytes, read_u32_from_bytes};
+use crate::utils::read_u32_from_bytes;
 
 use std::iter::Iterator;
 use std::vec::Vec;
@@ -90,8 +92,8 @@ impl LatLngTemplate {
         value * (10f64.powf(-6.0))
     }
 
-    pub fn resolution_component_flags(&self) -> Vec<u8> {
-        bit_array_from_bytes(&self.data[54..55])
+    pub fn resolution_component_flags(&self) -> &BitSlice<u8, Msb0> {
+        (&self.data[54..55]).view_bits()
     }
 
     pub fn end_latitude(&self) -> f64 {
