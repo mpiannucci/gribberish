@@ -2,7 +2,6 @@ use bitvec::prelude::*;
 
 use std::vec::Vec;
 use std::iter::Iterator;
-// use crate::utils::bit_array_from_bytes;
 use crate::utils::read_u32_from_bytes;
 use super::grib_section::GribSection;
 
@@ -24,10 +23,6 @@ impl <'a> BitmapSection<'a> {
     pub fn raw_bitmap_data(&self) -> &[u8] {
         &self.data[6..]
     }
-
-    // pub fn bitmap(&self) -> Vec<u8> {
-    //     bit_array_from_bytes(self.raw_bitmap_data())
-    // }
 
     pub fn map_data(&self, unmapped_data: Vec<f64>) -> Vec<f64> {
         let mut nan_count: usize = 0;
