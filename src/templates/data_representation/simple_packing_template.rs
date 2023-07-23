@@ -1,3 +1,6 @@
+use bitvec::macros::internal::funty::Fundamental;
+use bitvec::prelude::*;
+
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::OriginalFieldValue;
 use crate::utils::{from_bits, read_f32_from_bytes};
@@ -71,7 +74,7 @@ impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate
         self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
         let bits_per_val: usize = self.bit_count().into();
         if bits_per_val == 0 {
             return Err("Invalid bits per value size of 0".into());
@@ -93,7 +96,7 @@ impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate
     
                 let relevent_bits = &bits[i..i_end_index];
                 for (j, bit) in relevent_bits.iter().enumerate() {
-                    val_bits[j + bit_start_index] = *bit;
+                    val_bits[j + bit_start_index] = bit.as_u8();
                 }
 
                 from_bits::<u32>(&val_bits).unwrap()

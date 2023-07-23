@@ -3,6 +3,7 @@ extern crate gribberish;
 use gribberish::message::{Message, read_messages};
 use std::fs::File;
 use std::io::Read;
+use std::time::Instant;
 use std::vec::Vec;
 
 fn read_grib_messages(path: &str) -> Vec<u8> {
@@ -51,6 +52,10 @@ fn read_hrrr_ugrd_surface() {
     assert!(message.is_some());
     let message = message.unwrap();
 
+    let start = Instant::now();
     let data = message.data();
+    let end = Instant::now();
+    println!("data() took {:?}", end.duration_since(start));
+
     assert!(data.is_ok());
 }

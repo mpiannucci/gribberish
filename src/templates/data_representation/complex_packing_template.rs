@@ -1,5 +1,8 @@
+use bitvec::macros::internal::funty::Fundamental;
+use bitvec::prelude::*;
+
 use itertools::izip;
-use crate::utils::iter::{ScaleGribValueIterator};
+use crate::utils::iter::ScaleGribValueIterator;
 
 use crate::{
     templates::template::{Template, TemplateType},
@@ -112,7 +115,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
         let ng = self.number_of_groups() as usize;
         let nbits = self.bit_count() as usize;
 
@@ -121,7 +124,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
             let start = ig * nbits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..nbits {
-                temp_container[group_reference_start_index + i] = bits[start + i];
+                temp_container[group_reference_start_index + i] = bits[start + i].as_u8();
             }
 
             from_bits::<u32>(&temp_container).unwrap()
@@ -134,7 +137,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
             let start = group_widths_start + ig * n_width_bits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..nbits {
-                temp_container[group_width_start_index + i] = bits[start + i];
+                temp_container[group_width_start_index + i] = bits[start + i].as_u8();
             }
 
             from_bits::<u32>(&temp_container).unwrap() + self.group_width_reference() as u32
@@ -147,7 +150,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
             let start = group_lengths_start + ig * n_length_bits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..nbits {
-                temp_container[group_length_start_index + i] = bits[start + i];
+                temp_container[group_length_start_index + i] = bits[start + i].as_u8();
             }
 
             from_bits::<u32>(&temp_container).unwrap() * self.group_length_increment() as u32
@@ -168,7 +171,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
                 .map(|i| {
                     temp_container = [0; 32];
                     for bit in 0..width as usize {
-                        temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit];
+                        temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit].as_u8();
                     }
 
                     let raw = from_bits::<u32>(&temp_container).unwrap(); 

@@ -1,4 +1,6 @@
-use crate::{templates::template::{Template, TemplateType}, utils::{bits_to_bytes, read_f32_from_bytes, read_u16_from_bytes, iter::ScaleGribValueIterator}};
+use bitvec::prelude::*;
+
+use crate::{templates::template::{Template, TemplateType}, utils::{read_f32_from_bytes, read_u16_from_bytes, iter::ScaleGribValueIterator}};
 use super::{DataRepresentationTemplate, tables::OriginalFieldValue};
 use png::Decoder;
 
@@ -59,8 +61,8 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
 		self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
-        let bytes = bits_to_bytes(bits).unwrap();
+    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
+        let bytes: Vec<u8> = bits.to_bitvec().into();
         
         let decoder = Decoder::new(bytes.as_slice());
         let mut reader = decoder.read_info().unwrap();

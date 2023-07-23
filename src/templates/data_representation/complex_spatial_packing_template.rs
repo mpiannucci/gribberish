@@ -1,3 +1,5 @@
+use bitvec::{prelude::*, macros::internal::funty::Fundamental};
+
 use std::iter;
 
 use itertools::izip;
@@ -126,7 +128,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: Vec<u8>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
         let bits_for_differencing = self.number_of_octets_for_differencing() as usize * 8;
         let mut idx = 0;
         let d1 = unwrap_or_return!(
@@ -163,7 +165,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             let start = group_reference_start + ig * n_reference_bits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..n_reference_bits {
-                temp_container[group_reference_bit_start_index + i] = bits[start + i];
+                temp_container[group_reference_bit_start_index + i] = bits[start + i].as_u8();
             }
 
             from_bits::<u32>(&temp_container).unwrap()
@@ -176,7 +178,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             let start = group_widths_start + ig * n_width_bits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..n_width_bits {
-                temp_container[group_width_bit_start_index + i] = bits[start + i];
+                temp_container[group_width_bit_start_index + i] = bits[start + i].as_u8();
             }
 
             from_bits::<u32>(&temp_container).unwrap() + self.group_width_reference() as u32
@@ -189,7 +191,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             let start = group_lengths_start + ig * n_length_bits;
             let mut temp_container: [u8; 32] = [0; 32];
             for i in 0..n_length_bits {
-                temp_container[group_length_bit_start_index + i] = bits[start + i];
+                temp_container[group_length_bit_start_index + i] = bits[start + i].as_u8();
             }
 
             from_bits::<u32>(&temp_container).unwrap() * self.group_length_increment() as u32
@@ -212,7 +214,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                 .map(|i| {
                     temp_container = [0; 32];
                     for bit in 0..width as usize {
-                        temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit];
+                        temp_container[bit_start_index + bit as usize] = bits[pos + (i * width) as usize + bit].as_u8();
                     }
 
                     let raw = as_signed!(from_bits::<u32>(&temp_container).unwrap(), 32, i32);
