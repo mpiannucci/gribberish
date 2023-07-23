@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::time::Instant;
 
 use gribberish::data_message::DataMessage;
 use gribberish::message::{read_messages, Message};
