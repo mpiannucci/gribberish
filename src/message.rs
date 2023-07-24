@@ -3,6 +3,7 @@ use crate::templates::product::tables::{
     DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
 };
 use crate::utils::iter::projection::LatLngProjection;
+use bitvec::view::BitView;
 use chrono::{DateTime, Utc};
 use gribberish_types::Parameter;
 use std::collections::HashMap;
@@ -640,18 +641,6 @@ impl<'a> Message<'a> {
         }
     }
 
-    pub fn bitmap(&self) -> Result<Vec<bool>, String> {
-        let bitmap_section = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::Bitmap(bitmap_section) => Some(bitmap_section),
-                _ => None,
-            }),
-            "Bitmap section not found when reading message data".into()
-        );
-
-        Ok(bitmap_section.bitmap().iter().map(|i| *i == 1u8).collect())
-    }
-
     pub fn data(&self) -> Result<Vec<f64>, String> {
         let data_section = unwrap_or_return!(
             self.sections().find_map(|s| match s {
@@ -661,7 +650,7 @@ impl<'a> Message<'a> {
             "Data section not found when reading message data".into()
         );
 
-        let raw_packed_data = data_section.raw_bit_data();
+        let raw_packed_data = data_section.raw_data_array().view_bits();
 
         let data_representation_section = unwrap_or_return!(
             self.sections().find_map(|s| match s {

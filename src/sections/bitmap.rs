@@ -1,6 +1,7 @@
+use bitvec::prelude::*;
+
 use std::vec::Vec;
 use std::iter::Iterator;
-use crate::utils::bit_array_from_bytes;
 use crate::utils::read_u32_from_bytes;
 use super::grib_section::GribSection;
 
@@ -23,22 +24,18 @@ impl <'a> BitmapSection<'a> {
         &self.data[6..]
     }
 
-    pub fn bitmap(&self) -> Vec<u8> {
-        bit_array_from_bytes(self.raw_bitmap_data())
-    }
-
     pub fn map_data(&self, unmapped_data: Vec<f64>) -> Vec<f64> {
         let mut nan_count: usize = 0;
 
-        let bitmask = self.bitmap();
+        let bitmask = self.raw_bitmap_data().view_bits::<Msb0>();
         let mut data = Vec::new();
         data.resize(bitmask.len(), 0.0);
 
         for (i, mask) in bitmask.iter().enumerate() {
-            data[i] = match mask {
+            data[i] = match *mask {
                 // TODO: Breaking here for grabbing all data
                 // 'index out of bounds: the len is 16243 but the index is 16243', src/sections/bitmap.rs:47:22
-                1 => unmapped_data[i - nan_count],
+                true => unmapped_data[i - nan_count],
                 _ => {
                     nan_count += 1;
                     std::f64::NAN
@@ -57,16 +54,16 @@ impl <'a> BitmapSection<'a> {
         // 110101011 01101101
         // 012345678
         // 5 - 2 = 3
-        let bitmask = self.bitmap();
+        let bitmask = self.raw_bitmap_data().view_bits::<Msb0>();
         if bitmask.len() <= index {
             return None
-        } else if bitmask[index] == 0 {
+        } else if bitmask[index] == false {
             return None
         }
 
         let mut nan_count: usize = 0;
         for i in (0..index).rev() {
-            if bitmask[i] == 0 {
+            if bitmask[i] == false{
                 nan_count += 1;
             }
         }

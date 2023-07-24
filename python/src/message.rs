@@ -171,7 +171,6 @@ impl GribMessage {
 #[pyfunction]
 pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize) -> &'py PyArray1<f64> {
     let message = Message::from_data(data, offset).unwrap();
-
     let data = message.data().unwrap();
     PyArray::from_slice(py, &data)
 }
