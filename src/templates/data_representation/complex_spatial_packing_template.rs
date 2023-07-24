@@ -159,8 +159,12 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let ng = self.number_of_groups() as usize;
         let n_reference_bits = self.bit_count() as usize;
         let group_references = (0..ng).map(|ig| {
-            let start = group_reference_start + ig * n_reference_bits;
-            bits[start..start + n_reference_bits].load_be::<u32>()
+            if n_reference_bits == 0 {
+                0
+            } else {
+                let start = group_reference_start + ig * n_reference_bits;
+                bits[start..start + n_reference_bits].load_be::<u32>()
+            }
         });
 
         let group_widths_start =
@@ -168,9 +172,13 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let n_width_bits = self.group_width_bits() as usize;
 
         let group_widths = (0..ng).map(|ig| {
-            let start = group_widths_start + ig * n_width_bits;
-            let value = bits[start..start + n_width_bits].load_be::<u32>();
-            value + self.group_width_reference() as u32
+            if n_width_bits == 0 {
+                0
+            } else {
+                let start = group_widths_start + ig * n_width_bits;
+                let value = bits[start..start + n_width_bits].load_be::<u32>();
+                value + self.group_width_reference() as u32
+            }
         });
 
         let group_lengths_start =
@@ -178,9 +186,13 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let n_length_bits = self.group_length_bits() as usize;
         let group_lengths = (0..ng - 1)
             .map(|ig| {
-                let start = group_lengths_start + ig * n_length_bits;
-                let value = bits[start..start + n_length_bits].load_be::<u32>();
-                value * self.group_length_increment() as u32 + self.group_length_reference()
+                if n_length_bits == 0 {
+                    0
+                } else {
+                    let start = group_lengths_start + ig * n_length_bits;
+                    let value = bits[start..start + n_length_bits].load_be::<u32>();
+                    value * self.group_length_increment() as u32 + self.group_length_reference()
+                }
             })
             .chain(iter::once(self.group_last_length()));
 

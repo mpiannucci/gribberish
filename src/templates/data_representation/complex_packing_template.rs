@@ -128,24 +128,38 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         let nbits = self.bit_count() as usize;
 
         let group_references = (0..ng).map(|ig| {
-            let start = ig * nbits;
-            bits[start..start + nbits].load::<u32>()
+            if nbits == 0 {
+                0
+            } else {
+                let start = ig * nbits;
+                bits[start..start + nbits].load::<u32>()
+            }
         });
 
         let group_widths_start = ((ng * nbits) as f32 / 8.0).ceil() as usize * 8;
         let n_width_bits = self.group_width_bits() as usize;
         let group_widths = (0..ng).map(|ig| {
-            let start = group_widths_start + ig * n_width_bits;
-            bits[start..start + n_width_bits].load::<u32>() + self.group_width_reference() as u32
+            if n_width_bits == 0 {
+                0
+            } else {
+                let start = group_widths_start + ig * n_width_bits;
+                bits[start..start + n_width_bits].load::<u32>()
+                    + self.group_width_reference() as u32
+            }
         });
 
         let group_lengths_start =
             group_widths_start + (((n_width_bits * ng) as f32 / 8.0).ceil() as usize * 8);
         let n_length_bits = self.group_length_bits() as usize;
         let group_lengths = (0..ng).map(|ig| {
-            let start = group_lengths_start + ig * n_length_bits;
-            bits[start..start + n_length_bits].load::<u32>() * self.group_length_increment() as u32
-                + self.group_length_reference()
+            if n_length_bits == 0 {
+                0
+            } else {
+                let start = group_lengths_start + ig * n_length_bits;
+                bits[start..start + n_length_bits].load::<u32>()
+                    * self.group_length_increment() as u32
+                    + self.group_length_reference()
+            }
         });
 
         let mut pos =
