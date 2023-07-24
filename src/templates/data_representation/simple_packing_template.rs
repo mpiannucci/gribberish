@@ -86,8 +86,7 @@ impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate
                 if i_end_index >= bits.len() {
                     i_end_index = bits.len() - 1;
                 }
-                
-    
+
                 let relevent_bits = &bits[i..i_end_index];
                 if relevent_bits.len() == 0 {
                     None

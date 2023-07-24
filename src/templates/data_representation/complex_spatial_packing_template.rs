@@ -198,29 +198,26 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         let mut pos =
             group_lengths_start + (((ng * n_length_bits) as f32 / 8.0).ceil() as usize * 8);
-        let mut raw_values = Vec::with_capacity(ng);
-        for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
-            if width == 0 {
-                raw_values.push(vec![reference as i32; length as usize]);
-                continue;
-            }
-
-            let n_bits = (width * length) as usize;
-            let group_values: Vec<i32> = (0..length)
-                .map(|i| {
-                    let value = bits
-                        [pos + (i * width) as usize..pos + (i * width) as usize + width as usize]
-                        .load_be::<u32>();
+        let raw_values = izip!(group_references, group_widths, group_lengths)
+            .flat_map(|(reference, width, length)| {
+                let n_bits = (width * length) as usize;
+                let group_values = (0..length).map(move |i| {
+                    let value = if width == 0 {
+                        0u32
+                    } else {
+                        bits[pos + (i * width) as usize
+                            ..pos + (i * width) as usize + width as usize]
+                            .load_be::<u32>()
+                    };
                     let raw = as_signed!(value, 32, i32);
                     raw + reference as i32
-                })
-                .collect();
+                });
 
-            pos += n_bits;
+                pos += n_bits;
 
-            raw_values.push(group_values);
-        }
-        let raw_values: Vec<i32> = raw_values.iter().flatten().map(|v| *v).collect();
+                group_values
+            })
+            .collect::<Vec<_>>();
 
         let mut values = Vec::with_capacity(raw_values.len());
         match self.spatial_differencing_order() {
