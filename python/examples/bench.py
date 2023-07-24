@@ -41,10 +41,12 @@ if __name__ == '__main__':
         offset = mapped[1]
         size = mapped[2].message_size
         end = offset + size
-
-        start = time.time()
-        data = gribberish.parse_grib_array(raw_data, offset)
-        end = time.time()
-        eccodes_times.append(end - start)
+        try:
+            start = time.time()
+            data = gribberish.parse_grib_array(raw_data, offset)
+            end = time.time()
+            gribberish_times.append(end - start)
+        except:
+            pass
     
     print(f'Average gribberish time: {(sum(gribberish_times) / len(gribberish_times)) * 1000} ms')
