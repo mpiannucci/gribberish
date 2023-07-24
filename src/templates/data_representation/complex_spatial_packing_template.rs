@@ -7,7 +7,7 @@ use itertools::izip;
 use crate::{
     templates::template::{Template, TemplateType},
     utils::{
-        iter::ScaleGribValueIterator, read_f32_from_bytes, read_u16_from_bytes, read_u32_from_bytes,
+        iter::{ScaleGribValueIterator, spatial_differencing::SpatialDifferencingIterator}, read_f32_from_bytes, read_u16_from_bytes, read_u32_from_bytes,
     },
 };
 
@@ -216,36 +216,26 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                 pos += n_bits;
 
                 group_values
-            })
-            .collect::<Vec<_>>();
+            });
 
-        let mut values = Vec::with_capacity(raw_values.len());
-        match self.spatial_differencing_order() {
-            SpatialDifferencingOrder::First => {
-                values.push(d1 as i32);
-                for i in 1..raw_values.len() {
-                    let val = raw_values[i] + values[i - 1] + dmin as i32;
-                    values.push(val);
-                }
-            }
-            SpatialDifferencingOrder::Second => {
-                values.push(d1 as i32);
-                values.push(d2 as i32);
-                for i in 2..raw_values.len() {
-                    let val = raw_values[i] + 2 * values[i - 1] - values[i - 2] + dmin as i32;
-                    values.push(val);
-                }
-            }
+        let values = match self.spatial_differencing_order() {
+            SpatialDifferencingOrder::First => raw_values
+                .apply_first_order_spatial_differencing(d1, dmin)
+                .scale_value_by(
+                    self.binary_scale_factor(),
+                    self.decimal_scale_factor(),
+                    self.reference_value(),
+                )
+                .collect(),
+            SpatialDifferencingOrder::Second => raw_values
+                .apply_second_order_spatial_differencing(d1, d2, dmin)
+                .scale_value_by(
+                    self.binary_scale_factor(),
+                    self.decimal_scale_factor(),
+                    self.reference_value(),
+                )
+                .collect()
         };
-
-        let values = values
-            .into_iter()
-            .scale_value_by(
-                self.binary_scale_factor(),
-                self.decimal_scale_factor(),
-                self.reference_value(),
-            )
-            .collect();
 
         Ok(values)
     }
