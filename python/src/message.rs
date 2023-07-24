@@ -150,7 +150,7 @@ impl GribMessageMetadata {
 
     fn latlng<'py>(&self, py: Python<'py>) -> (&'py PyArray1<f64>, &'py PyArray1<f64>) {
         let (lat, lng) = self.inner.latlng();
-        (PyArray::from_slice(py, &lat), PyArray::from_slice(py, &lng))
+        (PyArray::from_vec(py, lat), PyArray::from_vec(py, lng))
     }
 }
 
@@ -164,7 +164,7 @@ pub struct GribMessage {
 #[pymethods]
 impl GribMessage {
     fn data<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        PyArray::from_slice(py, &self.inner.data)
+        PyArray::from_vec(py, self.inner.data.clone())
     }
 }
 
@@ -172,7 +172,7 @@ impl GribMessage {
 pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize) -> &'py PyArray1<f64> {
     let message = Message::from_data(data, offset).unwrap();
     let data = message.data().unwrap();
-    PyArray::from_slice(py, &data)
+    PyArray::from_vec(py, data)
 }
 
 #[pyfunction]

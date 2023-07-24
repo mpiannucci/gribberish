@@ -21,10 +21,10 @@ if __name__ == '__main__':
         offset = mapped[1]
         size = mapped[2].message_size
         end = offset + size
-
-        message = eccodes.codes_new_from_message(raw_data[offset:end])
+        
         try:
             start = time.time()
+            message = eccodes.codes_new_from_message(raw_data[offset:end])
             data = eccodes.codes_get_array(message, "values")
             end = time.time()
             eccodes_times.append(end - start)
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     gribberish_times = []
     # First run with eccodes
     print(f'Processing {len(mapping)} messages with gribberish')
-    for _, mapped in mapping.items():
+    for key, mapped in mapping.items():
         offset = mapped[1]
         size = mapped[2].message_size
         end = offset + size
@@ -47,6 +47,7 @@ if __name__ == '__main__':
             end = time.time()
             gribberish_times.append(end - start)
         except:
+            print(key)
             pass
     
     print(f'Average gribberish time: {(sum(gribberish_times) / len(gribberish_times)) * 1000} ms')

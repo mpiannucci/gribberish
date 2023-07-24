@@ -30,7 +30,7 @@ pub fn build_grib_array<'py>(
         })
         .collect::<Vec<_>>();
 
-    let v = PyArray::from_slice(py, &v);
+    let v = PyArray::from_vec(py, v);
     v.reshape(shape).unwrap()
 }
 
@@ -229,7 +229,7 @@ pub fn parse_grib_dataset<'py>(
             .iter()
             .map(|d| Datetime::<Seconds>::from(d.timestamp()))
             .collect::<Vec<_>>();
-        let times = PyArray1::from_slice(py, &times);
+        let times = PyArray1::from_vec(py, times);
 
         time_dim_map[var].iter().for_each(|v: &String| {
             var_dims.get_mut(v).unwrap().push(name.clone());
@@ -428,13 +428,13 @@ pub fn parse_grib_dataset<'py>(
 
         let (lat, lng) = first.2.latlng();
         latitude
-            .set_item("values", PyArray1::from_slice(py, &lat))
+            .set_item("values", PyArray1::from_vec(py, lat))
             .unwrap();
 
         longitude.set_item("dims", vec!["longitude"]).unwrap();
         longitude_metadata.set_item("axis", "X").unwrap();
         longitude
-            .set_item("values", PyArray1::from_slice(py, &lng))
+            .set_item("values", PyArray1::from_vec(py, lng))
             .unwrap();
 
         var_dims.iter_mut().for_each(|(_, v)| {
@@ -454,7 +454,7 @@ pub fn parse_grib_dataset<'py>(
         y_metadata.set_item("unit", "m").unwrap();
         y.set_item("attrs", y_metadata).unwrap();
         y.set_item("dims", vec!["y"]).unwrap();
-        y.set_item("values", PyArray::from_slice(py, &first.2.projector.y()))
+        y.set_item("values", PyArray::from_vec(py, first.2.projector.y()))
             .unwrap();
         coords.set_item("y", y).unwrap();
 
@@ -470,7 +470,7 @@ pub fn parse_grib_dataset<'py>(
         x_metadata.set_item("unit", "m").unwrap();
         x.set_item("attrs", x_metadata).unwrap();
         x.set_item("dims", vec!["x"]).unwrap();
-        x.set_item("values", PyArray::from_slice(py, &first.2.projector.x()))
+        x.set_item("values", PyArray::from_vec(py, first.2.projector.x()))
             .unwrap();
         coords.set_item("x", x).unwrap();
 
@@ -493,11 +493,11 @@ pub fn parse_grib_dataset<'py>(
             longitude.set_item("values", lngs_array).unwrap();
         } else {
             let (lat, lng) = first.2.latlng();
-            let lats = PyArray::from_slice(py, &lat);
+            let lats = PyArray::from_vec(py, lat);
             let lats = lats.reshape([grid_shape.0, grid_shape.1]).unwrap();
             latitude.set_item("values", lats).unwrap();
 
-            let lngs = PyArray::from_slice(py, &lng);
+            let lngs = PyArray::from_vec(py, lng);
             let lngs = lngs.reshape([grid_shape.0, grid_shape.1]).unwrap();
             longitude.set_item("values", lngs).unwrap();
         }

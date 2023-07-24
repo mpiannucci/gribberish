@@ -30,11 +30,12 @@ impl <'a> BitmapSection<'a> {
         let bitmask = self.raw_bitmap_data().view_bits::<Msb0>();
         let mut data = Vec::new();
         data.resize(bitmask.len(), 0.0);
+        if unmapped_data.len() == 0 {
+            return data;
+        }
 
         for (i, mask) in bitmask.iter().enumerate() {
             data[i] = match *mask {
-                // TODO: Breaking here for grabbing all data
-                // 'index out of bounds: the len is 16243 but the index is 16243', src/sections/bitmap.rs:47:22
                 true => unmapped_data[i - nan_count],
                 _ => {
                     nan_count += 1;

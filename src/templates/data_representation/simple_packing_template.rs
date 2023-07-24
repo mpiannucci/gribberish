@@ -76,19 +76,24 @@ impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
         let bits_per_val: usize = self.bit_count().into();
         if bits_per_val == 0 {
-            return Err("Invalid bits per value size of 0".into());
+            return Ok(vec![]);
         }
 
         let values = (0..bits.len())
             .step_by(bits_per_val)
-            .map(|i| {
+            .filter_map(|i| {
                 let mut i_end_index = i + bits_per_val;
                 if i_end_index >= bits.len() {
                     i_end_index = bits.len() - 1;
                 }
+                
     
                 let relevent_bits = &bits[i..i_end_index];
-                relevent_bits.load_be::<u32>()
+                if relevent_bits.len() == 0 {
+                    None
+                } else {
+                    Some(relevent_bits.load_be::<u32>())
+                }
             })
             .scale_value_by(
                 self.binary_scale_factor(),

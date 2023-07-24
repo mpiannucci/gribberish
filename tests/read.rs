@@ -92,3 +92,22 @@ fn read_spatial_differenced_complex() {
     println!("spatial complex unpacking data() took {:?} for {} data points", end.duration_since(start), data.len());
     assert!((data[1000] - 303.7372741699219).abs() < 0.0000001);
 }
+
+#[test]
+fn read_simple_zerod() {
+    let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-CFRZR.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop();
+    assert!(message.is_some());
+    let message = message.unwrap();
+
+    let start = Instant::now();
+    let data = message.data();
+    let end = Instant::now();
+    assert!(data.is_ok());
+    let data = data.unwrap();
+    println!("simple zero unpacking data() took {:?} for {} data points", end.duration_since(start), data.len());
+    assert!((data[1000] - 0.0).abs() < 0.0000001);
+}
