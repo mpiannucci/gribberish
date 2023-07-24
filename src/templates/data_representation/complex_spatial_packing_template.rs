@@ -7,7 +7,8 @@ use itertools::izip;
 use crate::{
     templates::template::{Template, TemplateType},
     utils::{
-        iter::{ScaleGribValueIterator, spatial_differencing::SpatialDifferencingIterator}, read_f32_from_bytes, read_u16_from_bytes, read_u32_from_bytes,
+        iter::{spatial_differencing::SpatialDifferencingIterator, ScaleGribValueIterator},
+        read_f32_from_bytes, read_u16_from_bytes, read_u32_from_bytes,
     },
 };
 
@@ -198,8 +199,8 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         let mut pos =
             group_lengths_start + (((ng * n_length_bits) as f32 / 8.0).ceil() as usize * 8);
-        let raw_values = izip!(group_references, group_widths, group_lengths)
-            .flat_map(|(reference, width, length)| {
+        let raw_values = izip!(group_references, group_widths, group_lengths).flat_map(
+            |(reference, width, length)| {
                 let n_bits = (width * length) as usize;
                 let group_values = (0..length).map(move |i| {
                     let value = if width == 0 {
@@ -216,7 +217,8 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                 pos += n_bits;
 
                 group_values
-            });
+            },
+        );
 
         let values = match self.spatial_differencing_order() {
             SpatialDifferencingOrder::First => raw_values
@@ -234,7 +236,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
                     self.decimal_scale_factor(),
                     self.reference_value(),
                 )
-                .collect()
+                .collect(),
         };
 
         Ok(values)
