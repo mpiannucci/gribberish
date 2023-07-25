@@ -159,7 +159,7 @@ impl RegularCoordinateIterator {
         Self {
             start,
             step,
-            end: start + step * count as f64,
+            end: start + (step * (count - 1) as f64),
             current_index: 0,
             count,
         }
@@ -211,5 +211,16 @@ mod tests {
         let (lats, lngs) = projection.lat_lng();
         assert_eq!(lats.len(), 10);
         assert_eq!(lngs.len(), 5);
+    }
+
+    #[test]
+    fn test_start_end_regular_grid() {
+        let start = 0.0; 
+        let step = 0.25; 
+        let end = 359.75;
+        let count = 1440; 
+
+        let iter = super::RegularCoordinateIterator::new(start, step, count);
+        assert!((iter.end - end).abs() < f64::EPSILON);
     }
 }
