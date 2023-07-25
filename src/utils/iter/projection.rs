@@ -112,6 +112,24 @@ impl LatLngProjection {
         }
     }
 
+    pub fn latlng_start(&self) -> (f64, f64) {
+        match self {
+            LatLngProjection::PlateCaree(projection) => (projection.latitudes.start, projection.longitudes.start),
+            LatLngProjection::LambertConformal(projection) => {
+                self.project_xy(projection.x.start, projection.y.start)
+            },
+        }
+    }
+
+    pub fn latlng_end(&self) -> (f64, f64) {
+        match self {
+            LatLngProjection::PlateCaree(projection) => (projection.latitudes.end, projection.longitudes.end),
+            LatLngProjection::LambertConformal(projection) => {
+                self.project_xy(projection.x.end, projection.y.end)
+            },
+        }
+    }
+
     pub fn proj_name(&self) -> String {
         match self {
             LatLngProjection::PlateCaree(projection) => projection.projection_name.clone(),
@@ -131,6 +149,7 @@ impl LatLngProjection {
 pub struct RegularCoordinateIterator {
     start: f64,
     step: f64,
+    end: f64,
     current_index: usize,
     count: usize,
 }
@@ -140,6 +159,7 @@ impl RegularCoordinateIterator {
         Self {
             start,
             step,
+            end: start + step * count as f64,
             current_index: 0,
             count,
         }
