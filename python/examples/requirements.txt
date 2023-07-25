@@ -12,3 +12,5 @@ ipywidgets
 scipy
 xoak
 scikit-learn
+gcsfs
+s3fs
