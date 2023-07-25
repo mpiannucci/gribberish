@@ -10,11 +10,11 @@ def read_file(filename: str) -> bytes:
         return raw_data
 
 
-def read_gib_messages(filename: str):
+def scan_grib_messages(filename: str):
     raw_grib_data = read_file(filename)
     if not len(raw_grib_data):
         return []
-    return gribberish.parse_grib_messages(raw_grib_data)
+    return gribberish.scan_message_metadata(raw_grib_data)
 
 
 def create_filename(input_filename: str, message_index: int) -> str:
@@ -27,8 +27,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     input_filename = args.infile
 
-    messages = read_gib_messages(input_filename)
-    for index, message in enumerate(messages):
+    messages = scan_grib_messages(input_filename)
+    for index, offset, message in messages:
         data = message.data()
         print(message.proj)
         plt.imshow(numpy.ma.masked_where(data < -98, data))

@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
-use gribberish::data_message::DataMessage;
-use gribberish::message::{read_messages, Message};
+use gribberish::message::Message;
 use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
 use numpy::{PyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
@@ -156,15 +155,16 @@ impl GribMessageMetadata {
 
 #[pyclass]
 pub struct GribMessage {
-    inner: DataMessage,
+    offset: usize,
+    raw_data: Vec<u8>,
     #[pyo3(get)]
     pub metadata: GribMessageMetadata,
 }
 
 #[pymethods]
 impl GribMessage {
-    fn data<'py>(&self, py: Python<'py>) -> &'py PyArray1<f64> {
-        PyArray::from_vec(py, self.inner.data.clone())
+    fn data<'py>(&self, py: Python<'py>, ) -> &'py PyArray1<f64> {
+        parse_grib_array(py, &self.raw_data, self.offset)
     }
 }
 
@@ -186,27 +186,14 @@ pub fn parse_grib_message_metadata(data: &[u8], offset: usize) -> PyResult<GribM
 pub fn parse_grib_message<'py>(data: &[u8], offset: usize) -> PyResult<GribMessage> {
     match Message::from_data(&data.to_vec(), offset) {
         Some(m) => Ok(GribMessage {
-            inner: DataMessage::try_from(&m).unwrap(),
+            offset, 
+            raw_data: data.to_vec(),
             metadata: GribMessageMetadata {
                 inner: MessageMetadata::try_from(&m).unwrap(),
             },
         }),
         None => Err(PyTypeError::new_err("Failed to read GribMessage")),
     }
-}
-
-#[pyfunction]
-pub fn parse_grib_messages(data: &[u8]) -> PyResult<Vec<GribMessage>> {
-    let messages = read_messages(data)
-        .map(|m| GribMessage {
-            inner: DataMessage::try_from(&m).unwrap(),
-            metadata: GribMessageMetadata {
-                inner: MessageMetadata::try_from(&m).unwrap(),
-            },
-        })
-        .collect();
-
-    Ok(messages)
 }
 
 #[pyfunction]
