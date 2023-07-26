@@ -1,5 +1,6 @@
 import os
 import time
+import fsspec
 
 import numpy as np
 import xarray as xr
@@ -22,14 +23,17 @@ class GribberishBackend(BackendEntrypoint):
     def open_dataset(
         self,
         filename_or_obj,
-        *,
+        storage_options=None,
         drop_variables=None,
         only_variables=None,
         perserve_dims=None,
         filter_by_attrs=None,
         filter_by_variable_attrs=None,
+        # other backend specific keyword arguments
     ):
-        with open(filename_or_obj, 'rb') as f:
+        storage_options = storage_options or {}
+
+        with fsspec.open(filename_or_obj, 'rb', **storage_options) as f:
             raw_data = f.read()
 
             dataset =  parse_grib_dataset(
@@ -41,7 +45,7 @@ class GribberishBackend(BackendEntrypoint):
                 filter_by_variable_attrs=filter_by_variable_attrs,
             )
             coords = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['coords'].items()}
-            data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, array_metadata=v['values']) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
+            data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, storage_options=storage_options, array_metadata=v['values']) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
             attrs = dataset['attrs']
 
             return xr.Dataset(
@@ -56,7 +60,8 @@ class GribberishBackend(BackendEntrypoint):
         "only_variables", 
         "perserve_dims", 
         "filter_by_attrs", 
-        "filter_by_variable_attrs"
+        "filter_by_variable_attrs", 
+        "storage_options",
     ]
 
     def guess_can_open(self, filename_or_obj):
@@ -76,9 +81,11 @@ class GribberishBackendArray(BackendArray):
         self,
         filename_or_obj,
         array_metadata,
+        storage_options=None,
         # other backend specific keyword arguments
     ):
         self.filename_or_obj = filename_or_obj
+        self.storage_options = storage_options or {}
         self.shape = array_metadata['shape']
         self.offsets = array_metadata['offsets']
         self.dtype = np.dtype(np.float64)
@@ -98,7 +105,7 @@ class GribberishBackendArray(BackendArray):
         # thread safe method that access to data on disk
         arrs = []
         with self.lock:
-            with open(self.filename_or_obj, 'rb') as f:
+            with fsspec.open(self.filename_or_obj, 'rb', **self.storage_options) as f:
                 for offset, size in self.offsets:
                     f.seek(offset, 0)
                     raw_data = f.read(size)
