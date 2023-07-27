@@ -101,13 +101,13 @@ impl LatLngProjection {
                 let (min_lat, max_lat) = minmax_lat.into_option().unwrap();
                 let minmax_lng = projection.longitudes.clone().minmax();
                 let (min_lng, max_lng) = minmax_lng.into_option().unwrap();
-                (min_lat, min_lng, max_lat, max_lng)
+                (min_lng, min_lat, max_lng, max_lat)
             }
             LatLngProjection::LambertConformal(_) => {
                 let (lat, lng) = self.lat_lng();
                 let (min_lat, max_lat) = lat.into_iter().minmax().into_option().unwrap();
                 let (min_lng, max_lng) = lng.into_iter().minmax().into_option().unwrap();
-                (min_lat, min_lng, max_lat, max_lng)
+                (min_lng, min_lat, max_lng, max_lat)
             }
         }
     }
