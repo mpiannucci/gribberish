@@ -58,10 +58,6 @@ impl DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
 		self.data[16]
 	}
 
-	pub fn forecast_time(&self) -> u32 {
-		read_u32_from_bytes(&self.data, 18).unwrap_or(0)
-	}
-
     pub fn first_fixed_surface_scale_factor(&self) -> i8 {
         as_signed!(self.data[23], 8, i8)
     }
@@ -82,7 +78,7 @@ impl DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
 		self.data[35]
 	}
 
-    pub fn time_interval_end(&self) -> DateTime<Utc>  {
+    pub fn valid_end_date(&self) -> DateTime<Utc>  {
         let data = self.data();
         let year = read_u16_from_bytes(data, 36).unwrap_or(0) as i32;
         let month = data[38] as u32;
@@ -113,14 +109,6 @@ impl DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
     pub fn statistical_process_time_interval(&self) -> u32 {
         read_u32_from_bytes(self.data(), 51).unwrap_or(0)
     }
-
-    pub fn time_increment_unit(&self) -> TimeUnit {
-        self.data()[56].into()
-    }
-
-    pub fn time_increment_interval(&self) -> u32 {
-        read_u32_from_bytes(self.data(), 56).unwrap_or(0)
-    }
 }
 
 impl ProductTemplate for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
@@ -144,10 +132,25 @@ impl ProductTemplate for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
         self.data[17].into()
     }
 
+    fn time_increment_unit(&self) -> Option<TimeUnit> {
+        Some(self.data()[56].into())
+    }
+
+    fn time_interval(&self) -> u32 {
+        read_u32_from_bytes(&self.data, 18).unwrap_or(0)
+    }
+
+    fn time_increment_interval(&self) -> Option<u32> {
+        Some(read_u32_from_bytes(&self.data, 56).unwrap_or(0))
+    }
+
     fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc> {
-        let forecast_offset = self.forecast_time();
-		let offset_duration: Duration = self.time_unit().duration(forecast_offset as i64);
+		let offset_duration: Duration = self.time_interval_duration();
 		reference_date + offset_duration
+    }
+
+    fn forecast_end_datetime(&self, _reference_date: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        Some(self.valid_end_date())
     }
 
     fn first_fixed_surface_type(&self) -> FixedSurfaceType {
@@ -173,8 +176,4 @@ impl ProductTemplate for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
     fn statistical_process_type(&self) -> Option<TypeOfStatisticalProcessing> {
         Some(self.data()[48].into())
     }
-
-    fn time_interval_end(&self) -> Option<DateTime<Utc>> {
-        Some(self.time_interval_end())
-    }    
 }

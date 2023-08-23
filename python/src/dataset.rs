@@ -194,8 +194,8 @@ pub fn parse_grib_dataset<'py>(
     for (var, v) in var_mapping.iter() {
         let mut times = HashSet::new();
         for k in v.iter() {
-            if let Some(time_interval_end) = mapping.get(k).unwrap().2.time_interval_end {
-                times.insert(time_interval_end);
+            if let Some(forecast_end_date) = mapping.get(k).unwrap().2.forecast_end_date {
+                times.insert(forecast_end_date);
             } else {
                 times.insert(mapping.get(k).unwrap().2.forecast_date.clone());
             }
@@ -539,10 +539,10 @@ pub fn parse_grib_dataset<'py>(
             .unwrap();
         var_metadata
             .set_item(
-                "time_interval_end",
+                "forecast_end_date",
                 first
                     .2
-                    .time_interval_end
+                    .forecast_end_date
                     .map_or("".to_string(), |d| d.to_rfc3339()),
             )
             .unwrap();

@@ -1,7 +1,7 @@
 extern crate chrono;
 extern crate gribberish;
 
-use gribberish::message::{MessageIterator};
+use gribberish::message::MessageIterator;
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -82,7 +82,7 @@ fn main() {
                 Ok(f) => format!("{} {}", f.0, f.1.unwrap_or(0.0)),
                 Err(_) => "--".into(),
             },
-            match (m.time_interval_end(), m.forecast_date()) {
+            match (m.forecast_end_date(), m.forecast_date()) {
                 (Ok(None), Ok(d)) => format!("{d}"),
                 (Ok(Some(d)), _) => format!("{d}"),
                 _ => "--".into(),

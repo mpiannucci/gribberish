@@ -1,6 +1,6 @@
 use crate::templates::template::{Template, TemplateType};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 
 use super::product_template::ProductTemplate;
 use super::tables::{FixedSurfaceType, GeneratingProcess, TimeUnit};
@@ -51,10 +51,6 @@ impl HorizontalAnalysisForecastTemplate {
 
     pub fn observation_cutoff_minutes_after_cutoff_time(&self) -> u8 {
         self.data[16]
-    }
-
-    pub fn forecast_time(&self) -> u32 {
-        read_u32_from_bytes(&self.data, 18).unwrap_or(0)
     }
 
     pub fn first_fixed_surface_scale_factor(&self) -> i8 {
@@ -119,10 +115,25 @@ impl ProductTemplate for HorizontalAnalysisForecastTemplate {
         self.data[17].into()
     }
 
+    fn time_increment_unit(&self) -> Option<TimeUnit> {
+        None
+    }
+
+    fn time_interval(&self) -> u32 {
+        read_u32_from_bytes(&self.data, 18).unwrap_or(0)
+    }
+
+    fn time_increment_interval(&self) -> Option<u32> {
+        None
+    }
+
     fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc> {
-        let forecast_offset = self.forecast_time();
-        let offset_duration: Duration = self.time_unit().duration(forecast_offset as i64);
+        let offset_duration = self.time_interval_duration();
         reference_date + offset_duration
+    }
+
+    fn forecast_end_datetime(&self, _reference_date: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        None
     }
 
     fn first_fixed_surface_type(&self) -> FixedSurfaceType {
@@ -152,10 +163,6 @@ impl ProductTemplate for HorizontalAnalysisForecastTemplate {
     }
 
     fn statistical_process_type(&self) -> Option<super::tables::TypeOfStatisticalProcessing> {
-        None
-    }
-
-    fn time_interval_end(&self) -> Option<DateTime<Utc>> {
         None
     }
 }

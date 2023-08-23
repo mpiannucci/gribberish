@@ -70,10 +70,10 @@ impl GribMessageMetadata {
     }
 
     #[getter]
-    fn time_interval_end<'py>(&self, py: Python<'py>) -> PyResult<Option<&'py PyDateTime>> {
-        if let Some(time_interval_end) = self.inner.time_interval_end {
+    fn forecast_date_end<'py>(&self, py: Python<'py>) -> PyResult<Option<&'py PyDateTime>> {
+        if let Some(forecast_end_date) = self.inner.forecast_end_date {
             let timestamp =
-                PyDateTime::from_timestamp(py, time_interval_end.timestamp() as f64, None)?;
+                PyDateTime::from_timestamp(py, forecast_end_date.timestamp() as f64, None)?;
             Ok(Some(timestamp))
         } else {
             Ok(None)

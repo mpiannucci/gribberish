@@ -1,4 +1,6 @@
 use crate::sections::{indicator::Discipline, section::Section, section::SectionIterator};
+use crate::templates::grid_definition::GridDefinitionTemplate;
+use crate::templates::product::product_template::ProductTemplate;
 use crate::templates::product::tables::{
     DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
 };
@@ -230,7 +232,7 @@ impl<'a> Message<'a> {
         Ok(product_definition.product_definition_template_number())
     }
 
-    pub fn parameter_index(&self) -> Result<String, String> {
+    pub fn product_template(&self) -> Result<Box<dyn ProductTemplate>, String> {
         let mut sections = self.sections();
 
         let discipline = unwrap_or_return!(
@@ -254,6 +256,29 @@ impl<'a> Message<'a> {
             "Only HorizontalAnalysisForecast templates are supported at this time".into()
         );
 
+        Ok(product_template)
+    }
+
+    pub fn grid_template(&self) -> Result<Box<dyn GridDefinitionTemplate>, String> {
+        let grid_definition = unwrap_or_return!(
+            self.sections().find_map(|s| match s {
+                Section::GridDefinition(grid_definition) => Some(grid_definition),
+                _ => None,
+            }),
+            "Grid definition section not found when reading variable data".into()
+        );
+
+        let grid_template = unwrap_or_return!(
+            grid_definition.grid_definition_template(),
+            "Only latitude longitude templates supported at this time".into()
+        );
+
+        Ok(grid_template)
+    }
+
+    pub fn parameter_index(&self) -> Result<String, String> {
+        let discipline = self.discipline()?;
+        let product_template = self.product_template()?;
         let category = product_template.category_value();
         let parameter = product_template.parameter_value();
 
@@ -261,20 +286,7 @@ impl<'a> Message<'a> {
     }
 
     pub fn parameter(&self) -> Result<Parameter, String> {
-        let discipline = self.discipline()?;
-
-        let product_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::ProductDefinition(product_definition) => Some(product_definition),
-                _ => None,
-            }),
-            "Product definition section not found when reading variable data".into()
-        );
-
-        let product_template = unwrap_or_return!(
-            product_definition.product_definition_template(discipline as u8),
-            "Only HorizontalAnalysisForecast templates are supported at this time".into()
-        );
+        let product_template = self.product_template()?;
 
         let parameter = unwrap_or_return!(
             product_template.parameter(),
@@ -290,21 +302,7 @@ impl<'a> Message<'a> {
     }
 
     pub fn category(&self) -> Result<String, String> {
-        let discipline = self.discipline()?;
-
-        let product_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::ProductDefinition(product_definition) => Some(product_definition),
-                _ => None,
-            }),
-            "Product definition section not found when reading variable data".into()
-        );
-
-        let product_template = unwrap_or_return!(
-            product_definition.product_definition_template(discipline as u8),
-            "Only HorizontalAnalysisForecast templates are supported at this time".into()
-        );
-
+        let product_template = self.product_template()?;
         Ok(product_template.category().to_owned())
     }
 
@@ -335,176 +333,68 @@ impl<'a> Message<'a> {
     }
 
     pub fn generating_process(&self) -> Result<GeneratingProcess, String> {
-        let discipline = self.discipline()?;
-
-        let product_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::ProductDefinition(product_definition) => Some(product_definition),
-                _ => None,
-            }),
-            "Product definition section not found when reading variable data".into()
-        );
-
-        let product_template = unwrap_or_return!(
-            product_definition.product_definition_template(discipline as u8),
-            "Only HorizontalAnalysisForecast templates are supported at this time".into()
-        );
-
+        let product_template = self.product_template()?;
         Ok(product_template.generating_process())
     }
 
     pub fn derived_forecast_type(&self) -> Result<Option<DerivedForecastType>, String> {
-        let discipline = self.discipline()?;
-
-        let product_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::ProductDefinition(product_definition) => Some(product_definition),
-                _ => None,
-            }),
-            "Product definition section not found when reading variable data".into()
-        );
-
-        let product_template = unwrap_or_return!(
-            product_definition.product_definition_template(discipline as u8),
-            "Only HorizontalAnalysisForecast templates are supported at this time".into()
-        );
-
+        let product_template = self.product_template()?;
         Ok(product_template.derived_forecast_type())
     }
 
     pub fn statistical_process_type(&self) -> Result<Option<TypeOfStatisticalProcessing>, String> {
-        let discipline = self.discipline()?;
-
-        let product_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::ProductDefinition(product_definition) => Some(product_definition),
-                _ => None,
-            }),
-            "Product definition section not found when reading variable data".into()
-        );
-
-        let product_template = unwrap_or_return!(
-            product_definition.product_definition_template(discipline as u8),
-            "Only HorizontalAnalysisForecast templates are supported at this time".into()
-        );
-
+        let product_template = self.product_template()?;
         Ok(product_template.statistical_process_type())
     }
 
     pub fn forecast_date(&self) -> Result<DateTime<Utc>, String> {
-        let discipline = self.discipline()?;
-
-        let product_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::ProductDefinition(product_definition) => Some(product_definition),
-                _ => None,
-            }),
-            "Product definition section not found when reading variable data".into()
-        );
-
-        let product_template = unwrap_or_return!(
-            product_definition.product_definition_template(discipline as u8),
-            "Only HorizontalAnalysisForecast templates are supported at this time".into()
-        );
-
+        let product_template = self.product_template()?;
         let reference_date = self.reference_date()?;
         Ok(product_template.forecast_datetime(reference_date))
     }
 
+    pub fn forecast_end_date(&self) -> Result<Option<DateTime<Utc>>, String> {
+        let product_template = self.product_template()?;
+        let reference_date = self.reference_date()?;
+        Ok(product_template.forecast_end_datetime(reference_date))
+    }
+
     pub fn time_unit(&self) -> Result<TimeUnit, String> {
-        let discipline = self.discipline()?;
-
-        let product_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::ProductDefinition(product_definition) => Some(product_definition),
-                _ => None,
-            }),
-            "Product definition section not found when reading variable data".into()
-        );
-
-        let product_template = unwrap_or_return!(
-            product_definition.product_definition_template(discipline as u8),
-            "Only HorizontalAnalysisForecast templates are supported at this time".into()
-        );
-
+        let product_template = self.product_template()?;
         Ok(product_template.time_unit())
     }
 
-    pub fn time_interval_end(&self) -> Result<Option<DateTime<Utc>>, String> {
-        let discipline = self.discipline()?;
-
-        let product_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::ProductDefinition(product_definition) => Some(product_definition),
-                _ => None,
-            }),
-            "Product definition section not found when reading variable data".into()
-        );
-
-        let product_template = unwrap_or_return!(
-            product_definition.product_definition_template(discipline as u8),
-            "Only HorizontalAnalysisForecast templates are supported at this time".into()
-        );
-
-        Ok(product_template.time_interval_end())
+    pub fn time_increment_unit(&self) -> Result<Option<TimeUnit>, String> {
+        let product_template = self.product_template()?;
+        Ok(product_template.time_increment_unit())
     }
 
+    pub fn time_interval(&self) -> Result<u32, String> {
+        let product_template = self.product_template()?;
+        Ok(product_template.time_interval())
+    }
+
+    pub fn time_increment_interval(&self) -> Result<Option<u32>, String> {
+        let product_template = self.product_template()?;
+        Ok(product_template.time_increment_interval())
+    }
+    
     pub fn first_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), String> {
-        let discipline = self.discipline()?;
-
-        let product_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::ProductDefinition(product_definition) => Some(product_definition),
-                _ => None,
-            }),
-            "Product definition section not found when reading variable data".into()
-        );
-
-        let product_template = unwrap_or_return!(
-            product_definition.product_definition_template(discipline as u8),
-            "Only HorizontalAnalysisForecast templates are supported at this time".into()
-        );
-
+        let product_template = self.product_template()?;
         let surface_type = product_template.first_fixed_surface_type();
         let surface_value = product_template.first_fixed_surface_value();
         Ok((surface_type, surface_value))
     }
 
     pub fn second_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), String> {
-        let discipline = self.discipline()?;
-
-        let product_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::ProductDefinition(product_definition) => Some(product_definition),
-                _ => None,
-            }),
-            "Product definition section not found when reading variable data".into()
-        );
-
-        let product_template = unwrap_or_return!(
-            product_definition.product_definition_template(discipline as u8),
-            "Only HorizontalAnalysisForecast templates are supported at this time".into()
-        );
-
+        let product_template = self.product_template()?;
         let surface_type = product_template.second_fixed_surface_type();
         let surface_value = product_template.second_fixed_surface_value();
         Ok((surface_type, surface_value))
     }
 
     pub fn proj_string(&self) -> Result<String, String> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data".into()
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
+        let grid_template = self.grid_template()?;
         Ok(grid_template.proj_string())
     }
 
@@ -521,70 +411,22 @@ impl<'a> Message<'a> {
     }
 
     pub fn is_regular_grid(&self) -> Result<bool, String> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data".into()
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
+        let grid_template = self.grid_template()?;
         Ok(grid_template.is_regular_grid())
     }
 
     pub fn crs(&self) -> Result<String, String> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data".into()
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
+        let grid_template = self.grid_template()?;
         Ok(grid_template.crs())
     }
 
     pub fn grid_dimensions(&self) -> Result<(usize, usize), String> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data".into()
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
+        let grid_template = self.grid_template()?;
         Ok((grid_template.y_count(), grid_template.x_count()))
     }
 
     pub fn latlng_projector(&self) -> Result<LatLngProjection, String> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            "Grid definition section not found when reading variable data".into()
-        );
-
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            "Only latitude longitude templates supported at this time".into()
-        );
-
+        let grid_template = self.grid_template()?;
         Ok(grid_template.projector())
     }
 
