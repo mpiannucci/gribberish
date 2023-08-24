@@ -13,6 +13,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct MessageMetadata {
     pub key: String,
+    pub byte_offset: usize,
     pub message_size: usize,
     pub var: String,
     pub name: String,
@@ -49,6 +50,58 @@ impl MessageMetadata {
     pub fn latlng(&self) -> (Vec<f64>, Vec<f64>) {
         self.projector.lat_lng()
     }
+
+    pub fn as_idx(&self, index: usize) -> String {
+        let formatted_date = self.reference_date.format("%Y%m%d%H").to_string();
+        let level = if self.first_fixed_surface_type.is_single_level() {
+            self.first_fixed_surface_type.name().into()
+        } else {
+
+            let level_value = if let Some(level_value) = self.first_fixed_surface_value {
+                format!("{level_value:.0}")
+            } else {
+                "".to_string()
+            };
+
+            if self.first_fixed_surface_type.is_sequence_level() {
+                format!(
+                    "{level_value} in {}", self.first_fixed_surface_type.name()
+                )
+            } else {
+                let level_unit = if self.first_fixed_surface_type.unit().len() > 0 {
+                    format!(" {}", self.first_fixed_surface_type.unit())
+                } else {
+                    "".to_string()
+                };
+
+                format!(
+                    "{level_value}{level_unit} {}", self.first_fixed_surface_type.name()
+                )
+            }
+        };
+
+        let statistical_process = if let Some(statistical_process) = self.statistical_process.as_ref() {
+            format!("{} ", statistical_process.abbv())
+        } else {
+            "".to_string()
+        };
+
+        let time_offset = if let Some(time_increment_interval) = self.time_increment_interval {
+            format!("{}-{} ", self.time_interval, time_increment_interval)
+        } else {
+            format!("{} ", self.time_interval)
+        };
+
+        let time_unit = format!("{} ", self.time_unit);
+
+        format!(
+            "{index}:{byte_offset}:d={formatted_date}:{var}:{level}:{time_offset}{time_unit}{statistical_process}{generating_process}:",
+            index = index + 1,
+            byte_offset = self.byte_offset,
+            var = self.var,
+            generating_process = self.generating_process.abbv(),
+        )
+    }
 }
 
 impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
@@ -62,6 +115,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
 
         Ok(MessageMetadata {
             key: message.key()?,
+            byte_offset: message.byte_offset(),
             message_size: message.len(),
             var: message.variable_abbrev()?,
             name: message.variable_name()?,

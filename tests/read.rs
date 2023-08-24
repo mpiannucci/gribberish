@@ -1,12 +1,12 @@
 extern crate gribberish;
 
 use gribberish::message::{Message, read_messages};
-use std::fs::File;
-use std::io::Read;
 use std::time::Instant;
 use std::vec::Vec;
 
-fn read_grib_messages(path: &str) -> Vec<u8> {
+use std::{fs::File, io::Read};
+
+pub fn read_grib_messages(path: &str) -> Vec<u8> {
     let mut grib_file = File::open(path).expect("file not found");
 
     let mut raw_grib_data = Vec::new();

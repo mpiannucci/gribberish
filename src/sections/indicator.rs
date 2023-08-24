@@ -69,6 +69,7 @@ impl <'a> GribSection for IndicatorSection<'a> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     #[test]
     fn read_indicator() {

@@ -17,8 +17,10 @@ pub enum FixedSurfaceType {
     #[name = "surface"]
     #[description = "ground or water surface"]
     GroundOrWater = 1,
+    #[name = "cloud base"]
     #[description = "cloud base level"]
     CloudBase = 2,
+    #[name = "cloud top"]
     #[description = "cloud tops level"]
     CloudTop = 3,
     #[description = "level of 0oc isotherm"]
@@ -31,20 +33,25 @@ pub enum FixedSurfaceType {
     Tropopause = 7,
     #[description = "sea bottom"]
     SeaBottom = 9,
+    #[name = "top of atmosphere"]
     #[description = "nominal top of the atmosphere"]
     NominalTopOfAtmosphere = 8,
+    #[name = "entire atmosphere"]
     #[description = "entire atmosphere"]
     EntireAtmosphere = 10,
     #[description = "level of free convection"]
     LevelOfFreeConvection = 14,
     #[description = "isothermal level"]
     IsothermalLevel = 20,
+    #[name = "mb"]
     #[description = "isobaric surface"]
     IsobaricSurface = 100,
     #[description = "mean sea level"]
     MeanSeaLevel = 101,
     #[description = "specific altitude above mean sea level"]
     SpecificAltitudeAboveMeanSeaLevel = 102,
+    #[name = "above ground"]
+    #[unit = "m"]
     #[description = "specific height level above ground"]
     SpecifiedHeightLevelAboveGround = 103,
     #[description = "sigma level"]
@@ -79,12 +86,17 @@ pub enum FixedSurfaceType {
     BoundaryLayerCloudLayer = 211,
     #[description = "low cloud layer"]
     LowCloudLayer = 214,
+    #[name = "cloud ceiling"]
     #[description = "cloud ceiling"]
     CloudCeiling = 215,
+    #[name = "planetary boundary layer"]
+    #[description = "planetary boundary layer"]
+    PlanetaryBoundaryLayer = 220,
     #[description = "middle cloud layer"]
     MiddleCloudLayer = 224,
     #[description = "high cloud layer"]
     HighCloudLayer = 234,
+    #[name = "sequence"]
     #[description = "ordered Sequence of Data"]
     OrderedSequence = 241,
     #[description = "equilibrium level"]
@@ -96,7 +108,6 @@ pub enum FixedSurfaceType {
 impl FixedSurfaceType {
     pub fn is_single_level(&self) -> bool {
         !self.is_vertical_level() && !self.is_sequence_level()
-
     }
 
     pub fn is_sequence_level(&self) -> bool {
@@ -163,6 +174,7 @@ impl FixedSurfaceType {
             FixedSurfaceType::EquilibriumLevel => "eqm",
             FixedSurfaceType::IsobaricSurface => "isobar",
             FixedSurfaceType::LevelAtSpecifiedPressureDifferenceFromGroundToLevel => "pres_diff",
+            FixedSurfaceType::PlanetaryBoundaryLayer => "pbl",
         }
     }
 }

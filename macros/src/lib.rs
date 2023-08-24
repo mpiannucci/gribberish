@@ -143,13 +143,13 @@ fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
             let unit_attribute = v.attrs.iter().find(|a| a.path.is_ident("unit"));
             match unit_attribute {
                 Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
-                _ => "n/a".to_string(),
+                _ => "".to_string(),
             }
         });
 
     (quote! {
         impl #name {
-            fn name(&self) -> &str {
+            pub fn name(&self) -> &str {
                 match self {
                     #(
                         #name::#variant_names_first => #variant_names,
@@ -157,7 +157,7 @@ fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
                 }
             }
 
-            fn abbrev(&self) -> &str {
+            pub fn abbrev(&self) -> &str {
                 match self {
                     #(
                         #name::#variant_names_second => #variant_abbreviations,
@@ -165,7 +165,7 @@ fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
                 }
             }
 
-            fn unit(&self) -> &str {
+            pub fn unit(&self) -> &str {
                 match self {
                     #(
                         #name::#variant_names_third => #variant_units,

@@ -11,6 +11,7 @@ use gribberish_types::Parameter;
 use std::collections::HashMap;
 use std::vec::Vec;
 
+
 pub fn scan_messages<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize)> {
     let message_iter = MessageIterator::from_data(data, 0);
 
