@@ -295,6 +295,27 @@ impl TimeUnit {
     }
 }
 
+impl TryFrom<&str> for TimeUnit {
+    type Error = ();
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "minute" => Ok(TimeUnit::Minute),
+            "hour" => Ok(TimeUnit::Hour),
+            "day" => Ok(TimeUnit::Day),
+            "month" => Ok(TimeUnit::Month),
+            "year" => Ok(TimeUnit::Year),
+            "decade" => Ok(TimeUnit::Decade),
+            "normal" => Ok(TimeUnit::Normal),
+            "century" => Ok(TimeUnit::Century),
+            "3 hours" => Ok(TimeUnit::ThreeHours),
+            "6 hours" => Ok(TimeUnit::SixHours),
+            "12 hours" => Ok(TimeUnit::TwelveHours),
+            "seconds" => Ok(TimeUnit::Seconds),
+            _ => Err(()),
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum TypeOfStatisticalProcessing {
