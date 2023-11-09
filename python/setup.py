@@ -1,11 +1,11 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 from setuptools_rust import RustExtension
 
 setup(
     name="gribberish",
     version="0.10.0",
     rust_extensions=[RustExtension("gribberish.gribberishpy", debug=False)],
-    packages=["gribberish", "gribberish.*"],
+    packages=find_packages(include=["gribberish", "gribberish.*"]),
     include_package_data=True,
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,
