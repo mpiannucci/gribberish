@@ -1,0 +1,11 @@
+[package]
+name = "gen"
+version = "0.10.0"
+authors = ["Matthew Iannucci <mpiannucci@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+quote = "1.0"
+phf = { version = "0.11.1" }
+phf_codegen = "0.11.1"
+proc-macro2 = "1"
