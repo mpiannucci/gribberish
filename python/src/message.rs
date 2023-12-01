@@ -121,7 +121,7 @@ impl GribMessageMetadata {
         } else {
             vec![
                 "time".into(),
-                self.inner.first_fixed_surface_type.coordinate_name().into(),
+                self.inner.first_fixed_surface_type.coordinate_abbv().into(),
             ]
         }
     }

@@ -115,7 +115,7 @@ pub fn parse_grib_dataset<'py>(
         let var = v.2.var.clone();
         let hash = format!(
             "{var}{surf}_{stat}{gen}",
-            surf = v.2.first_fixed_surface_type.coordinate_name(),
+            surf = v.2.first_fixed_surface_type.coordinate_abbv(),
             stat =
                 v.2.statistical_process
                     .clone()
@@ -265,7 +265,7 @@ pub fn parse_grib_dataset<'py>(
                     .unwrap()
                     .2
                     .first_fixed_surface_type
-                    .coordinate_name()
+                    .coordinate_abbv()
                     .to_string();
             }
             if let Some(vertical_value) = mapping.get(k).unwrap().2.first_fixed_surface_value {
@@ -339,10 +339,10 @@ pub fn parse_grib_dataset<'py>(
             let vertical = PyDict::new(py);
             let vertical_metadata = PyDict::new(py);
             vertical_metadata
-                .set_item("standard_name", surface_type.to_string())
+                .set_item("standard_name", surface_type.name())
                 .unwrap();
             vertical_metadata
-                .set_item("long_name", surface_type.to_string())
+                .set_item("long_name", surface_type.name())
                 .unwrap();
             // vertical_metadata
             //     .set_item("unit", "meters")
@@ -375,10 +375,10 @@ pub fn parse_grib_dataset<'py>(
                 let vertical = PyDict::new(py);
                 let vertical_metadata = PyDict::new(py);
                 vertical_metadata
-                    .set_item("standard_name", surface_type.to_string())
+                    .set_item("standard_name", surface_type.name())
                     .unwrap();
                 vertical_metadata
-                    .set_item("long_name", surface_type.to_string())
+                    .set_item("long_name", surface_type.name())
                     .unwrap();
                 // vertical_metadata
                 //     .set_item("unit", "meters")
@@ -549,7 +549,7 @@ pub fn parse_grib_dataset<'py>(
         var_metadata
             .set_item(
                 "fixed_surface_type",
-                first.2.first_fixed_surface_type.to_string(),
+                first.2.first_fixed_surface_type.name(),
             )
             .unwrap();
         var_metadata

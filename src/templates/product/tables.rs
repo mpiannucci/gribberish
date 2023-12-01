@@ -23,10 +23,13 @@ pub enum FixedSurfaceType {
     #[name = "cloud top"]
     #[description = "cloud tops level"]
     CloudTop = 3,
+    #[name = "0C isotherm"]
     #[description = "level of 0oc isotherm"]
     ZeroDegreeIsotherm = 4,
+    #[name = "level of adiabatic condensation from sfc"]
     #[description = "level of adiabatic condensation lifted from the surface"]
     AdiabaticCondensationLifted = 5,
+    #[name = "max wind"]
     #[description = "maximum wind level"]
     MaximumWindLevel = 6,
     #[description = "tropopause"]
@@ -39,6 +42,12 @@ pub enum FixedSurfaceType {
     #[name = "entire atmosphere"]
     #[description = "entire atmosphere"]
     EntireAtmosphere = 10,
+    #[name="cumulonimbus base"]
+    CumulonimbusBase = 11,
+    #[name="cumulonimbus top"]
+    CumulonimbusTop = 12,
+    #[name="lowest level integrated cloud cover"]
+    LowestLevelIntegratedCloudCover = 13,
     #[description = "level of free convection"]
     LevelOfFreeConvection = 14,
     #[description = "isothermal level"]
@@ -48,7 +57,9 @@ pub enum FixedSurfaceType {
     IsobaricSurface = 100,
     #[description = "mean sea level"]
     MeanSeaLevel = 101,
+    #[name = "above mean sea level"]
     #[description = "specific altitude above mean sea level"]
+    #[unit = "m"]
     SpecificAltitudeAboveMeanSeaLevel = 102,
     #[name = "above ground"]
     #[unit = "m"]
@@ -58,10 +69,15 @@ pub enum FixedSurfaceType {
     SigmaLevel = 104,
     #[description = "hybrid level"]
     HybridLevel = 105,
+    #[name = "underground"]
     #[description = "depth below land surface"]
+    #[unit = "m"]
     DepthBelowLandSurface = 106,
+    #[name = "above ground"]
     #[description = "level at specified pressure difference from ground to level"]
+    #[unit = "mb"]
     LevelAtSpecifiedPressureDifferenceFromGroundToLevel = 108,
+    #[name = "Eta level"]
     #[description = "eta level"]
     EtaLevel = 111,
     #[description = "snow level"]
@@ -70,19 +86,23 @@ pub enum FixedSurfaceType {
     SigmaHeightLevel = 115,
     #[description = "generalized vertical height coordinate"]
     GeneralizedVerticalHeightCoordinate = 150,
+    #[name = "below sea level"]
     #[description = "depth below sea level"]
+    #[unit = "m"]
     DepthBelowSeaLevel = 160,
+    #[name = "below water surface"]
     #[description = "depth below water surface"]
+    #[unit = "m"]
     DepthBelowWaterSurface = 161,
     #[description = "mixing layer"]
     MixingLayer = 166,
-    #[description = "entire atmosphere as a single layer"]
+    #[name = "entire atmosphere (considered as a single layer)"]
     EntireAtmosphereAsSingleLayer = 200,
-    #[description = "entire ocean as a single layer"]
+    #[name = "entire ocean (considered as a single layer)"]
     EntireOceanAsSingleLayer = 201,
-    #[description = "highest tropospheric freezing level"]
+    #[name = "highest tropospheric freezing level"]
     HighestTroposphericFreezingLevel = 204,
-    #[description = "boundary layer cloud layer"]
+    #[name = "boundary layer cloud layer"]
     BoundaryLayerCloudLayer = 211,
     #[description = "low cloud layer"]
     LowCloudLayer = 214,
@@ -96,8 +116,8 @@ pub enum FixedSurfaceType {
     MiddleCloudLayer = 224,
     #[description = "high cloud layer"]
     HighCloudLayer = 234,
-    #[name = "sequence"]
-    #[description = "ordered Sequence of Data"]
+    #[name = "in sequence"]
+    #[description = "ordered sequence of Data"]
     OrderedSequence = 241,
     #[description = "equilibrium level"]
     EquilibriumLevel = 247,
@@ -134,7 +154,7 @@ impl FixedSurfaceType {
         }
     }
 
-    pub fn coordinate_name(&self) -> &'static str {
+    pub fn coordinate_abbv(&self) -> &'static str {
         match self {
             FixedSurfaceType::GroundOrWater => "sfc",
             FixedSurfaceType::CloudBase => "clb",
@@ -175,6 +195,9 @@ impl FixedSurfaceType {
             FixedSurfaceType::IsobaricSurface => "isobar",
             FixedSurfaceType::LevelAtSpecifiedPressureDifferenceFromGroundToLevel => "pres_diff",
             FixedSurfaceType::PlanetaryBoundaryLayer => "pbl",
+            FixedSurfaceType::CumulonimbusBase => "cb_base",
+            FixedSurfaceType::CumulonimbusTop => "cb_top",
+            FixedSurfaceType::LowestLevelIntegratedCloudCover => "low_cloud_cover",
         }
     }
 }
