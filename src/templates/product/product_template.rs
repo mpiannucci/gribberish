@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc, Duration};
 use gribberish_types::Parameter;
 
-use super::tables::{FixedSurfaceType, TimeUnit, GeneratingProcess, meteorological_category, land_surface_category, oceanographic_category, multiradar_category, meteorological_parameter, land_surface_parameter, oceanographic_parameter, multiradar_parameter, DerivedForecastType, TypeOfStatisticalProcessing};
+use super::{tables::{FixedSurfaceType, TimeUnit, GeneratingProcess, DerivedForecastType, TypeOfStatisticalProcessing}, parameters::{category, parameter}};
 
 pub trait ProductTemplate {
 	fn discipline(&self) -> u8;
@@ -22,27 +22,11 @@ pub trait ProductTemplate {
 	fn statistical_process_type(&self) -> Option<TypeOfStatisticalProcessing>;
 
 	fn category(&self) -> &'static str {
-		let category = self.category_value();
-		match self.discipline() {
-			0 => meteorological_category(category),
-			2 => land_surface_category(category),
-			10 => oceanographic_category(category),
-			209 => multiradar_category(category),
-			_ => "",
-		}
+		category(self.discipline(), self.category_value())
 	}
 
 	fn parameter(&self) -> Option<Parameter> {
-		let category = self.category_value();
-		let parameter = self.parameter_value();
-
-		match self.discipline() {
-			0 => meteorological_parameter(category, parameter),
-			2 => land_surface_parameter(category, parameter),
-			10 => oceanographic_parameter(category, parameter),
-			209 => multiradar_parameter(category, parameter),
-			_ => None,
-		}
+		parameter(self.discipline(), self.category_value(), self.parameter_value())
 	}
 
 	fn time_interval_duration(&self) -> Duration {
