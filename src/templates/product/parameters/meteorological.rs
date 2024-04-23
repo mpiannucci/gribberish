@@ -96,6 +96,13 @@ pub enum MoistureProduct {
     #[abbrev = "WEASD"]
     #[unit = "kgm-2"]
     WaterEquavalentSnowDepth = 13,
+    #[description = "total snowfall"]
+    #[abbrev = "ASNOW"]
+    #[unit = "m"]
+    TotalSnowfall = 29,
+    #[abbrev = "HAIL"]
+    #[unit = "m"]
+    Hail=31,
     #[description = "categorical rain"]
     #[abbrev = "CRAIN"]
     #[unit = "BOOL"]
@@ -116,6 +123,14 @@ pub enum MoistureProduct {
     #[abbrev = "CPOFP"]
     #[unit = "%"]
     PercentFrozenPrecipitation = 39,
+    #[description = "snow cover"]
+    #[abbrev = "SNOWC"]
+    #[unit = "%"]
+    SnowCover = 42,
+    #[description = "total column integrated graupel"]
+    #[abbrev = "TCOLG"]
+    #[unit = "kgm-2"]
+    TotalColumnIntegratedGraupel = 74,
     #[description = "freezing rain"]
     #[abbrev = "FRZR"]
     #[unit = "kgm-2"]
@@ -146,6 +161,9 @@ pub enum MomentumProduct {
     #[abbrev = "VGRD"]
     #[unit = "ms-1"]
     VComponentWindSpeed = 3,
+    #[abbrev = "RELV"]
+    #[unit = "s-1"]
+    RelativeVorticity = 12,
     #[description = "Maximum wind speed"]
     #[abbrev = "MAXGUST"]
     #[unit = "ms-1"]
@@ -174,6 +192,14 @@ pub enum MomentumProduct {
     #[abbrev = "VSTM"]
     #[unit = "ms-1"]
     VComponentStormMotion = 28,
+    #[description = "u component of hourly maximum 10m wind speed"]
+    #[abbrev = "MAXUW"]
+    #[unit = "ms-1"]
+    UComponentHourlyMaximumWindSpeed = 222,
+    #[description = "v component of hourly maximum 10m wind speed"]
+    #[abbrev = "MAXVW"]
+    #[unit = "ms-1"]
+    VComponentHourlyMaximumWindSpeed = 223,
     #[description = "tropical wind direction"]
     #[abbrev = "TPWDIR"]
     #[unit = "degrees"]
@@ -278,6 +304,34 @@ pub enum ForecastRadarImagery {
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum Electromagnetics {
+    #[abbrev = "LTNGSD"]
+    #[unit = "m-2 s-1"]
+    LightingStrikeDensity = 0,
+    #[description = "lightning potential index"]
+    #[abbrev = "LTPINX"]
+    #[unit = "J kg-1"]
+    LightingPotentialIndex = 1,
+    #[description = "cloud-to-ground lightning flash density"]
+    #[abbrev = "CDGDLTFD"]
+    #[unit = "km-2 day-1"]
+    CloudToGroundLightingFlashDensity = 2,
+    #[description = "cloud-to-cloud lightning flash density"]
+    #[abbrev = "CDCDLTFD"]
+    #[unit = "km-2 day-1"]
+    CloudToCloudLightingFlashDensity = 3,
+    #[description = "total lightning flash density"]
+    #[abbrev = "TLGTFD"]
+    #[unit = "km-2 day-1"]
+    TotalLightningFlashDensity = 4,
+    #[abbrev = "LTNG"]
+    #[unit = "nondim"]
+    Lightning = 192,
+    Missing = 255,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum PhysicalAtmosphericProperties {
     #[description = "visibility"]
     #[abbrev = "vis"]
@@ -295,6 +349,7 @@ pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter
         6 => Some(Parameter::from(CloudProduct::from(parameter))),
         15 => Some(Parameter::from(RadarProduct::from(parameter))),
         16 => Some(Parameter::from(ForecastRadarImagery::from(parameter))),
+        17 => Some(Parameter::from(Electromagnetics::from(parameter))),
         19 => Some(Parameter::from(PhysicalAtmosphericProperties::from(
             parameter,
         ))),
@@ -311,6 +366,7 @@ pub fn meteorological_category(category: u8) -> &'static str {
         6 => "cloud",
         15 => "radar",
         16 => "forecast radar imagery",
+        17 => "electromagnetics",
         19 => "physical atmospheric properties",
         _ => "other",
     }
