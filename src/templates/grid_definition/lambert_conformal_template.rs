@@ -5,7 +5,9 @@ use mappers::{projections::LambertConformalConic, Ellipsoid, Projection};
 use crate::{
     templates::template::{Template, TemplateType},
     utils::{
-        iter::projection::{LatLngProjection, RegularCoordinateIterator, LambertConformalConicProjection},
+        iter::projection::{
+            LambertConformalConicProjection, LatLngProjection, RegularCoordinateIterator,
+        },
         read_u32_from_bytes,
     },
 };
@@ -70,6 +72,85 @@ impl LambertConformalTemplate {
 
     pub fn earth_minor_axis_scaled_value(&self) -> u32 {
         read_u32_from_bytes(&self.data, 26).unwrap_or(0)
+    }
+
+    pub fn earth_major_axis(&self) -> f64 {
+        self.earth_major_axis_scaled_value() as f64
+            * 10f64.powi(-(self.earth_major_axis_scale_factor() as i32))
+    }
+
+    pub fn earth_minor_axis(&self) -> f64 {
+        self.earth_minor_axis_scaled_value() as f64
+            * 10f64.powi(-(self.earth_minor_axis_scale_factor() as i32))
+    }
+
+    pub fn earth_ellipsoid(&self) -> Result<Ellipsoid, String> {
+        let major = self.earth_major_axis();
+        let minor = self.earth_minor_axis();
+
+        match self.earth_shape() {
+            EarthShape::Spherical => Ok(Ellipsoid {
+                A: 6_367_470.0,
+                B: 6_367_470.0,
+                E: 0.0,
+                F: 0.0,
+            }),
+            EarthShape::SpecifiedRadiusSpherical => Ok(Ellipsoid {
+                A: major,
+                B: minor,
+                E: 0.0,
+                F: 0.0,
+            }),
+            EarthShape::OblateIAU => Err("unimplemented: OblateIAU".into()),
+            EarthShape::OblateKM => Err("unimplemented: OblateKM".into()),
+            EarthShape::OblateIAGGRS80 => Err("unimplemented: OblateIAGGRS80".into()),
+            EarthShape::WGS84 => Ok(Ellipsoid::wgs84()),
+            EarthShape::Spherical2 => Ok(Ellipsoid {
+                A: 6_371_229.0,
+                B: 6_371_229.0,
+                E: 0.0,
+                F: 0.0,
+            }),
+            EarthShape::OblateM => Err("unimplemented: OblateM".into()),
+            EarthShape::OblateWGS84 => Err("unimplemented: OblateWGS84".into()),
+            EarthShape::Missing => Err("Missing EarthShape".into()),
+        }
+    }
+
+    pub fn earth_proj_string(&self) -> Result<String, String> {
+        let major = self.earth_major_axis();
+        let minor = self.earth_minor_axis();
+
+        match self.earth_shape() {
+            EarthShape::Spherical => Ok(" +a=6367470 +b=6367470".to_string()),
+            EarthShape::SpecifiedRadiusSpherical => Ok(format!(" +a={major} +b={minor}")),
+            EarthShape::OblateIAU => Ok(" +a=6,378,160.0 b=6356775 +rf=297".to_string()),
+            EarthShape::OblateKM => Err("unimplemented: OblateKM".into()),
+            EarthShape::OblateIAGGRS80 => Ok(format!(" +a=6378137 +b=6356752.314 +rf=298.257222101")),
+            EarthShape::WGS84 => Ok(" +ellps=WGS84".to_string()),
+            EarthShape::Spherical2 => Ok(" +a=6371229 +b=6371229".to_string()),
+            EarthShape::OblateM => Err("unimplemented: OblateM".into()),
+            EarthShape::OblateWGS84 => Err("unimplemented: OblateWGS84".into()),
+            EarthShape::Missing => todo!(),
+        }
+    }
+
+    pub fn earth_proj_params(&self) -> Result<Vec<(String, f64)>, String> {
+        let major = self.earth_major_axis();
+        let minor = self.earth_minor_axis();
+
+        match self.earth_shape() {
+            EarthShape::Spherical => Ok(vec![("a".to_string(), 6_367_470.0), ("b".to_string(), 6_367_470.0)]),
+            EarthShape::SpecifiedRadiusSpherical => Ok(vec![("a".to_string(), major), ("b".to_string(), minor)]),
+            EarthShape::OblateIAU => Err("unimplemented: OblateIAU".into()),
+            EarthShape::OblateKM => Err("unimplemented: OblateKM".into()),
+            EarthShape::OblateIAGGRS80 => Ok(vec![("a".to_string(), 6_378_137.0), ("b".to_string(), 6_356_752.314)]),
+            EarthShape::WGS84 => Err("unimplemented: WGS84".into()),
+            EarthShape::Spherical2 => Ok(vec![("a".to_string(), 6_371_229.0), ("b".to_string(), 6_371_229.0)]),
+            EarthShape::OblateM => Err("unimplemented: OblateM".into()),
+            EarthShape::OblateWGS84 => Err("unimplemented: OblateWGS84".into()),
+            EarthShape::Missing => Err("Missing EarthShape".into()),
+        }
     }
 
     pub fn number_of_points_on_x_axis(&self) -> u32 {
@@ -172,12 +253,14 @@ impl LambertConformalTemplate {
         let mut lng = self.longitude_of_paralell_meridian_to_latitude_increase();
         lng = if lng > 180.0 { lng - 360.0 } else { lng };
 
+        let earth_shape = self.earth_ellipsoid()?;
+
         LambertConformalConic::new(
             lng,
             self.latitude_of_dx_dy(),
             self.latin_1(),
             self.latin_2(),
-            Ellipsoid::grs80(),
+            earth_shape,
         )
         .map_err(|e| format!("Failed to create lambert conformal conic projection: {e}"))
     }
@@ -236,12 +319,18 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
         params.insert("lat_0".to_string(), self.latitude_of_dx_dy());
         params.insert("lat_1".to_string(), self.latin_1());
         params.insert("lat_2".to_string(), self.latin_2());
+
+        let earth_params = self.earth_proj_params().unwrap_or_default();
+        for (k, v) in earth_params {
+            params.insert(k, v);
+        }
         params
     }
 
     fn proj_string(&self) -> String {
+        let earth_shape = self.earth_proj_string().unwrap_or("".to_string());
         format!(
-            "+proj=lcc lon_0={} lat_0={} lat_1={} lat_2={}",
+            "+proj=lcc lon_0={} lat_0={} lat_1={} lat_2={} {earth_shape}",
             self.longitude_of_paralell_meridian_to_latitude_increase(),
             self.latitude_of_dx_dy(),
             self.latin_1(),
@@ -286,7 +375,8 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
                 format!(
                     "Failed to project start coordinates to lambert conformal conic coords: {e}"
                 )
-            }).expect("Failed to project");
+            })
+            .expect("Failed to project");
 
         let y_iter = RegularCoordinateIterator::new(
             start_y,
@@ -300,7 +390,7 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
             self.number_of_points_on_x_axis() as usize,
         );
 
-        LatLngProjection::LambertConformal(LambertConformalConicProjection{
+        LatLngProjection::LambertConformal(LambertConformalConicProjection {
             x: x_iter,
             y: y_iter,
             projection,

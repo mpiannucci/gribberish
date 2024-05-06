@@ -45,9 +45,9 @@ impl ProjectionCenter {
             false => ProjectionCenter::SouthPole,
         };
         let center = match data & 64 == 0 {
-            true => ProjectionCenter::OneCenter, 
+            true => ProjectionCenter::OneCenter,
             false => ProjectionCenter::BiPolar,
-        }; 
+        };
 
         [pole, center]
     }
@@ -55,37 +55,37 @@ impl ProjectionCenter {
 
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum ScanningMode {
-    #[description="Points in the first row or column scan in the +i (+x) direction"]
+    #[description = "Points in the first row or column scan in the +i (+x) direction"]
     PlusI,
-    #[description="Points in the first row or column scan in the -i (-x) direction"]
+    #[description = "Points in the first row or column scan in the -i (-x) direction"]
     MinusI,
-    #[description="Points in the first row or column scan in the -j (-y) direction"]
+    #[description = "Points in the first row or column scan in the -j (-y) direction"]
     MinusJ,
-    #[description="Points in the first row or column scan in the +j (+y) direction"]
+    #[description = "Points in the first row or column scan in the +j (+y) direction"]
     PlusJ,
-    #[description="Adjacent points in the i (x) direction are consecutive"]
+    #[description = "Adjacent points in the i (x) direction are consecutive"]
     ConsecutiveI,
-    #[description="Adjacent points in the j (y) direction are consecutive"]
+    #[description = "Adjacent points in the j (y) direction are consecutive"]
     ConsecutiveJ,
-    #[description="All rows scan in the same direction"]
+    #[description = "All rows scan in the same direction"]
     SameDirection,
-    #[description="Adjacent rows scan in the opposite direction"]
+    #[description = "Adjacent rows scan in the opposite direction"]
     AdjecentOppositeDirection,
-    #[description="Points within odd rows are not offset in i(x) direction"]
+    #[description = "Points within odd rows are not offset in i(x) direction"]
     OddNotOffset,
-    #[description="Points within odd rows are offset by Di/2 in i(x) direction"]
+    #[description = "Points within odd rows are offset by Di/2 in i(x) direction"]
     OddOffset,
-    #[description="Points within even rows are not offset in i(x) direction"]
+    #[description = "Points within even rows are not offset in i(x) direction"]
     EvenNotOffset,
-    #[description="Points within even rows are offset by Di/2 in i(x) direction"]
+    #[description = "Points within even rows are offset by Di/2 in i(x) direction"]
     EvenOffset,
-    #[description="Points are not offset in j(y) direction"]
+    #[description = "Points are not offset in j(y) direction"]
     NotOffsetJ,
-    #[description="Points are offset by Dj/2 in j(y) direction"]
+    #[description = "Points are offset by Dj/2 in j(y) direction"]
     OffsetJ,
-    #[description="Rows have Ni grid points and columns have Nj grid points"]
+    #[description = "Rows have Ni grid points and columns have Nj grid points"]
     Normal,
-    #[description="Rows have Ni grid points if points are not offset in i direction, 
+    #[description = "Rows have Ni grid points if points are not offset in i direction, 
     Rows have Ni-1 grid points if points are offset by Di/2 in i direction, 
     Columns have Nj grid points if points are not offset in j direction, 
     Columns have Nj-1 grid points if points are offset by Dj/2 in j direction"]
@@ -97,36 +97,36 @@ pub type ScanningModeFlags = [ScanningMode; 8];
 impl ScanningMode {
     pub fn read_flags(data: u8) -> ScanningModeFlags {
         let first = match data & 128 == 0 {
-            true => ScanningMode::PlusI, 
-            false => ScanningMode::MinusI, 
+            true => ScanningMode::PlusI,
+            false => ScanningMode::MinusI,
         };
         let second = match data & 64 == 0 {
-            true => ScanningMode::MinusJ, 
-            false => ScanningMode::PlusJ, 
+            true => ScanningMode::MinusJ,
+            false => ScanningMode::PlusJ,
         };
         let third = match data & 32 == 0 {
-            true => ScanningMode::ConsecutiveI, 
-            false => ScanningMode::ConsecutiveJ, 
+            true => ScanningMode::ConsecutiveI,
+            false => ScanningMode::ConsecutiveJ,
         };
         let fourth = match data & 16 == 0 {
-            true => ScanningMode::SameDirection, 
-            false => ScanningMode::AdjecentOppositeDirection, 
+            true => ScanningMode::SameDirection,
+            false => ScanningMode::AdjecentOppositeDirection,
         };
         let fifth = match data & 8 == 0 {
-            true => ScanningMode::OddNotOffset, 
-            false => ScanningMode::OddOffset, 
+            true => ScanningMode::OddNotOffset,
+            false => ScanningMode::OddOffset,
         };
         let sixth = match data & 4 == 0 {
-            true => ScanningMode::EvenNotOffset, 
-            false => ScanningMode::EvenOffset, 
+            true => ScanningMode::EvenNotOffset,
+            false => ScanningMode::EvenOffset,
         };
         let seventh = match data & 2 == 0 {
-            true => ScanningMode::NotOffsetJ, 
-            false => ScanningMode::OffsetJ, 
+            true => ScanningMode::NotOffsetJ,
+            false => ScanningMode::OffsetJ,
         };
         let eigth = match data & 1 == 0 {
-            true => ScanningMode::Normal, 
-            false => ScanningMode::Staggerred, 
+            true => ScanningMode::Normal,
+            false => ScanningMode::Staggerred,
         };
 
         [first, second, third, fourth, fifth, sixth, seventh, eigth]
