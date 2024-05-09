@@ -7,6 +7,10 @@ export interface GridShape {
   rows: number
   cols: number
 }
+export interface LatLng {
+  latitude: Float64Array
+  longitude: Float64Array
+}
 export function parseMessagesFromBuffer(buffer: Buffer): unknown[]
 export class GribMessage {
   static parseFromBuffer(buffer: Buffer, offset: number): GribMessage
@@ -17,10 +21,8 @@ export class GribMessage {
   get referenceDate(): Date
   get proj(): string
   get crs(): string
-  get bbox(): Array<number>
   get gridShape(): GridShape
-  get latitudes(): Float64Array
-  get longitudes(): Float64Array
+  get latlng(): LatLng
   get data(): Float64Array
 }
 export class GribMessageFactory {
