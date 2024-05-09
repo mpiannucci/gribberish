@@ -3,6 +3,8 @@ use std::slice;
 use std::ptr::null_mut;
 use std::convert::TryInto;
 
+use crate::error::GribberishError;
+
 // https://github.com/ecmwf/eccodes/blob/develop/src/grib_openjpeg_encoding.c
 // https://github.com/leoschwarz/jpeg2000-rust/blob/master/src/decode/mod.rs
 
@@ -108,7 +110,7 @@ pub unsafe extern "C" fn jpeg_opj_stream_seek_fn(p_nb_bytes: i64, p_user_data: *
     }
 }
 
-pub fn extract_jpeg_data(raw_data: &Vec<u8>) -> Result<Vec<i32>, String> {
+pub fn extract_jpeg_data(raw_data: &Vec<u8>) -> Result<Vec<i32>, GribberishError> {
     let mut output_data: Vec<i32>;
 
     unsafe {
@@ -135,7 +137,7 @@ pub fn extract_jpeg_data(raw_data: &Vec<u8>) -> Result<Vec<i32>, String> {
         let dinfo = openjpeg_sys::opj_create_decompress(openjpeg_sys::CODEC_FORMAT::OPJ_CODEC_J2K);
         openjpeg_sys::opj_setup_decoder(dinfo, parameters);
 
-        // TODO: Actually decode 
+        // TODO: Actually decode
         let mut userdata = JpegUserData::new_input(raw_data);
         let stream = openjpeg_sys::opj_stream_default_create(1);
         openjpeg_sys::opj_stream_set_read_function(stream, Some(jpeg_opj_stream_read_fn));
@@ -151,13 +153,13 @@ pub fn extract_jpeg_data(raw_data: &Vec<u8>) -> Result<Vec<i32>, String> {
         if openjpeg_sys::opj_read_header(stream, dinfo, &mut image) != 1 {
             openjpeg_sys::opj_destroy_codec(dinfo);
             openjpeg_sys::opj_image_destroy(image);
-            return Err("Failed to decode JPEG byte stream header".into());
+            return Err(GribberishError::JpegError("Failed to decode JPEG byte stream header".into()));
         }
 
         if openjpeg_sys::opj_decode(dinfo, stream, image) != 1 {
             openjpeg_sys::opj_destroy_codec(dinfo);
             openjpeg_sys::opj_image_destroy(image);
-            return Err("Failed to decode JPEG byte stream".into());
+            return Err(GribberishError::JpegError("Failed to decode JPEG byte stream".into()));
         }
 
         // Do things to the data
@@ -179,7 +181,7 @@ pub fn extract_jpeg_data(raw_data: &Vec<u8>) -> Result<Vec<i32>, String> {
     }
 
     if output_data.len() == 0  {
-        Err("Unknown failure extracting JPEG data".into())
+        Err(GribberishError::JpegError("Unknown failure extracting JPEG data".into()))
     } else {
         Ok(output_data)
     }

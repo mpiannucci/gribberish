@@ -7,6 +7,7 @@ pub mod meteorological;
 pub mod mrms;
 pub mod oceanographic;
 
+#[allow(dead_code)]
 pub trait ProductDiscipline {
     fn from_category_parameter(category: u8, parameter: u8) -> Self;
 

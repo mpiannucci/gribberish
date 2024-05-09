@@ -1,6 +1,6 @@
 use bitvec::prelude::*;
 
-use crate::{templates::template::{Template, TemplateType}, utils::{read_f32_from_bytes, read_u16_from_bytes, iter::ScaleGribValueIterator}};
+use crate::{error::GribberishError, templates::template::{Template, TemplateType}, utils::{iter::ScaleGribValueIterator, read_f32_from_bytes, read_u16_from_bytes}};
 use super::{DataRepresentationTemplate, tables::OriginalFieldValue};
 use png::Decoder;
 
@@ -61,12 +61,12 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
 		self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         let bytes: Vec<u8> = bits.to_bitvec().into();
-        
+
         let decoder = Decoder::new(bytes.as_slice());
         let mut reader = decoder.read_info().unwrap();
-        
+
         let mut image_data: Vec<u8> = vec![0; reader.output_buffer_size()];
         let _ = reader.next_frame(&mut image_data).unwrap();
 
