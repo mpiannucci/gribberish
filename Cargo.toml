@@ -1,6 +1,6 @@
 [package]
 name = "gribberish"
-version = "0.10.0"
+version = "0.20.0"
 authors = ["Matthew Iannucci <mpiannucci@gmail.com>"]
 edition = "2021"
 
