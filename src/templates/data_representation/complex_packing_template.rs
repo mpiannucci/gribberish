@@ -1,6 +1,6 @@
 use bitvec::prelude::*;
 
-use crate::utils::iter::ScaleGribValueIterator;
+use crate::{error::GribberishError, utils::iter::ScaleGribValueIterator};
 use itertools::izip;
 
 use crate::{
@@ -122,7 +122,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         let ng = self.number_of_groups() as usize;
         let nbits = self.bit_count() as usize;
 

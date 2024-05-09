@@ -2,6 +2,7 @@ use bitvec::prelude::*;
 
 use super::data_representation_template::DataRepresentationTemplate;
 use super::tables::OriginalFieldValue;
+use crate::error::GribberishError;
 use crate::utils::read_f32_from_bytes;
 use crate::{
     templates::template::{Template, TemplateType},
@@ -73,7 +74,7 @@ impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate
         self.bit_count() as usize
     }
 
-    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, String> {
+    fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         let bits_per_val: usize = self.bit_count().into();
         if bits_per_val == 0 {
             return Ok(vec![]);

@@ -2,6 +2,8 @@ use chrono::Duration;
 use gribberish_macros::{DisplayDescription, FromValue, ToParameter};
 use gribberish_types::Parameter;
 
+use crate::error::GribberishError;
+
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum ClusteringMethod {
@@ -296,7 +298,7 @@ impl TimeUnit {
 }
 
 impl TryFrom<&str> for TimeUnit {
-    type Error = ();
+    type Error = GribberishError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "minute" => Ok(TimeUnit::Minute),
@@ -311,7 +313,7 @@ impl TryFrom<&str> for TimeUnit {
             "6 hours" => Ok(TimeUnit::SixHours),
             "12 hours" => Ok(TimeUnit::TwelveHours),
             "seconds" => Ok(TimeUnit::Seconds),
-            _ => Err(()),
+            _ => Err(GribberishError::TimeUnitError(value.to_string())),
         }
     }
 }

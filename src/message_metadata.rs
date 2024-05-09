@@ -3,11 +3,9 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::{
-    message::{Message, MessageIterator},
-    templates::product::tables::{
+    error::GribberishError, message::{Message, MessageIterator}, templates::product::tables::{
         FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
-    },
-    utils::iter::projection::LatLngProjection,
+    }, utils::iter::projection::LatLngProjection
 };
 
 #[derive(Clone, Debug)]
@@ -105,7 +103,7 @@ impl MessageMetadata {
 }
 
 impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
-    type Error = String;
+    type Error = GribberishError;
 
     fn try_from(message: &Message<'a>) -> Result<Self, Self::Error> {
         let (first_fixed_surface_type, first_fixed_surface_value) =

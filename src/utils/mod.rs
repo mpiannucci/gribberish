@@ -1,6 +1,9 @@
 pub mod iter;
-pub mod utils;
-pub use utils::*;
+#[macro_use]
+pub mod macros;
+pub mod convert;
+
+pub use convert::*;
 
 #[cfg(feature = "jpeg")]
 pub mod jpeg;
