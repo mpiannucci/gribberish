@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use gribberish::{
   data_message::DataMessage,
-  message::{scan_messages, read_message, read_messages},
+  message::{read_message, read_messages, scan_messages},
 };
 use napi::{
   bindgen_prelude::{Array, Buffer, Float64Array},
@@ -18,6 +18,21 @@ extern crate napi_derive;
 pub struct GridShape {
   pub rows: u32,
   pub cols: u32,
+}
+
+#[napi(object)]
+pub struct LatLng {
+  pub latitude: Float64Array,
+  pub longitude: Float64Array,
+}
+
+impl From<(Vec<f64>, Vec<f64>)> for LatLng {
+  fn from(latlng: (Vec<f64>, Vec<f64>)) -> Self {
+    LatLng {
+      latitude: Float64Array::from(latlng.0),
+      longitude: Float64Array::from(latlng.1),
+    }
+  }
 }
 
 #[napi]
@@ -83,11 +98,11 @@ impl GribMessage {
     self.inner.metadata.crs.as_str()
   }
 
-  #[napi(getter)]
-  pub fn bbox(&self) -> Vec<f64> {
-    let bbox = &self.inner.metadata.bbox;
-    vec![bbox.0, bbox.1, bbox.2, bbox.3]
-  }
+  // #[napi(getter)]
+  // pub fn bbox(&self) -> Vec<f64> {
+  //   let bbox = &self.inner.metadata.bbox;
+  //   vec![bbox.0, bbox.1, bbox.2, bbox.3]
+  // }
 
   #[napi(getter)]
   pub fn grid_shape(&self) -> GridShape {
@@ -99,18 +114,13 @@ impl GribMessage {
   }
 
   #[napi(getter)]
-  pub fn latitudes(&self) -> Float64Array {
-    Float64Array::new(self.inner.metadata.latitude.clone())
-  }
-
-  #[napi(getter)]
-  pub fn longitudes(&self) -> Float64Array {
-    Float64Array::new(self.inner.metadata.longitude.clone())
+  pub fn latlng(&self) -> LatLng {
+    LatLng::from(self.inner.metadata.latlng())
   }
 
   #[napi(getter)]
   pub fn data(&self) -> Float64Array {
-    Float64Array::new(self.inner.flattened_data())
+    Float64Array::new(self.inner.data.clone())
   }
 }
 
