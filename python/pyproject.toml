@@ -1,2 +1,43 @@
 [build-system]
-requires = ["setuptools", "wheel", "setuptools-rust", "numpy"]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "gribberish"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+xarray = ["xarray"]
+kerchunk = ["kerchunk", "zarr", "numcodecs", "fsspec"]
+dev = [
+    "matplotlib",
+    "cf_xarray",
+    "zarr",
+    "numcodecs",
+    "fsspec",
+    "ujson",
+    "dask[complete]",
+    "ipywidgets",
+    "scipy",
+    "gcsfs",
+    "s3fs",
+    "cfgrib",
+    "pyproj",
+]
+
+[project.entry-points."xarray.backends"]
+gribberish = "gribberish.gribberish_backend:GribberishBackend"
+
+[project.entry-points."numcodecs.codecs"]
+gribberish = "gribberish.kerchunk:GribberishCodec"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

@@ -60,20 +60,20 @@ impl GribMessageMetadata {
     }
 
     #[getter]
-    fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
-        PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
+    fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDateTime>> {
+        PyDateTime::from_timestamp_bound(py, self.inner.reference_date.timestamp() as f64, None)
     }
 
     #[getter]
-    fn forecast_date<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDateTime> {
-        PyDateTime::from_timestamp(py, self.inner.forecast_date.timestamp() as f64, None)
+    fn forecast_date<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDateTime>> {
+        PyDateTime::from_timestamp_bound(py, self.inner.forecast_date.timestamp() as f64, None)
     }
 
     #[getter]
-    fn forecast_date_end<'py>(&self, py: Python<'py>) -> PyResult<Option<&'py PyDateTime>> {
+    fn forecast_date_end<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDateTime>>> {
         if let Some(forecast_end_date) = self.inner.forecast_end_date {
             let timestamp =
-                PyDateTime::from_timestamp(py, forecast_end_date.timestamp() as f64, None)?;
+                PyDateTime::from_timestamp_bound(py, forecast_end_date.timestamp() as f64, None)?;
             Ok(Some(timestamp))
         } else {
             Ok(None)
@@ -147,9 +147,9 @@ impl GribMessageMetadata {
         )
     }
 
-    fn latlng<'py>(&self, py: Python<'py>) -> (&'py PyArray1<f64>, &'py PyArray1<f64>) {
+    fn latlng<'py>(&self, py: Python<'py>) -> (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>) {
         let (lat, lng) = self.inner.latlng();
-        (PyArray::from_vec(py, lat), PyArray::from_vec(py, lng))
+        (PyArray::from_vec_bound(py, lat), PyArray::from_vec_bound(py, lng))
     }
 }
 
@@ -163,16 +163,16 @@ pub struct GribMessage {
 
 #[pymethods]
 impl GribMessage {
-    fn data<'py>(&self, py: Python<'py>, ) -> &'py PyArray1<f64> {
+    fn data<'py>(&self, py: Python<'py>, ) -> Bound<'py, PyArray1<f64>> {
         parse_grib_array(py, &self.raw_data, self.offset)
     }
 }
 
 #[pyfunction]
-pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize) -> &'py PyArray1<f64> {
+pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize) -> Bound<'py, PyArray1<f64>> {
     let message = Message::from_data(data, offset).unwrap();
     let data = message.data().unwrap();
-    PyArray::from_vec(py, data)
+    PyArray::from_vec_bound(py, data)
 }
 
 #[pyfunction]
@@ -186,7 +186,7 @@ pub fn parse_grib_message_metadata(data: &[u8], offset: usize) -> PyResult<GribM
 pub fn parse_grib_message<'py>(data: &[u8], offset: usize) -> PyResult<GribMessage> {
     match Message::from_data(&data.to_vec(), offset) {
         Some(m) => Ok(GribMessage {
-            offset, 
+            offset,
             raw_data: data.to_vec(),
             metadata: GribMessageMetadata {
                 inner: MessageMetadata::try_from(&m).unwrap(),
@@ -197,9 +197,9 @@ pub fn parse_grib_message<'py>(data: &[u8], offset: usize) -> PyResult<GribMessa
 }
 
 #[pyfunction]
-pub fn parse_grib_mapping(
+pub fn parse_grib_mapping<'py>(
     data: &[u8],
-    drop_variables: Option<&PyList>,
+    drop_variables: Option<Bound<'py, PyList>>,
 ) -> HashMap<String, (usize, usize, GribMessageMetadata)> {
     let drop_variables = if let Some(drop_variables) = drop_variables {
         drop_variables

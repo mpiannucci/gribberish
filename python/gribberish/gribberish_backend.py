@@ -1,5 +1,4 @@
 import os
-import time
 import fsspec
 
 import numpy as np
@@ -7,7 +6,7 @@ import xarray as xr
 from xarray.backends.common import BackendEntrypoint, BackendArray
 from xarray.core import indexing
 
-from .gribberishpy import parse_grib_dataset, parse_grib_array
+from gribberish import parse_grib_dataset, parse_grib_array
 
 
 DATA_VAR_LOCK = xr.backends.locks.SerializableLock()

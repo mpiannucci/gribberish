@@ -1,1 +1,2 @@
-from .gribberishpy import *
+# module
+from gribberish_python import *

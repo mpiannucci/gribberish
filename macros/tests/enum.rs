@@ -1,8 +1,5 @@
-#[macro_use]
-extern crate grib_macros;
-
-use grib_macros::{DisplayDescription, FromValue, ToParameter};
-use grib_types::Parameter;
+use gribberish_macros::{DisplayDescription, FromValue, ToParameter};
+use gribberish_types::Parameter;
 
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 enum Shape {

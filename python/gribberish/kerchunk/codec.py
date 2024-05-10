@@ -1,7 +1,6 @@
-import time
 import numcodecs
 
-from ..gribberishpy import parse_grib_array, parse_grib_message_metadata
+from gribberish import parse_grib_array, parse_grib_message_metadata
 
 
 class GribberishCodec(numcodecs.abc.Codec):
