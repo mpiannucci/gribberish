@@ -334,7 +334,7 @@ pub enum Electromagnetics {
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum PhysicalAtmosphericProperties {
     #[description = "visibility"]
-    #[abbrev = "vis"]
+    #[abbrev = "VIS"]
     #[unit = "m"]
     Visibility = 0,
     Missing = 255,
