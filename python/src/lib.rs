@@ -13,7 +13,7 @@ use crate::message::parse_grib_message;
 use crate::message::parse_grib_message_metadata;
 
 #[pymodule]
-fn gribberishpy(_py: Python, m: &PyModule) -> PyResult<()> {
+fn gribberish_python(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<GribMessage>()?;
     m.add_function(wrap_pyfunction!(parse_grib_message_metadata, m)?)?;
     m.add_function(wrap_pyfunction!(parse_grib_message, m)?)?;

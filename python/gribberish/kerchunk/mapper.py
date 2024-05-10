@@ -6,7 +6,7 @@ import numpy as np
 from kerchunk.utils import class_factory, _encode_for_JSON
 from kerchunk.codecs import GRIBCodec
 from .codec import GribberishCodec
-from ..gribberishpy import parse_grib_dataset
+from gribberish import parse_grib_dataset
 
 
 def _split_file(f):
