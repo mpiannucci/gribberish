@@ -296,17 +296,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "gribberish-python"
+name = "gribberish-types"
+version = "0.1.0"
+
+[[package]]
+name = "gribberish_python"
 version = "0.20.0"
 dependencies = [
  "gribberish",
  "numpy",
  "pyo3",
 ]
-
-[[package]]
-name = "gribberish-types"
-version = "0.1.0"
 
 [[package]]
 name = "gribberishjs"

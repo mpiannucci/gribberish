@@ -41,3 +41,5 @@ gribberish = "gribberish.kerchunk:GribberishCodec"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
+python-source = "gribberish"
+module-name = "gribberish_python"

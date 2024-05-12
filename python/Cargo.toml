@@ -1,5 +1,5 @@
 [package]
-name = "gribberish-python"
+name = "gribberish_python"
 version = "0.20.0"
 edition = "2021"
 
