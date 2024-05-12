@@ -300,15 +300,6 @@ name = "gribberish-types"
 version = "0.1.0"
 
 [[package]]
-name = "gribberish_python"
-version = "0.20.0"
-dependencies = [
- "gribberish",
- "numpy",
- "pyo3",
-]
-
-[[package]]
 name = "gribberishjs"
 version = "0.20.0"
 dependencies = [
@@ -317,6 +308,15 @@ dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
+]
+
+[[package]]
+name = "gribberishpy"
+version = "0.20.0"
+dependencies = [
+ "gribberish",
+ "numpy",
+ "pyo3",
 ]
 
 [[package]]

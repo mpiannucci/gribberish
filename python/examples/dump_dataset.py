@@ -1,5 +1,5 @@
 import argparse
-import gribberish
+import gribberishpy
 
 
 def read_file(filename: str) -> bytes:
@@ -14,7 +14,7 @@ if __name__ == '__main__':
     input_filename = args.infile
 
     raw = read_file(input_filename)
-    dataset = gribberish.GribDataset(raw)
+    dataset = gribberishpy.GribDataset(raw)
     print(dataset.attrs)
     print(dataset.vars)
     print(dataset.coords)
