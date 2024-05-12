@@ -1,4 +1,4 @@
-# gribberish-python
+# gribberishpy
 
 Python bindings to `gribberish`
 
@@ -9,7 +9,7 @@ Python bindings to `gribberish`
 This module has not been added to `pypi` yet, so for now install with git:
 
 ```
-pip install -e git+https://github.com/mpiannucci/gribberish.git#egg=gribberish\&subdirectory=python
+pip install -e "gribberishpy[xarray]git+https://github.com/mpiannucci/gribberish.git#egg=gribberishpy\&subdirectory=python"
 ```
 
 ### Manually
