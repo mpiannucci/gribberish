@@ -1,5 +1,5 @@
 import argparse
-import gribberishpy
+import gribberish
 import numpy
 import matplotlib.pyplot as plt
 
@@ -14,7 +14,7 @@ def scan_grib_messages(filename: str):
     raw_grib_data = read_file(filename)
     if not len(raw_grib_data):
         return []
-    return gribberishpy.scan_message_metadata(raw_grib_data)
+    return gribberish.scan_message_metadata(raw_grib_data)
 
 
 def create_filename(input_filename: str, message_index: int) -> str:

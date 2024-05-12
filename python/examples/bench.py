@@ -1,7 +1,8 @@
 import argparse
 import time
 import eccodes
-import gribberishpy
+import gribberish
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Dump a grib 2 file dataset')
@@ -12,7 +13,7 @@ if __name__ == '__main__':
     with open(input_filename, 'rb') as f:
         raw_data = f.read()
 
-    mapping = gribberishpy.parse_grib_mapping(raw_data)
+    mapping = gribberish.parse_grib_mapping(raw_data)
 
     eccodes_times = []
     # First run with eccodes
@@ -46,7 +47,7 @@ if __name__ == '__main__':
         end = offset + size
         try:
             start = time.time()
-            data = gribberishpy.parse_grib_array(raw_data, offset)
+            data = gribberish.parse_grib_array(raw_data, offset)
             end = time.time()
             gribberish_times.append(end - start)
         except:
