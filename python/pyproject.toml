@@ -40,6 +40,5 @@ gribberish = "gribberishpy.gribberish_backend:GribberishBackend"
 gribberish = "gribberishpy.kerchunk:GribberishCodec"
 
 [tool.maturin]
-features = ["pyo3/extension-module"]
-python-source="gribberishpy"
-module-name = "gribberishpy._gribberish_python"
+# features = ["pyo3/extension-module"]
+module-name = "gribberishpy.rust_module._gribberish_python"
