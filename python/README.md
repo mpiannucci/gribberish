@@ -8,8 +8,20 @@ Python bindings to `gribberish`
 
 This module has not been added to `pypi` yet, so for now install with git:
 
+```bash
+pip install -e "gribberish@git+https://github.com/mpiannucci/gribberish.git#egg=gribberish\&subdirectory=python"
 ```
-pip install -e "gribberish[xarray]git+https://github.com/mpiannucci/gribberish.git#egg=gribberish\&subdirectory=python"
+
+With optional `xarray` support: 
+
+```
+pip install -e "gribberish[xarray]@git+https://github.com/mpiannucci/gribberish.git#egg=gribberish\&subdirectory=python"
+```
+
+With optional `kerchunk` support: 
+
+```bash
+pip install -e "gribberish[kerchunk]@git+https://github.com/mpiannucci/gribberish.git#egg=gribberish\&subdirectory=python"
 ```
 
 ### Manually
