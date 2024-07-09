@@ -12,7 +12,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 
-dependencies = ["numpy"]
+dependencies = ["numpy < 2"]
 
 [project.optional-dependencies]
 xarray = ["xarray", "fsspec"]

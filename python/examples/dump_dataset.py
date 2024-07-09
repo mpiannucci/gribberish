@@ -14,7 +14,7 @@ if __name__ == '__main__':
     input_filename = args.infile
 
     raw = read_file(input_filename)
-    dataset = gribberish.GribDataset(raw)
-    print(dataset.attrs)
-    print(dataset.vars)
-    print(dataset.coords)
+    dataset = gribberish.parse_grib_dataset(raw)
+    print(dataset["attrs"])
+    print(dataset["data_vars"])
+    print(dataset["coords"])
