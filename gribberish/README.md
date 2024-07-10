@@ -4,10 +4,16 @@ Read [GRIB 2](https://en.wikipedia.org/wiki/GRIB) files with Rust.
 
 ## Getting Started
 
-Add the package in `Cargo.toml` to `[dependencies]`:
+Add the package
+
+```bash
+cargo add gribberish
+```
+
+or manually add the package in `Cargo.toml` to `[dependencies]`:
 
 ```toml
-gribberish = { git = "https://github.com/mpiannucci/gribberish" }
+gribberish = "0.20.1"
 ```
 
 The following `features` are available:
@@ -22,4 +28,4 @@ See [read.rs](tests/read.rs) for example usage for simple reading, or [message-d
 
 ## License
 
-[MIT](LICENSE) -  2023 Matthew Iannucci
+[MIT](LICENSE) - 2024 Matthew Iannucci
