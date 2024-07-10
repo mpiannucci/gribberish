@@ -103,7 +103,7 @@ impl LambertConformalTemplate {
             EarthShape::OblateIAU => Err(GribberishError::GridTemplateError("unimplemented: OblateIAU".into())),
             EarthShape::OblateKM => Err(GribberishError::GridTemplateError("unimplemented: OblateKM".into())),
             EarthShape::OblateIAGGRS80 => Err(GribberishError::GridTemplateError("unimplemented: OblateIAGGRS80".into())),
-            EarthShape::WGS84 => Ok(Ellipsoid::wgs84()),
+            EarthShape::WGS84 => Ok(Ellipsoid::WGS84),
             EarthShape::Spherical2 => Ok(Ellipsoid {
                 A: 6_371_229.0,
                 B: 6_371_229.0,
