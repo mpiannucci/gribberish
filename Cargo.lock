@@ -294,7 +294,7 @@ dependencies = [
 
 [[package]]
 name = "gribberish-macros"
-version = "0.1.0"
+version = "0.20.0"
 dependencies = [
  "gribberish-types",
  "quote",
@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "gribberish-types"
-version = "0.1.0"
+version = "0.20.0"
 
 [[package]]
 name = "gribberishjs"

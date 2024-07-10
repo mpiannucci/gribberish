@@ -2,11 +2,16 @@
 name = "gribberish"
 version = "0.20.0"
 authors = ["Matthew Iannucci <mpiannucci@gmail.com>"]
+description = "Parse grib 2 files with Rust"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/mpiannucci/gribberish"
+keywords = ["grib", "weather", "meteorology", "climate", "oceanography"]
+categories = ["science", "encoding", "compression"]
 
 [dependencies]
-gribberish-types = { path = "../types" }
-gribberish-macros = { path = "../macros" }
+gribberish-types = { path = "../types", version = "0.20.0" }
+gribberish-macros = { path = "../macros", version = "0.20.0" }
 chrono = "0.4"
 openjpeg-sys = { version = "1.0.3", optional = true }
 png = { version = "0.17.2", optional = true }
