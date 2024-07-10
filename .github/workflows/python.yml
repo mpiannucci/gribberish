@@ -39,6 +39,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          container: ghcr.io/pyo3/maturin
           working-directory: python
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
