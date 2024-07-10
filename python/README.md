@@ -1,4 +1,4 @@
-# gribberishpy
+# gribberish python
 
 Read [GRIB 2](https://en.wikipedia.org/wiki/GRIB) files with Python. This package is a Python wrapper around the Rust library [gribberish](https://crates.io/crates/gribberish).
 
