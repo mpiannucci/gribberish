@@ -1,6 +1,8 @@
 # gribberishpy
 
-Python bindings to `gribberish`
+Read [GRIB 2](https://en.wikipedia.org/wiki/GRIB) files with Python. This package is a Python wrapper around the Rust library [gribberish](https://crates.io/crates/gribberish).
+
+There is support for `xarray` and `kerchunk` integration, as well as just reading the data directly into `numpy` arrays.
 
 ## Installing
 
@@ -47,7 +49,7 @@ maturin develop
 
 This module can be used directly, or via `xarray`.
 
-For direct usage, see [dump_raster.py](./examples/dump_raster.py).
+For direct usage, see [dump_dataset.py](./examples/dump_dataset.py) or compare with `eccodes` usage and performance in [bench.py](./examples/bench.py).
 
 ### `xarray`
 
