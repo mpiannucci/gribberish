@@ -15,6 +15,7 @@ use crate::message::parse_grib_message_metadata;
 #[pymodule]
 fn _gribberish_python(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<GribMessage>()?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_function(wrap_pyfunction!(parse_grib_message_metadata, m)?)?;
     m.add_function(wrap_pyfunction!(parse_grib_message, m)?)?;
     m.add_function(wrap_pyfunction!(parse_grib_mapping, m)?)?;
