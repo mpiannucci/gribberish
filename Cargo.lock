@@ -190,6 +190,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b6a852b24ab71dffc585bcb46eaf7959d175cb865a7152e35b348d1b2960422"
 
 [[package]]
+name = "const_soft_float"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87ca1caa64ef4ed453e68bb3db612e51cf1b2f5b871337f0fcab1c8f87cc3dff"
+
+[[package]]
 name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -288,7 +294,7 @@ dependencies = [
 
 [[package]]
 name = "gribberish-macros"
-version = "0.1.0"
+version = "0.20.0"
 dependencies = [
  "gribberish-types",
  "quote",
@@ -297,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "gribberish-types"
-version = "0.1.0"
+version = "0.20.0"
 
 [[package]]
 name = "gribberishjs"
@@ -424,9 +430,11 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
 name = "mappers"
-version = "0.1.0"
-source = "git+https://github.com/mpiannucci/mappers#b0db50d81eee3fffd31cae1f6bcd197e7fe9890b"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0aadfa195a6bbdde5c1ddca5192b4d05a2bedb1bdbd2c992fe5591162d40f384"
 dependencies = [
+ "const_soft_float",
  "float-cmp",
  "geographiclib-rs",
  "thiserror",
