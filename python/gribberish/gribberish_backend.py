@@ -96,12 +96,12 @@ class GribberishBackendArray(BackendArray):
         self.vindex = self
 
     def __getitem__(
-        self, key: xr.core.indexing.ExplicitIndexer | xr.core.indexing.OuterIndexer
+        self, key: xr.core.indexing.ExplicitIndexer
     ) -> np.typing.ArrayLike:
         return indexing.explicit_indexing_adapter(
             key,
             self.shape,
-            indexing.IndexingSupport.OUTER,
+            indexing.IndexingSupport.OUTER_1VECTOR,
             self._raw_indexing_method,
         )
 
