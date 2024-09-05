@@ -90,13 +90,18 @@ class GribberishBackendArray(BackendArray):
         self.dtype = np.dtype(np.float64)
         self.lock = DATA_VAR_LOCK
 
+        # For now, we rely on the builtin indexing support but explicitely 
+        # set the indexers to be the array itself to utilize the same __getitem__ method
+        self.oindex = self
+        self.vindex = self
+
     def __getitem__(
-        self, key: xr.core.indexing.ExplicitIndexer
+        self, key: xr.core.indexing.ExplicitIndexer | xr.core.indexing.OuterIndexer
     ) -> np.typing.ArrayLike:
         return indexing.explicit_indexing_adapter(
             key,
             self.shape,
-            indexing.IndexingSupport.BASIC,
+            indexing.IndexingSupport.OUTER,
             self._raw_indexing_method,
         )
 
