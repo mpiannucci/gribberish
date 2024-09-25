@@ -2,7 +2,7 @@ pub mod average_accumulation_extreme_horizontal_analysis_template;
 pub mod derived_ensemble_horizontal_analysis_template;
 pub mod derived_ensemble_horizontal_forecast_time_interval_template;
 pub mod horizontal_analysis_template;
-mod parameters;
+pub mod parameters;
 pub mod product_template;
 pub mod tables;
 
