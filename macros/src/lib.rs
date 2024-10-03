@@ -225,17 +225,15 @@ fn generate_from_abbrev_str(enum_data: &ItemEnum) -> TokenStream {
     });
 
     (quote! {
-        use gribberish_types::ParseAbbrevError;
-        use std::str::FromStr;
-        impl FromStr for #name {
-            type Err = ParseAbbrevError;
+        impl std::str::FromStr for #name {
+            type Err = gribberish_types::ParseAbbrevError;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
                     #(
                         #variant_abbreviations => Ok(#name::#variant_names),
                     )*
-                    _ => Err(ParseAbbrevError(format!("Unrecognised abbreviation: {s}"))),
+                    _ => Err(gribberish_types::ParseAbbrevError(format!("Unrecognised abbreviation: {s}"))),
                 }
             }
         }

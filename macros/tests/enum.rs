@@ -1,5 +1,6 @@
 use gribberish_macros::{DisplayDescription, FromAbbrevStr, FromValue, ToParameter};
 use gribberish_types::Parameter;
+use std::str::FromStr;
 
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 enum Shape {

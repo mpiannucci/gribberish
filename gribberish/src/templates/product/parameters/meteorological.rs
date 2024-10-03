@@ -1,8 +1,8 @@
-use gribberish_macros::{DisplayDescription, FromValue, ToParameter};
+use gribberish_macros::{DisplayDescription, FromAbbrevStr, FromValue, ToParameter};
 use gribberish_types::Parameter;
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum TemperatureProduct {
     #[abbrev = "TMP"]
     #[unit = "K"]
@@ -55,7 +55,7 @@ pub enum TemperatureProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum MoistureProduct {
     #[description = "specific humidity"]
     #[abbrev = "SPFH"]
@@ -143,7 +143,7 @@ pub enum MoistureProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum MomentumProduct {
     #[description = "wind direction"]
     #[abbrev = "WDIR"]
@@ -212,7 +212,7 @@ pub enum MomentumProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum CloudProduct {
     #[description = "total cloud cover"]
     #[abbrev = "TCDC"]
@@ -238,7 +238,7 @@ pub enum CloudProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum MassProduct {
     #[abbrev = "PRES"]
     #[unit = "pa"]
@@ -263,7 +263,7 @@ pub enum MassProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum RadarProduct {
     #[description = "base spectrum width"]
     #[abbrev = "BSWID"]
@@ -285,7 +285,7 @@ pub enum RadarProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum ForecastRadarImagery {
     #[description = "echo top"]
     #[abbrev = "RETOP"]
@@ -303,7 +303,7 @@ pub enum ForecastRadarImagery {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum Electromagnetics {
     #[abbrev = "LTNGSD"]
     #[unit = "m-2 s-1"]
@@ -331,7 +331,7 @@ pub enum Electromagnetics {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum PhysicalAtmosphericProperties {
     #[description = "visibility"]
     #[abbrev = "VIS"]
