@@ -5,7 +5,7 @@ use gribberish_types::Parameter;
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum VegetationProduct {
     #[description = "land cover"]
-    #[abbrev = "lAND"]
+    #[abbrev = "LAND"]
     #[unit = "proportion"]
     LandCover = 0,
     #[description = "soil temperature"]
