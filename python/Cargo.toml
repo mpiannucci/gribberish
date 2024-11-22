@@ -9,6 +9,6 @@ name = "gribberishpy"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.21.0"
+pyo3 = "0.22.0"
 gribberish = { path = "../gribberish", version = "0.20.2" }
-numpy = "0.21.0"
+numpy = "0.22.1"
