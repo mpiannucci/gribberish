@@ -20,6 +20,8 @@ itertools = "0.10.5"
 mappers = "0.7.1"
 bitvec = "1.0.1"
 thiserror = "1.0.60"
+ccsds = "0.1.0-beta.10"
+bitflags = "2.6.0"
 
 [features]
 default = ["png", "jpeg"]

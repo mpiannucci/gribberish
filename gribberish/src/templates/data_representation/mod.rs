@@ -3,7 +3,7 @@ pub mod data_representation_template;
 pub mod simple_packing_template;
 pub mod complex_packing_template;
 pub mod complex_spatial_packing_template;
-
+pub mod ccsds_template;
 #[cfg(feature = "jpeg")]
 pub mod jpeg_template;
 
@@ -20,3 +20,5 @@ pub use jpeg_template::JPEGDataRepresentationTemplate;
 
 #[cfg(feature = "png")]
 pub use png_template::PNGDataRepresentationTemplate;
+
+pub use ccsds_template::CCSDSDataRepresentationTemplate;
