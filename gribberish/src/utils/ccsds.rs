@@ -66,31 +66,53 @@ pub struct InternalState {
     pub total_out: usize,
 
     // pub decompressed_data: Vec<u8>,
-    rsi: usize,
-    // rsip: usize,
-    rsi_buffer: Vec<u32>,
+    /** First not yet flushed byte in rsi_buffer */
     flush_start: usize,
+    /** Bit pointer to the next unused bit in accumulator */
     bitp: usize,
+    /** Accumulator for currently used bit sequence */
     acc: u64,
+    /** Last fundamental sequence in accumulator */
     fs: u32,
+    /** Option ID */
     id: usize,
+    /** Bit length of code option identification key */
+    id_len: usize,
+    /** Table maps IDs to states */
     id_table: Vec<Mode>,
-    xmax: i32,
-    xmin: i32,
+    /** Maximum integer for post-processing */
+    xmax: u32,
+    /** Minimum integer for post-processing */
+    xmin: u32,
+    /** True if postprocessor has to be used */
     pp: bool,
+    /** Storage size of samples in bytes */
     bytes_per_sample: usize,
-    out_blklen: usize,
-    in_blklen: usize,
-    encoded_block_size: usize,
+    /** Length of output block in bytes */
+    out_blklen: u32,
+    /** Length of uncompressed input block */
+    in_blklen: u32,
+    /** Block size minus reference sample if present */
+    encoded_block_size: u32,
+
     offsets: Option<Vec<usize>>,
-    sample_counter: usize,
+    sample_counter: u32,
     mode: Mode,
+
+    /** Table for decoding second extension option */
     se_table: Vec<i32>,
 
+    /** RSI in bytes */
     rsi_size: usize,
-    id_len: usize,
     reff: usize,
-    last_out: u32,
+    /** Last output for post-processing */
+    last_out: i32,
+    
+    /** Current position of output in rsi_buffer */
+    rsip: usize,
+    rsi: usize,
+    /** RSI buffer */
+    rsi_buffer: Vec<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -289,7 +311,7 @@ impl InternalState {
                 return Err("Invalid bits_per_sample".into());
             }
         }
-        let out_blklen = block_size * bytes_per_sample;
+        let out_blklen: u32 = (block_size * bytes_per_sample) as u32;
 
         /*
                  if (strm->flags & AEC_DATA_SIGNED) {
@@ -301,11 +323,11 @@ impl InternalState {
         }
              */
 
-        let xmax: i32;
-        let xmin: i32;
+        let xmax: u32;
+        let xmin: u32;
         if flags.intersects(Flags::AEC_DATA_SIGNED) {
             xmax = (1 << (bits_per_sample - 1)) - 1;
-            xmin = -(1 << (bits_per_sample - 1));
+            xmin = !(xmax);
         } else {
             xmin = 0;
             xmax = (1 << bits_per_sample) - 1;
@@ -364,20 +386,22 @@ impl InternalState {
         let rsi_size = rsi * block_size;
         let pp = flags.intersects(Flags::AEC_DATA_PREPROCESS);
         let reff;
-        let encoded_block_size;
+        let encoded_block_size: u32;
         if pp {
             reff = 1;
-            encoded_block_size = block_size - 1;
+            encoded_block_size = (block_size - 1) as u32;
         } else {
             reff = 0;
-            encoded_block_size = block_size;
+            encoded_block_size = block_size as u32;
         }
-        let rsi_buffer = vec![0; rsi_size];
+        
+        let rsi_buffer: Vec<u32> = vec![0; rsi_size as usize];
+
         /*
             state->in_blklen = (strm->block_size * strm->bits_per_sample
                         + state->id_len) / 8 + 16;
                          */
-        let in_blklen = (block_size * bits_per_sample + id_len) / 8 + 16;
+        let in_blklen: u32 = ((block_size * bits_per_sample + id_len) / 8 + 16) as u32;
 
         Ok(Self {
             bits_per_sample,
@@ -391,6 +415,7 @@ impl InternalState {
             total_in,
             total_out,
             rsi,
+            rsip: 0,
             rsi_buffer,
             rsi_size,
             flush_start: 0,
@@ -512,11 +537,11 @@ impl InternalState {
 
     // Generic flush method that handles all byte orders
     pub fn flush_kind(&mut self, byte_order: ByteOrder) {
-        let flush_end = self.rsi_buffer.len();
+        let flush_end = self.rsip;
 
         if self.pp {
             // Handle preprocessed data
-            if self.flush_start == 0 && self.rsi_buffer.len() > 0 {
+            if self.flush_start == 0 && self.rsip > 0 {
                 let mut last_out = self.rsi_buffer[0];
 
                 // Handle signed data
@@ -529,8 +554,8 @@ impl InternalState {
                 self.flush_start += 1;
             }
 
-            let mut data = self.last_out;
-            let xmax = self.xmax as u32;
+            let mut data: u32 = self.last_out as u32;
+            let xmax = self.xmax;
 
             if self.xmin == 0 {
                 // Handle unsigned case
@@ -572,7 +597,7 @@ impl InternalState {
                     byte_order.put_bytes(data, &mut self.next_out);
                 }
             }
-            self.last_out = data;
+            self.last_out = data as i32;
         } else {
             // Handle non-preprocessed data
             for &bp in self.rsi_buffer[self.flush_start..flush_end].iter() {
@@ -580,7 +605,7 @@ impl InternalState {
             }
         }
 
-        self.flush_start = flush_end;
+        self.flush_start = self.rsip;
     }
 
     pub fn flush(&mut self) {
@@ -615,7 +640,7 @@ impl InternalState {
     }
 
     fn buffer_space(&self) -> bool {
-        self.avail_in >= self.in_blklen && self.avail_out >= self.out_blklen
+        self.avail_in >= (self.in_blklen as usize) && self.avail_out >= (self.out_blklen as usize)
     }
 
     /*
@@ -667,6 +692,19 @@ impl InternalState {
         (self.acc >> (self.bitp - n as usize)) & (std::u64::MAX >> (64 - n))
     }
 
+    /*
+    static inline uint32_t bits_ask(struct aec_stream *strm, int n)
+{
+    while (strm->state->bitp < n) {
+        if (strm->avail_in == 0)
+            return 0;
+        strm->avail_in--;
+        strm->state->acc <<= 8;
+        strm->state->acc |= *strm->next_in++;
+        strm->state->bitp += 8;
+    }
+    return 1;
+} */
     fn bits_ask(&mut self, n: u8) -> bool {
         while self.bitp < n as usize {
             if self.avail_in == 0 {
@@ -712,7 +750,7 @@ impl InternalState {
     }
 
     fn rsi_used_size(&self) -> usize {
-        self.rsi_buffer.len()
+        self.rsip
     }
 
     /*
@@ -736,17 +774,20 @@ impl InternalState {
         if self.avail_out < self.bytes_per_sample {
             return 0;
         }
-        let sample = self.direct_get(self.bits_per_sample as u8) as u32;
+        // let sample = self.direct_get(self.bits_per_sample as u8) as u32;
+        // self.bits_drop(self.bits_per_sample as u8);
+        // sample
+        let sample = self.bits_get(self.bits_per_sample as u8) as u32;
+        self.put_sample(sample);
         self.bits_drop(self.bits_per_sample as u8);
-        sample
+        return 1;
     }
 
     fn put_sample(&mut self, sample: u32) {
-        self.rsi_buffer.push(sample);
+        self.rsi_buffer[self.rsip] = sample;
+        self.rsip += 1;
         self.avail_out -= self.bytes_per_sample;
         self.sample_counter -= 1;
-    
-    
     }
 
 
@@ -806,23 +847,12 @@ impl InternalState {
     return fs;
 }
 
-static inline uint32_t bits_ask(struct aec_stream *strm, int n)
-{
-    while (strm->state->bitp < n) {
-        if (strm->avail_in == 0)
-            return 0;
-        strm->avail_in--;
-        strm->state->acc <<= 8;
-        strm->state->acc |= *strm->next_in++;
-        strm->state->bitp += 8;
-    }
-    return 1;
-}
+
  */
 
- fn direct_get_fs(&mut self) -> usize {
-    let mut fs = 0;
-    if self.bitp == 0 {
+ fn direct_get_fs(&mut self) -> u32 {
+    let mut fs: u32 = 0;
+    if self.bitp > 0 {
         self.acc &= std::u64::MAX >> (64 - self.bitp);
     } else {
         self.acc = 0;
@@ -842,16 +872,15 @@ static inline uint32_t bits_ask(struct aec_stream *strm, int n)
             | (self.next_in[6] as u64);
         self.next_in.drain(..7);
         self.avail_in -= 7;
-        fs += self.bitp;
+        fs += self.bitp as u32;
         self.bitp = 56;
     }
     // let i = 63 - __builtin_clzll(self.acc);
     let mut i = self.bitp - 1;
-    fs += self.bitp - i - 1;
     while (self.acc & (1 << i)) == 0 {
         i -= 1;
     }
-    fs += self.bitp - i - 1;
+    fs += (self.bitp - i - 1) as u32;
     self.bitp = i;
     fs
  }
@@ -925,20 +954,11 @@ static inline uint32_t bits_ask(struct aec_stream *strm, int n)
     return (state->acc >> state->bitp) & (UINT64_MAX >> (64 - n));
     */
 
-    pub fn direct_get(&mut self, n: u8) -> usize {
+    pub fn direct_get(&mut self, n: u8) -> u32 {
         // Read n bits directly from input
         if self.bitp < n as usize {
             let b = (63 - self.bitp) >> 3;
             match b {
-                6 => {
-                    self.acc = (self.acc << 48)
-                        | ((self.next_in[0] as u64) << 40)
-                        | ((self.next_in[1] as u64) << 32)
-                        | ((self.next_in[2] as u64) << 24)
-                        | ((self.next_in[3] as u64) << 16)
-                        | ((self.next_in[4] as u64) << 8)
-                        | (self.next_in[5] as u64);
-                }
                 7 => {
                     self.acc = (self.acc << 56)
                         | ((self.next_in[0] as u64) << 48)
@@ -948,6 +968,15 @@ static inline uint32_t bits_ask(struct aec_stream *strm, int n)
                         | ((self.next_in[4] as u64) << 16)
                         | ((self.next_in[5] as u64) << 8)
                         | (self.next_in[6] as u64);
+                }
+                6 => {
+                    self.acc = (self.acc << 48)
+                        | ((self.next_in[0] as u64) << 40)
+                        | ((self.next_in[1] as u64) << 32)
+                        | ((self.next_in[2] as u64) << 24)
+                        | ((self.next_in[3] as u64) << 16)
+                        | ((self.next_in[4] as u64) << 8)
+                        | (self.next_in[5] as u64);
                 }
                 5 => {
                     self.acc = (self.acc << 40)
@@ -985,7 +1014,8 @@ static inline uint32_t bits_ask(struct aec_stream *strm, int n)
             self.bitp += b << 3;
         }
         self.bitp -= n as usize;
-        ((self.acc >> self.bitp) & ((1 << n) - 1)) as usize
+        
+        ((self.acc >> self.bitp) & (std::u64::MAX >> (64 - n as u64))) as u32
     }
 }
 
@@ -1016,8 +1046,8 @@ impl InternalState {
     }
      */
     fn run_id(&mut self) -> DecodeStatus {
-        if self.avail_in >= self.in_blklen {
-            self.id = self.direct_get(self.id_len as u8);
+        if self.avail_in >= self.in_blklen.try_into().unwrap() {
+            self.id = self.direct_get(self.id_len as u8) as usize;
         } else {
             if !self.bits_ask(self.id_len as u8) {
                 self.mode = Mode::Id;
@@ -1167,49 +1197,19 @@ impl InternalState {
         }
         let zero_bytes = zero_samples * self.bytes_per_sample;
         if self.avail_out >= zero_bytes {
-            self.rsi_buffer
-                .extend(std::iter::repeat(0).take(zero_samples));
+            for _ in 0..zero_samples {
+                self.rsi_buffer[self.rsip] = 0;
+                self.rsip += 1;
+            }
             self.avail_out -= zero_bytes;
             self.mode = Mode::NextCds;
         } else {
-            self.sample_counter = zero_samples;
+            self.sample_counter = zero_samples as u32;
             self.mode = Mode::ZeroOutput;
         }
         DecodeStatus::Continue
     }
     /**
-         * static int m_se_decode(struct aec_stream *strm)
-    {
-        struct internal_state *state = strm->state;
-
-        while(state->sample_counter < strm->block_size) {
-            int32_t m;
-            int32_t d1;
-            if (fs_ask(strm) == 0)
-                return M_EXIT;
-            m = state->fs;
-            if (m > SE_TABLE_SIZE)
-                return M_ERROR;
-            d1 = m - state->se_table[2 * m + 1];
-
-            if ((state->sample_counter & 1) == 0) {
-                if (strm->avail_out < state->bytes_per_sample)
-                    return M_EXIT;
-                put_sample(strm, state->se_table[2 * m] - d1);
-                state->sample_counter++;
-            }
-
-            if (strm->avail_out < state->bytes_per_sample)
-                return M_EXIT;
-            put_sample(strm, d1);
-            state->sample_counter++;
-            fs_drop(strm);
-        }
-
-        state->mode = m_next_cds;
-        return M_CONTINUE;
-    }
-
     static int m_se(struct aec_stream *strm)
     {
         struct internal_state *state = strm->state;
@@ -1246,15 +1246,15 @@ impl InternalState {
     fn run_se(&mut self) -> DecodeStatus {
         if self.buffer_space() {
             // We have enough output buffer space
-            let mut i = self.reff;
+            let mut i: u32 = self.reff as u32;
 
-            while i < self.block_size {
+            while i < self.block_size as u32 {
                 // Get the next value from input stream
                 let m = self.direct_get_fs() as u32;
 
                 // Validate m is within bounds
                 if m > SE_TABLE_SIZE {
-                    return DecodeStatus::Error("SE table index out of bounds".into());
+                    return DecodeStatus::Error(format!("SE table index out of bounds (se) {}", m));
                 }
 
                 let d1 = m as i32 - self.se_table[2 * m as usize + 1];
@@ -1273,22 +1273,55 @@ impl InternalState {
             self.mode = Mode::NextCds;
         } else {
             // Not enough output buffer space, switch to incremental processing
-            self.sample_counter = self.reff;
+            self.sample_counter = self.reff as u32;
             self.mode = Mode::SEIncremental;
         }
 
         DecodeStatus::Continue
     }
+    
+    /*
+             * static int m_se_decode(struct aec_stream *strm)
+    {
+        struct internal_state *state = strm->state;
 
+        while(state->sample_counter < strm->block_size) {
+            int32_t m;
+            int32_t d1;
+            if (fs_ask(strm) == 0)
+                return M_EXIT;
+            m = state->fs;
+            if (m > SE_TABLE_SIZE)
+                return M_ERROR;
+            d1 = m - state->se_table[2 * m + 1];
+
+            if ((state->sample_counter & 1) == 0) {
+                if (strm->avail_out < state->bytes_per_sample)
+                    return M_EXIT;
+                put_sample(strm, state->se_table[2 * m] - d1);
+                state->sample_counter++;
+            }
+
+            if (strm->avail_out < state->bytes_per_sample)
+                return M_EXIT;
+            put_sample(strm, d1);
+            state->sample_counter++;
+            fs_drop(strm);
+        }
+
+        state->mode = m_next_cds;
+        return M_CONTINUE;
+    }
+ */
     // You might also want to implement a separate method for incremental processing:
     fn run_se_decode(&mut self) -> DecodeStatus {
-        while self.sample_counter < self.block_size {
+        while self.sample_counter < self.block_size as u32 {
             // Get next value from input stream
             let m = self.direct_get(8) as u32;
 
             // Validate m is within bounds
             if m > SE_TABLE_SIZE {
-                return DecodeStatus::Error("SE table index out of bounds".into());
+                return DecodeStatus::Error(format!("SE table index out of bounds (se_decode) {}", m));
             }
 
             let d1 = m as i32 - self.se_table[2 * m as usize + 1];
@@ -1308,6 +1341,7 @@ impl InternalState {
             }
             self.put_sample(d1 as u32);
             self.sample_counter += 1;
+            self.fs_drop();
         }
 
         self.mode = Mode::NextCds;
@@ -1349,13 +1383,14 @@ impl InternalState {
             // We have enough output buffer space to process the entire block at once
             for _ in 0..self.block_size {
                 let sample = self.direct_get(self.bits_per_sample as u8);
-                self.rsi_buffer.push(sample as u32);
+                self.rsi_buffer[self.rsip] = sample as u32;
+                self.rsip += 1;
             }
-            self.avail_out -= self.out_blklen;
+            self.avail_out -= self.out_blklen as usize;
             self.mode = Mode::NextCds;
         } else {
             // Not enough output space, switch to incremental processing
-            self.sample_counter = self.block_size;
+            self.sample_counter = self.block_size as u32;
             self.mode = Mode::UncompCopy;
         }
         DecodeStatus::Continue
@@ -1420,19 +1455,24 @@ impl InternalState {
         if self.buffer_space() {
             // Process entire block at once when we have enough buffer space
             let k = self.id.saturating_sub(1);
-            let binary_part = (k * self.encoded_block_size) / 8 + 9;
+            let binary_part = (k * self.encoded_block_size as usize) / 8 + 9;
 
             // Handle reference sample if needed
             if self.reff != 0 {
                 let sample = self.direct_get(self.bits_per_sample as u8);
-                self.rsi_buffer.push(sample as u32);
+                self.rsi_buffer[self.rsip] = sample as u32;
+                self.rsip += 1;
             }
 
             // First pass: get fundamental sequence values
-            let mut base_values = Vec::with_capacity(self.encoded_block_size);
-            for _ in 0..self.encoded_block_size {
+            // let mut base_values = Vec::with_capacity(self.encoded_block_size as usize);
+            // for _ in 0..self.encoded_block_size {
+            //     let fs = self.direct_get(8);
+            //     base_values.push(fs << k);
+            // }
+            for i in 0..self.encoded_block_size {
                 let fs = self.direct_get(8);
-                base_values.push(fs << k);
+                self.rsi_buffer[self.rsip + i as usize] = fs << k;
             }
 
             // Second pass: add remainder bits if k > 0
@@ -1441,18 +1481,17 @@ impl InternalState {
                     return DecodeStatus::Error("Insufficient input for binary part".into());
                 }
 
-                for i in 0..self.encoded_block_size {
+                for _ in 0..self.encoded_block_size {
                     let remainder = self.direct_get(k as u8);
-                    self.rsi_buffer
-                        .push(base_values[i] as u32 + remainder as u32);
+                    self.rsi_buffer[self.rsip] = remainder;
+                    self.rsip += 1;
                 }
             } else {
                 // No remainder bits, just copy base values
-                self.rsi_buffer
-                    .extend(base_values.iter().map(|&x| x as u32));
+                self.rsip += self.encoded_block_size as usize;
             }
 
-            self.avail_out -= self.out_blklen;
+            self.avail_out -= self.out_blklen as usize;
             self.mode = Mode::NextCds;
         } else {
             // Not enough output space, switch to incremental processing
@@ -1474,25 +1513,6 @@ impl InternalState {
     }
 
     /*
-             * static int m_split_output(struct aec_stream *strm)
-    {
-        struct internal_state *state = strm->state;
-        int k = state->id - 1;
-
-        do {
-            if (bits_ask(strm, k) == 0 || strm->avail_out < state->bytes_per_sample)
-                return M_EXIT;
-            if (k)
-                *state->rsip++ += bits_get(strm, k);
-            else
-                state->rsip++;
-            strm->avail_out -= state->bytes_per_sample;
-            bits_drop(strm, k);
-        } while(++state->sample_counter < state->encoded_block_size);
-
-        state->mode = m_next_cds;
-        return M_CONTINUE;
-    }
 
     static int m_split_fs(struct aec_stream *strm)
     {
@@ -1515,16 +1535,20 @@ impl InternalState {
 
     fn run_split_fs(&mut self) -> DecodeStatus {
         let k = self.id.saturating_sub(1);
+        let mut looping = true;
 
-        while self.sample_counter < self.encoded_block_size {
+        while looping {
             // Get fundamental sequence value
-            let fs = self.direct_get(8);
-            if fs == 0 {
+            // let fs = self.direct_get(8);
+            if !self.fs_ask() {
                 return DecodeStatus::Exit;
             }
             // Store base value
-            self.rsi_buffer[self.sample_counter] = (fs as u32) << k;
+            self.rsi_buffer[self.rsip + self.sample_counter as usize] = self.fs << k;
             self.fs_drop();
+            if self.sample_counter >= self.encoded_block_size {
+                looping = false;
+            }
             self.sample_counter += 1;
         }
 
@@ -1533,14 +1557,36 @@ impl InternalState {
         DecodeStatus::Continue
     }
 
+    /*
+                 * static int m_split_output(struct aec_stream *strm)
+    {
+        struct internal_state *state = strm->state;
+        int k = state->id - 1;
+
+        do {
+            if (bits_ask(strm, k) == 0 || strm->avail_out < state->bytes_per_sample)
+                return M_EXIT;
+            if (k)
+                *state->rsip++ += bits_get(strm, k);
+            else
+                state->rsip++;
+            strm->avail_out -= state->bytes_per_sample;
+            bits_drop(strm, k);
+        } while(++state->sample_counter < state->encoded_block_size);
+
+        state->mode = m_next_cds;
+        return M_CONTINUE;
+    } */
+
     fn run_split_output(&mut self) -> DecodeStatus {
         let k = self.id.saturating_sub(1);
-
-        while self.sample_counter < self.encoded_block_size {
+        let mut looping = true;
+        while looping {
             // Check if we have enough output space
-            if self.avail_out < self.bytes_per_sample {
+            if !self.bits_ask(k as u8) || self.avail_out < self.bytes_per_sample {
                 return DecodeStatus::Exit;
             }
+
 
             // Get remainder bits if k > 0
             if k > 0 {
@@ -1548,14 +1594,19 @@ impl InternalState {
                 if remainder == 0 {
                     return DecodeStatus::Exit;
                 }
-                self.rsi_buffer
-                    .push(self.rsi_buffer[self.sample_counter] + remainder as u32);
+                self.rsi_buffer[self.rsip] = self.bits_get(k as u8) as u32;
+                self.rsip += 1;
             } else {
-                self.rsi_buffer.push(self.rsi_buffer[self.sample_counter]);
+                // self.rsi_buffer.push(self.rsi_buffer[self.sample_counter]);
+                self.rsip += 1;
             }
-
+            // self.rsip += 1;
             self.avail_out -= self.bytes_per_sample;
             self.bits_drop(k as u8);
+            if self.sample_counter >= self.encoded_block_size {
+                looping = false;
+            }
+            self.sample_counter += 1;
         }
 
         self.mode = Mode::NextCds;
@@ -1606,12 +1657,13 @@ impl InternalState {
             // TODO: focus on this later
             self.flush_start = 0;
             // self.rsi_buffer.clear();
-            self.rsi_buffer = Vec::new();
+            self.rsi_buffer = vec![0; self.rsi_size];
+            self.rsip = 0;
 
             // Handle preprocessing flag
             if self.pp {
                 self.reff = 1;
-                self.encoded_block_size = self.block_size - 1;
+                self.encoded_block_size = (self.block_size - 1) as u32;
             }
 
             // Handle RSI padding
@@ -1622,7 +1674,7 @@ impl InternalState {
         } else {
             // Not at RSI boundary, prepare for next block
             self.reff = 0;
-            self.encoded_block_size = self.block_size;
+            self.encoded_block_size = self.block_size as u32;
         }
 
         // Switch back to ID mode
