@@ -277,7 +277,7 @@ dependencies = [
 
 [[package]]
 name = "gribberish"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "bitflags 2.6.0",
  "bitvec",
@@ -295,7 +295,7 @@ dependencies = [
 
 [[package]]
 name = "gribberish-macros"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "gribberish-types",
  "quote",
@@ -304,11 +304,11 @@ dependencies = [
 
 [[package]]
 name = "gribberish-types"
-version = "0.21.0"
+version = "0.21.1"
 
 [[package]]
 name = "gribberishjs"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "chrono",
  "gribberish",
@@ -319,7 +319,7 @@ dependencies = [
 
 [[package]]
 name = "gribberishpy"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "gribberish",
  "numpy",
