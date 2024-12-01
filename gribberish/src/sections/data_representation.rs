@@ -1,5 +1,6 @@
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
-use crate::templates::data_representation::{DataRepresentationTemplate, SimplePackingDataRepresentationTemplate, ComplexPackingDataRepresentationTemplate, ComplexSpatialPackingDataRepresentationTemplate};
+use crate::templates::data_representation::{DataRepresentationTemplate, SimplePackingDataRepresentationTemplate, ComplexPackingDataRepresentationTemplate, ComplexSpatialPackingDataRepresentationTemplate, CCSDSDataRepresentationTemplate};
+
 #[cfg(feature = "jpeg")]
 use crate::templates::data_representation::JPEGDataRepresentationTemplate;
 #[cfg(feature = "png")]
@@ -36,6 +37,7 @@ impl <'a> DataRepresentationSection<'a> {
             40 => Some(Box::new(JPEGDataRepresentationTemplate::new(self.data.to_vec()))),
             #[cfg(feature = "png")]
             41 => Some(Box::new(PNGDataRepresentationTemplate::new(self.data.to_vec()))),
+            42 => Some(Box::new(CCSDSDataRepresentationTemplate::new(self.data.to_vec()))),
             _ => None,
         }
     }
