@@ -30,11 +30,12 @@ pub fn build_grib_array<'py>(
         })
         .collect::<Vec<_>>();
 
-    let v = PyArray::from_vec_bound(py, v);
+    let v = PyArray::from_vec(py, v);
     v.reshape(shape).unwrap()
 }
 
 #[pyfunction]
+#[pyo3(signature = (data, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
 pub fn parse_grib_dataset<'py>(
     py: Python<'py>,
     data: &[u8],
@@ -77,14 +78,14 @@ pub fn parse_grib_dataset<'py>(
     let filter_by_attrs = if let Some(filter_by_attrs) = filter_by_attrs {
         filter_by_attrs.clone()
     } else {
-        PyDict::new_bound(py)
+        PyDict::new(py)
     };
 
     let (filter_by_variable_attrs, filter_by_variable_attrs_defined) =
         if let Some(filter_by_variable_attrs) = filter_by_variable_attrs {
             (filter_by_variable_attrs.clone(), true)
         } else {
-            (PyDict::new_bound(py), false)
+            (PyDict::new(py), false)
         };
 
     let encode_coords = if let Some(encode_coords) = encode_coords {
@@ -186,7 +187,7 @@ pub fn parse_grib_dataset<'py>(
         .map(|d| (d.to_owned(), vec![]))
         .collect::<HashMap<String, Vec<usize>>>();
 
-    let coords = PyDict::new_bound(py);
+    let coords = PyDict::new(py);
 
     // Temporal dims
     let mut time_map = HashMap::new();
@@ -229,15 +230,15 @@ pub fn parse_grib_dataset<'py>(
             .iter()
             .map(|d| Datetime::<Seconds>::from(d.timestamp()))
             .collect::<Vec<_>>();
-        let times = PyArray1::from_vec_bound(py, times);
+        let times = PyArray1::from_vec(py, times);
 
         time_dim_map[var].iter().for_each(|v: &String| {
             var_dims.get_mut(v).unwrap().push(name.clone());
             var_shape.get_mut(v).unwrap().push(times.len().unwrap());
         });
 
-        let time = PyDict::new_bound(py);
-        let time_metadata = PyDict::new_bound(py);
+        let time = PyDict::new(py);
+        let time_metadata = PyDict::new(py);
         time_metadata.set_item("standard_name", "time").unwrap();
         time_metadata.set_item("long_name", "time").unwrap();
         time_metadata
@@ -336,8 +337,8 @@ pub fn parse_grib_dataset<'py>(
                     var_shape.get_mut(v).unwrap().push(verticals.len());
                 });
 
-            let vertical = PyDict::new_bound(py);
-            let vertical_metadata = PyDict::new_bound(py);
+            let vertical = PyDict::new(py);
+            let vertical_metadata = PyDict::new(py);
             vertical_metadata
                 .set_item("standard_name", surface_type.to_string())
                 .unwrap();
@@ -372,8 +373,8 @@ pub fn parse_grib_dataset<'py>(
                         var_shape.get_mut(v).unwrap().push(verticals.len());
                     });
 
-                let vertical = PyDict::new_bound(py);
-                let vertical_metadata = PyDict::new_bound(py);
+                let vertical = PyDict::new(py);
+                let vertical_metadata = PyDict::new(py);
                 vertical_metadata
                     .set_item("standard_name", surface_type.to_string())
                     .unwrap();
@@ -395,8 +396,8 @@ pub fn parse_grib_dataset<'py>(
     }
 
     // Lastly the spatial coords
-    let latitude = PyDict::new_bound(py);
-    let latitude_metadata = PyDict::new_bound(py);
+    let latitude = PyDict::new(py);
+    let latitude_metadata = PyDict::new(py);
     latitude_metadata
         .set_item("standard_name", "latitude")
         .unwrap();
@@ -404,8 +405,8 @@ pub fn parse_grib_dataset<'py>(
     latitude_metadata.set_item("unit", "degrees_north").unwrap();
     latitude.set_item("attrs", &latitude_metadata).unwrap();
 
-    let longitude = PyDict::new_bound(py);
-    let longitude_metadata = PyDict::new_bound(py);
+    let longitude = PyDict::new(py);
+    let longitude_metadata = PyDict::new(py);
     longitude_metadata
         .set_item("standard_name", "longitude")
         .unwrap();
@@ -428,13 +429,13 @@ pub fn parse_grib_dataset<'py>(
 
         let (lat, lng) = first.2.latlng();
         latitude
-            .set_item("values", PyArray1::from_vec_bound(py, lat))
+            .set_item("values", PyArray1::from_vec(py, lat))
             .unwrap();
 
         longitude.set_item("dims", vec!["longitude"]).unwrap();
         longitude_metadata.set_item("axis", "X").unwrap();
         longitude
-            .set_item("values", PyArray1::from_vec_bound(py, lng))
+            .set_item("values", PyArray1::from_vec(py, lng))
             .unwrap();
 
         var_dims.iter_mut().for_each(|(_, v)| {
@@ -442,8 +443,8 @@ pub fn parse_grib_dataset<'py>(
             v.push("longitude".to_string());
         });
     } else {
-        let y = PyDict::new_bound(py);
-        let y_metadata = PyDict::new_bound(py);
+        let y = PyDict::new(py);
+        let y_metadata = PyDict::new(py);
         y_metadata.set_item("axis", "Y").unwrap();
         y_metadata
             .set_item("standard_name", "projection_y_coordinate")
@@ -454,12 +455,12 @@ pub fn parse_grib_dataset<'py>(
         y_metadata.set_item("unit", "m").unwrap();
         y.set_item("attrs", y_metadata).unwrap();
         y.set_item("dims", vec!["y"]).unwrap();
-        y.set_item("values", PyArray::from_vec_bound(py, first.2.projector.y()))
+        y.set_item("values", PyArray::from_vec(py, first.2.projector.y()))
             .unwrap();
         coords.set_item("y", y).unwrap();
 
-        let x = PyDict::new_bound(py);
-        let x_metadata = PyDict::new_bound(py);
+        let x = PyDict::new(py);
+        let x_metadata = PyDict::new(py);
         x_metadata.set_item("axis", "X").unwrap();
         x_metadata
             .set_item("standard_name", "projection_x_coordinate")
@@ -470,7 +471,7 @@ pub fn parse_grib_dataset<'py>(
         x_metadata.set_item("unit", "m").unwrap();
         x.set_item("attrs", x_metadata).unwrap();
         x.set_item("dims", vec!["x"]).unwrap();
-        x.set_item("values", PyArray::from_vec_bound(py, first.2.projector.x()))
+        x.set_item("values", PyArray::from_vec(py, first.2.projector.x()))
             .unwrap();
         coords.set_item("x", x).unwrap();
 
@@ -478,14 +479,14 @@ pub fn parse_grib_dataset<'py>(
         longitude.set_item("dims", vec!["y", "x"]).unwrap();
 
         if encode_coords {
-            let lats_array = PyDict::new_bound(py);
+            let lats_array = PyDict::new(py);
             lats_array
                 .set_item("shape", [grid_shape.0, grid_shape.1])
                 .unwrap();
             lats_array.set_item("offsets", [first.1]).unwrap();
             latitude.set_item("values", lats_array).unwrap();
 
-            let lngs_array = PyDict::new_bound(py);
+            let lngs_array = PyDict::new(py);
             lngs_array
                 .set_item("shape", [grid_shape.0, grid_shape.1])
                 .unwrap();
@@ -493,11 +494,11 @@ pub fn parse_grib_dataset<'py>(
             longitude.set_item("values", lngs_array).unwrap();
         } else {
             let (lat, lng) = first.2.latlng();
-            let lats = PyArray::from_vec_bound(py, lat);
+            let lats = PyArray::from_vec(py, lat);
             let lats = lats.reshape([grid_shape.0, grid_shape.1]).unwrap();
             latitude.set_item("values", lats).unwrap();
 
-            let lngs = PyArray::from_vec_bound(py, lng);
+            let lngs = PyArray::from_vec(py, lng);
             let lngs = lngs.reshape([grid_shape.0, grid_shape.1]).unwrap();
             longitude.set_item("values", lngs).unwrap();
         }
@@ -512,12 +513,12 @@ pub fn parse_grib_dataset<'py>(
     coords.set_item("longitude", longitude).unwrap();
 
     // Vars
-    let data_vars = PyDict::new_bound(py);
+    let data_vars = PyDict::new(py);
     for (var, v) in var_mapping.iter() {
         let dims = var_dims.get(var).unwrap().clone();
         let shape = var_shape.get(var).unwrap().clone();
-        let data_var = PyDict::new_bound(py);
-        let var_metadata = PyDict::new_bound(py);
+        let data_var = PyDict::new(py);
+        let var_metadata = PyDict::new(py);
         let first = mapping.get(v.first().unwrap()).unwrap();
         var_metadata
             .set_item("standard_name", first.2.name.clone())
@@ -576,7 +577,7 @@ pub fn parse_grib_dataset<'py>(
             )
             .unwrap();
 
-        let proj_params = PyDict::new_bound(py);
+        let proj_params = PyDict::new(py);
         proj_params
             .set_item("proj", first.2.projector.proj_name())
             .unwrap();
@@ -590,13 +591,15 @@ pub fn parse_grib_dataset<'py>(
         let mut filtered = false;
         if filter_by_variable_attrs_defined {
             if let Ok(Some(filter_by_variable_attrs)) = filter_by_variable_attrs.get_item(var) {
-                let filter_by_variable_attrs = filter_by_variable_attrs
-                    .downcast::<PyDict>()
-                    .unwrap();
+                let filter_by_variable_attrs =
+                    filter_by_variable_attrs.downcast::<PyDict>().unwrap();
                 for attr in filter_by_variable_attrs.keys() {
                     if filter_by_variable_attrs.contains(&attr).unwrap() {
-                        let filter_value =
-                            filter_by_variable_attrs.get_item(&attr).unwrap().unwrap().to_string();
+                        let filter_value = filter_by_variable_attrs
+                            .get_item(&attr)
+                            .unwrap()
+                            .unwrap()
+                            .to_string();
                         let var_value = var_metadata.get_item(attr).unwrap().unwrap().to_string();
                         if filter_value != var_value {
                             filtered = true;
@@ -608,7 +611,11 @@ pub fn parse_grib_dataset<'py>(
         } else {
             for attr in var_metadata.keys() {
                 if filter_by_attrs.contains(&attr).unwrap() {
-                    let filter_value = filter_by_attrs.get_item(&attr).unwrap().unwrap().to_string();
+                    let filter_value = filter_by_attrs
+                        .get_item(&attr)
+                        .unwrap()
+                        .unwrap()
+                        .to_string();
                     let var_value = var_metadata.get_item(attr).unwrap().unwrap().to_string();
                     if filter_value != var_value {
                         filtered = true;
@@ -650,7 +657,7 @@ pub fn parse_grib_dataset<'py>(
             })
             .collect::<Vec<_>>();
 
-        let array = PyDict::new_bound(py);
+        let array = PyDict::new(py);
         array.set_item("shape", shape).unwrap();
         array.set_item("offsets", offsets).unwrap();
 
@@ -659,13 +666,13 @@ pub fn parse_grib_dataset<'py>(
     }
 
     // Attrs
-    let attrs = PyDict::new_bound(py);
+    let attrs = PyDict::new(py);
     attrs
         .set_item("meta", "Generated with gribberishpy")
         .unwrap();
 
     // Dataset
-    let dataset = PyDict::new_bound(py);
+    let dataset = PyDict::new(py);
     dataset.set_item("coords", coords).unwrap();
     dataset.set_item("data_vars", data_vars).unwrap();
     dataset.set_item("attrs", attrs).unwrap();
