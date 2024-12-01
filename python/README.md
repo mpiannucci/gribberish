@@ -30,6 +30,12 @@ With optional `kerchunk` support:
 pip install "gribberish[kerchunk]"
 ```
 
+With optional `zarr` support:
+
+```bash
+pip install "gribberish[zarr]"
+```
+
 ### Manually
 
 With pip:
@@ -74,3 +80,9 @@ This package also supports building virtual datasets with [`kerchunk`](https://g
 
 - [`kerchunk_gefs_wave.ipynb`](./examples/kerchunk_gefs_wave.ipynb) shows how to build a single virtual dataset from an entire GEFS Wave Ensemble model run (30 ensemble members, 384 hour time horizon)
 - [`kerchunk_hrrr_subhourly.ipynb`](./examples/kerchunk_hrrr_subhourly.ipynb) shows how to build a single virtual dataset from an entire HRRR subhourly surface model run. This results in a virtual dataset with data at 15 minute time intervals over the following 18 hours.
+
+### `zarr`
+
+This package also supports use with `zarr` for reading unmodified GRIB2 messages (arrays) as chunks using the `gribberish.zarr.GribberishCodec` codec. This usually will not be used directly, but with [`VirtualiZarr`](https://virtualizarr.readthedocs.io/en/latest/) or [`kerchunk`](https://github.com/fsspec/kerchunk)
+
+Examples to come soon.

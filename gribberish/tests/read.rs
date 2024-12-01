@@ -65,6 +65,8 @@ fn read_simple() {
     assert!(message.is_some());
     let message = message.unwrap();
 
+    println!("{:?}", message.grid_dimensions().unwrap());
+
     let start = Instant::now();
     let data = message.data();
     let end = Instant::now();
