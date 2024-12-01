@@ -1,10 +1,10 @@
 use bitflags::bitflags;
-use std::{collections::VecDeque, io::Read};
+use std::collections::VecDeque;
 
 use crate::error::GribberishError;
 
-const ROS: usize = 5;
-const SE_TABLE_SIZE: u32 = 90;
+const ROS: u32 = 5;
+const SE_TABLE_SIZE: usize = 90;
 
 /*
 Samples are signed. Telling libaec this results in a slightly
@@ -89,9 +89,9 @@ pub struct InternalState {
     /** Storage size of samples in bytes */
     bytes_per_sample: usize,
     /** Length of output block in bytes */
-    out_blklen: u32,
+    out_blklen: usize,
     /** Length of uncompressed input block */
-    in_blklen: u32,
+    in_blklen: usize,
     /** Block size minus reference sample if present */
     encoded_block_size: u32,
 
@@ -110,7 +110,8 @@ pub struct InternalState {
     
     /** Current position of output in rsi_buffer */
     rsip: usize,
-    rsi: usize,
+    /** Reference sample interval, number of blocks between consecutive reference samples */
+    rsi: u32,
     /** RSI buffer */
     rsi_buffer: Vec<u32>,
 }
@@ -185,27 +186,21 @@ impl ByteOrder {
     }
 }
 
+enum DecodeStatus {
+    Continue,
+    Exit,
+    Error(String),
+}
+
 impl InternalState {
     pub fn new(
         bits_per_sample: usize,
         block_size: usize,
-        rsi: usize,
+        rsi: u32,
         flags: Flags,
         out_length: usize,
         data: Vec<u8>,
     ) -> Result<InternalState, String> {
-        // Self {
-        //     bits_per_sample,
-        //     block_size,
-        //     flags,
-        //     next_in: VecDeque::new(),
-        //     next_out: Vec::new(),
-        //     avail_in: 0,
-        //     avail_out: 0,
-        //     total_in: 0,
-        //     total_out: 0
-        // }
-        // let next_in = VecDeque::new();
         let next_out = Vec::new();
         let next_in = data.iter().copied().collect::<VecDeque<_>>();
         let avail_in = data.len();
@@ -216,18 +211,6 @@ impl InternalState {
         if bits_per_sample > 32 || bits_per_sample == 0 {
             return Err("Invalid bits_per_sample".into());
         }
-
-        // let bytes_per_sample = if bits_per_sample > 16 {
-        //     if bits_per_sample <= 24 && flags.intersects(Flags::AEC_DATA_3BYTE) {
-        //         3
-        //     } else {
-        //         4
-        //     }
-        // } else if bits_per_sample > 8 {
-        //     2
-        // } else {
-        //     1
-        // };
 
         /*
 
@@ -311,7 +294,7 @@ impl InternalState {
                 return Err("Invalid bits_per_sample".into());
             }
         }
-        let out_blklen: u32 = (block_size * bytes_per_sample) as u32;
+        let out_blklen = block_size * bytes_per_sample;
 
         /*
                  if (strm->flags & AEC_DATA_SIGNED) {
@@ -326,11 +309,11 @@ impl InternalState {
         let xmax: u32;
         let xmin: u32;
         if flags.intersects(Flags::AEC_DATA_SIGNED) {
-            xmax = (1 << (bits_per_sample - 1)) - 1;
+            xmax = ((1i64 << (bits_per_sample - 1)) - 1) as u32;
             xmin = !(xmax);
         } else {
             xmin = 0;
-            xmax = (1 << bits_per_sample) - 1;
+            xmax = ((1u64 << bits_per_sample) - 1) as u32;
         }
 
         /*
@@ -352,12 +335,14 @@ impl InternalState {
 
             */
 
-        let modi = 1 << id_len;
-        let mut id_table = vec![Mode::LowEntropy; modi as usize];
-        for i in 1..modi as usize - 1 {
-            id_table[i] = Mode::Split;
-        }
-        id_table[modi as usize - 1] = Mode::Uncomp;
+        let modi = 1u64 << id_len;
+        let modisize: usize = modi.try_into().unwrap();
+        let mut id_table = vec![Mode::Split; modisize];
+        // for i in 1..modi as usize - 1 {
+            // id_table[i] = Mode::Split;
+        // }
+        id_table[0] = Mode::LowEntropy;
+        id_table[modisize - 1] = Mode::Uncomp;
 
         /*
                 state->rsi_size = strm->rsi * strm->block_size;
@@ -383,7 +368,7 @@ impl InternalState {
         state->mode = m_id;
         state->offsets = NULL;
          */
-        let rsi_size = rsi * block_size;
+        let rsi_size = (rsi as usize) * block_size;
         let pp = flags.intersects(Flags::AEC_DATA_PREPROCESS);
         let reff;
         let encoded_block_size: u32;
@@ -395,13 +380,13 @@ impl InternalState {
             encoded_block_size = block_size as u32;
         }
         
-        let rsi_buffer: Vec<u32> = vec![0; rsi_size as usize];
+        let rsi_buffer: Vec<u32> = vec![0; rsi_size];
 
         /*
             state->in_blklen = (strm->block_size * strm->bits_per_sample
                         + state->id_len) / 8 + 16;
                          */
-        let in_blklen: u32 = ((block_size * bits_per_sample + id_len) / 8 + 16) as u32;
+        let in_blklen: usize = (block_size * bits_per_sample + id_len) / 8 + 16;
 
         Ok(Self {
             bits_per_sample,
@@ -444,17 +429,17 @@ impl InternalState {
         match self.mode {
             Mode::Id => self.run_id(),
             Mode::LowEntropy => self.run_low_entropy(),
+            Mode::LowEntropyRef => self.run_low_entropy_ref(),
             Mode::ZeroBlock => self.run_zero_block(),
             Mode::ZeroOutput => self.run_zero_output(),
+            Mode::Uncomp => self.run_uncomp(),
+            Mode::UncompCopy => self.run_uncomp_copy(),
             Mode::SE => self.run_se(),
             Mode::SEIncremental => self.run_se_decode(),
-            Mode::Uncomp => self.run_uncomp(),
             Mode::Split => self.run_split(),
-            Mode::NextCds => self.run_next_cds(),
-            Mode::UncompCopy => self.run_uncomp_copy(),
             Mode::SplitFs => self.run_split_fs(),
             Mode::SplitOutput => self.run_split_output(),
-            Mode::LowEntropyRef => self.run_low_entropy_ref(),
+            Mode::NextCds => self.run_next_cds(),
         }
     }
 
@@ -542,62 +527,98 @@ impl InternalState {
         if self.pp {
             // Handle preprocessed data
             if self.flush_start == 0 && self.rsip > 0 {
-                let mut last_out = self.rsi_buffer[0];
+                self.last_out = self.rsi_buffer[0].try_into().unwrap();
 
                 // Handle signed data
                 if self.flags.intersects(Flags::AEC_DATA_SIGNED) {
                     let m = 1u32 << (self.bits_per_sample - 1);
-                    last_out = (last_out ^ m).wrapping_sub(m);
+                    let m2: i32 = m.try_into().unwrap();
+                    self.last_out = (self.last_out ^ m2) - m2;
                 }
 
-                byte_order.put_bytes(last_out, &mut self.next_out);
+                byte_order.put_bytes(self.last_out.try_into().unwrap(), &mut self.next_out);
                 self.flush_start += 1;
             }
 
             let mut data: u32 = self.last_out as u32;
-            let xmax = self.xmax;
+            let xmax: u32 = self.xmax as u32;
 
             if self.xmin == 0 {
                 // Handle unsigned case
-                let med = (self.xmax as u32) / 2 + 1;
+                let med = self.xmax / 2 + 1;
 
                 for bp in self.rsi_buffer[self.flush_start..flush_end].iter() {
                     let d = *bp;
                     let half_d = (d >> 1) + (d & 1);
-                    let mask = if (data & med) != 0 { xmax } else { 0 };
+                    let mask = if (data & med) == 0 { 0 } else { xmax };
 
                     data = if half_d <= (mask ^ data) {
-                        data.wrapping_add((d >> 1) ^ (!((d & 1).wrapping_sub(1))))
+                        data + (d >> 1) ^ (!((d & 1) - 1))
                     } else {
                         mask ^ d
                     };
 
                     byte_order.put_bytes(data, &mut self.next_out);
                 }
+                self.last_out = data as i32;
             } else {
                 // Handle signed case
                 for bp in self.rsi_buffer[self.flush_start..flush_end].iter() {
                     let d = *bp;
                     let half_d = (d >> 1) + (d & 1);
 
+                    // data = if (data as i32) < 0 {
+                    //     if half_d <= xmax.wrapping_add(data).wrapping_add(1) {
+                    //         data.wrapping_add((d >> 1) ^ (!((d & 1).wrapping_sub(1))))
+                    //     } else {
+                    //         d.wrapping_sub(xmax).wrapping_sub(1)
+                    //     }
+                    // } else {
+                    //     if half_d <= xmax.wrapping_sub(data) {
+                    //         data.wrapping_add((d >> 1) ^ (!((d & 1).wrapping_sub(1))))
+                    //     } else {
+                    //         xmax.wrapping_sub(d)
+                    //     }
+                    // };
+                    /*                       \
+                                                                         \
+                    if ((int32_t)data < 0) {                             \
+                        if (half_d <= xmax + data + 1) {                 \
+                            data += (d >> 1)^(~((d & 1) - 1));           \
+                        } else {                                         \
+                            data = d - xmax - 1;                         \
+                        }                                                \
+                    } else {                                             \
+                        if (half_d <= xmax - data) {                     \
+                            data += (d >> 1)^(~((d & 1) - 1));           \
+                        } else {                                         \
+                            data = xmax - d;                             \
+                        }                                                \
+                    }                                                    \
+                    put_##KIND(strm, data);  
+                     */
                     data = if (data as i32) < 0 {
-                        if half_d <= xmax.wrapping_add(data).wrapping_add(1) {
-                            data.wrapping_add((d >> 1) ^ (!((d & 1).wrapping_sub(1))))
+                        if half_d <= xmax + data + 1 {
+                            data + (d >> 1) ^ (!((d & 1) - 1))
                         } else {
-                            d.wrapping_sub(xmax).wrapping_sub(1)
+                            d - xmax - 1
                         }
                     } else {
-                        if half_d <= xmax.wrapping_sub(data) {
-                            data.wrapping_add((d >> 1) ^ (!((d & 1).wrapping_sub(1))))
+                        if half_d <= xmax - data {
+                            data + (d >> 1) ^ (!((d & 1) - 1))
                         } else {
-                            xmax.wrapping_sub(d)
+                            xmax - d
                         }
                     };
 
                     byte_order.put_bytes(data, &mut self.next_out);
                 }
+                // Validate that we are not overflowing i32
+                if data > i32::MAX as u32 {
+                    panic!("Overflowing data in flush_kind signed");
+                }
+                self.last_out = data as i32;
             }
-            self.last_out = data as i32;
         } else {
             // Handle non-preprocessed data
             for &bp in self.rsi_buffer[self.flush_start..flush_end].iter() {
@@ -640,7 +661,7 @@ impl InternalState {
     }
 
     fn buffer_space(&self) -> bool {
-        self.avail_in >= (self.in_blklen as usize) && self.avail_out >= (self.out_blklen as usize)
+        self.avail_in >= (self.in_blklen) && self.avail_out >= (self.out_blklen.try_into().unwrap())
     }
 
     /*
@@ -668,7 +689,63 @@ impl InternalState {
         strm->state->bitp -= n;
     }
 
-    static inline uint32_t fs_ask(struct aec_stream *strm)
+         */
+
+    fn bits_get(&mut self, n: usize) -> u32 {
+        return ((self.acc >> (self.bitp - n))
+            & (std::u64::MAX >> (64 - n))) as u32;
+    }
+
+    /*
+    static inline uint32_t bits_ask(struct aec_stream *strm, int n)
+{
+    while (strm->state->bitp < n) {
+        if (strm->avail_in == 0)
+            return 0;
+        strm->avail_in--;
+        strm->state->acc <<= 8;
+        strm->state->acc |= *strm->next_in++;
+        strm->state->bitp += 8;
+    }
+    return 1;
+} */
+    fn bits_ask(&mut self, n: usize) -> bool {
+        while self.bitp < n {
+            if self.avail_in == 0 {
+                return false;
+            }
+            self.avail_in -= 1;
+            // let actual_next_in = self.next_in[0];
+            let actual_next_in: u64 = self.next_in.pop_front().unwrap().into();
+            self.acc <<= 8;
+            self.acc |= actual_next_in;
+            // self.acc = (self.acc << 8) | (self.next_in.pop_front().unwrap() as u64);
+            // Get the mask from next_in
+            self.bitp += 8;
+        }
+        true
+    }
+
+    fn bits_drop(&mut self, n: usize) {
+        self.bitp -= n;
+    }
+
+
+    /*
+    static inline void fs_drop(struct aec_stream *strm)
+{
+    strm->state->fs = 0;
+    strm->state->bitp--;
+} 
+*/
+
+    fn fs_drop(&mut self) {
+        self.fs = 0;
+        self.bitp -= 1;
+    }
+
+    /*
+        static inline uint32_t fs_ask(struct aec_stream *strm)
     {
         if (bits_ask(strm, 1) == 0)
             return 0;
@@ -685,62 +762,20 @@ impl InternalState {
             strm->state->bitp--;
         }
         return 1;
-    }
-         */
-
-    fn bits_get(&mut self, n: u8) -> u64 {
-        (self.acc >> (self.bitp - n as usize)) & (std::u64::MAX >> (64 - n))
-    }
-
-    /*
-    static inline uint32_t bits_ask(struct aec_stream *strm, int n)
-{
-    while (strm->state->bitp < n) {
-        if (strm->avail_in == 0)
-            return 0;
-        strm->avail_in--;
-        strm->state->acc <<= 8;
-        strm->state->acc |= *strm->next_in++;
-        strm->state->bitp += 8;
-    }
-    return 1;
-} */
-    fn bits_ask(&mut self, n: u8) -> bool {
-        while self.bitp < n as usize {
-            if self.avail_in == 0 {
-                return false;
-            }
-            self.avail_in -= 1;
-            // let actual_next_in = self.next_in[0];
-            let actual_next_in = self.next_in.pop_front().unwrap();
-            self.acc = self.acc << 8;
-            self.acc |= actual_next_in as u64;
-            // self.acc = (self.acc << 8) | (self.next_in.pop_front().unwrap() as u64);
-            // Get the mask from next_in
-            self.bitp += 8;
-        }
-        true
-    }
-
-    fn bits_drop(&mut self, n: u8) {
-        self.bitp -= n as usize;
-    }
-
-    fn fs_drop(&mut self) {
-        self.fs = 0;
-        self.bitp -= 1;
-    }
+    } */
     fn fs_ask(&mut self) -> bool {
-        if self.bits_ask(1) == false {
+        if !self.bits_ask(1) {
             return false;
         }
-        while         (self.acc & (1 << (self.bitp - 1))) == 0        {
+        while (self.acc & (1u64 << (self.bitp - 1))) == 0 {
             if self.bitp == 1 {
                 if self.avail_in == 0 {
                     return false;
                 }
                 self.avail_in -= 1;
-                self.acc = (self.acc << 8) | (self.next_in.pop_front().unwrap() as u64);
+                let actual_next_in = self.next_in.pop_front().unwrap();
+                self.acc <<= 8;
+                self.acc |= actual_next_in as u64;
                 self.bitp += 8;
             }
             self.fs += 1;
@@ -754,12 +789,6 @@ impl InternalState {
     }
 
     /*
-        static inline void fs_drop(struct aec_stream *strm)
-    {
-        strm->state->fs = 0;
-        strm->state->bitp--;
-    }
-
     static inline uint32_t copysample(struct aec_stream *strm)
     {
         if (bits_ask(strm, strm->bits_per_sample) == 0
@@ -770,24 +799,26 @@ impl InternalState {
         bits_drop(strm, strm->bits_per_sample);
         return 1;
     } */
-    fn copysample(&mut self) -> u32 {
-        if self.avail_out < self.bytes_per_sample {
-            return 0;
+    fn copysample(&mut self) -> bool {
+        if !self.bits_ask(self.bits_per_sample) || self.avail_out < self.bytes_per_sample {
+            return false;
         }
-        // let sample = self.direct_get(self.bits_per_sample as u8) as u32;
-        // self.bits_drop(self.bits_per_sample as u8);
-        // sample
-        let sample = self.bits_get(self.bits_per_sample as u8) as u32;
+        let sample = self.bits_get(self.bits_per_sample);
         self.put_sample(sample);
-        self.bits_drop(self.bits_per_sample as u8);
-        return 1;
+        self.bits_drop(self.bits_per_sample);
+        true
     }
 
     fn put_sample(&mut self, sample: u32) {
         self.rsi_buffer[self.rsip] = sample;
         self.rsip += 1;
         self.avail_out -= self.bytes_per_sample;
-        self.sample_counter -= 1;
+    }
+
+    fn put_sample_signed(&mut self, sample: i32) {
+        self.rsi_buffer[self.rsip] = sample as u32;
+        self.rsip += 1;
+        self.avail_out -= self.bytes_per_sample;
     }
 
 
@@ -862,27 +893,35 @@ impl InternalState {
             return 0;
         }
 
+        let next_in_0 = self.next_in.pop_front().unwrap();
+        let next_in_1 = self.next_in.pop_front().unwrap();
+        let next_in_2 = self.next_in.pop_front().unwrap();
+        let next_in_3 = self.next_in.pop_front().unwrap();
+        let next_in_4 = self.next_in.pop_front().unwrap();
+        let next_in_5 = self.next_in.pop_front().unwrap();
+        let next_in_6 = self.next_in.pop_front().unwrap();
+
         self.acc = (self.acc << 56)
-            | ((self.next_in[0] as u64) << 48)
-            | ((self.next_in[1] as u64) << 40)
-            | ((self.next_in[2] as u64) << 32)
-            | ((self.next_in[3] as u64) << 24)
-            | ((self.next_in[4] as u64) << 16)
-            | ((self.next_in[5] as u64) << 8)
-            | (self.next_in[6] as u64);
-        self.next_in.drain(..7);
+            | ((next_in_0 as u64) << 48)
+            | ((next_in_1 as u64) << 40)
+            | ((next_in_2 as u64) << 32)
+            | ((next_in_3 as u64) << 24)
+            | ((next_in_4 as u64) << 16)
+            | ((next_in_5 as u64) << 8)
+            | (next_in_6 as u64);
+        // self.next_in.drain(..7);
         self.avail_in -= 7;
         fs += self.bitp as u32;
         self.bitp = 56;
     }
     // let i = 63 - __builtin_clzll(self.acc);
     let mut i = self.bitp - 1;
-    while (self.acc & (1 << i)) == 0 {
+    while (self.acc & (1u64 << i)) == 0 {
         i -= 1;
     }
     fs += (self.bitp - i - 1) as u32;
     self.bitp = i;
-    fs
+    return fs;
  }
 
 
@@ -954,9 +993,9 @@ impl InternalState {
     return (state->acc >> state->bitp) & (UINT64_MAX >> (64 - n));
     */
 
-    pub fn direct_get(&mut self, n: u8) -> u32 {
+    pub fn direct_get(&mut self, n: usize) -> u32 {
         // Read n bits directly from input
-        if self.bitp < n as usize {
+        if self.bitp < n {
             let b = (63 - self.bitp) >> 3;
             match b {
                 7 => {
@@ -1017,15 +1056,7 @@ impl InternalState {
         
         ((self.acc >> self.bitp) & (std::u64::MAX >> (64 - n as u64))) as u32
     }
-}
 
-enum DecodeStatus {
-    Continue,
-    Exit,
-    Error(String),
-}
-
-impl InternalState {
     /*
 
     static inline int m_id(struct aec_stream *strm)
@@ -1047,18 +1078,20 @@ impl InternalState {
      */
     fn run_id(&mut self) -> DecodeStatus {
         if self.avail_in >= self.in_blklen.try_into().unwrap() {
-            self.id = self.direct_get(self.id_len as u8) as usize;
+            self.id = self.direct_get(self.id_len) as usize;
         } else {
-            if !self.bits_ask(self.id_len as u8) {
+            if !self.bits_ask(self.id_len) {
                 self.mode = Mode::Id;
+                println!("ID ask failed?");
                 return DecodeStatus::Exit;
             }
-            self.id = self.bits_get(self.id_len as u8) as usize;
-            self.bits_drop(self.id_len as u8);
+            self.id = self.bits_get(self.id_len) as usize;
+            self.bits_drop(self.id_len);
         }
 
         self.mode = self.id_table[self.id].clone();
         DecodeStatus::Continue
+        // return self.run();
     }
 
     /*
@@ -1076,22 +1109,11 @@ impl InternalState {
         return M_CONTINUE;
     }
 
-    static int m_low_entropy(struct aec_stream *strm)
-    {
-        struct internal_state *state = strm->state;
-
-        if (bits_ask(strm, 1) == 0)
-            return M_EXIT;
-        state->id = bits_get(strm, 1);
-        bits_drop(strm, 1);
-        state->mode = m_low_entropy_ref;
-        return M_CONTINUE;
-    }
 
     */
 
     fn run_low_entropy_ref(&mut self) -> DecodeStatus {
-        if self.reff != 0 && self.copysample() == 0 {
+        if self.reff != 0 && !self.copysample(){
             return DecodeStatus::Exit;
         }
 
@@ -1103,6 +1125,19 @@ impl InternalState {
         DecodeStatus::Continue
     }
 
+
+    /*
+        static int m_low_entropy(struct aec_stream *strm)
+    {
+        struct internal_state *state = strm->state;
+
+        if (bits_ask(strm, 1) == 0)
+            return M_EXIT;
+        state->id = bits_get(strm, 1);
+        bits_drop(strm, 1);
+        state->mode = m_low_entropy_ref;
+        return M_CONTINUE;
+    } */
 
     fn run_low_entropy(&mut self) -> DecodeStatus {
         if !self.bits_ask(1) {
@@ -1128,7 +1163,26 @@ impl InternalState {
         return M_CONTINUE;
     }
 
-    static int m_zero_block(struct aec_stream *strm)
+         */
+
+    fn run_zero_output(&mut self) -> DecodeStatus {
+        loop {
+            if self.avail_out < self.bytes_per_sample {
+                return DecodeStatus::Exit;
+            }
+            self.put_sample(0);
+            if self.sample_counter <= 0 {
+                self.sample_counter -= 1;
+                break;
+            }
+            self.sample_counter -= 1;
+        }
+        self.mode = Mode::NextCds;
+        DecodeStatus::Continue
+    }
+
+    /*
+        static int m_zero_block(struct aec_stream *strm)
     {
         struct internal_state *state = strm->state;
         uint32_t zero_blocks;
@@ -1164,44 +1218,43 @@ impl InternalState {
         }
         return M_CONTINUE;
     }
-         */
-
-    fn run_zero_output(&mut self) -> DecodeStatus {
-        while self.sample_counter > 0 {
-            if self.avail_out < self.bytes_per_sample {
-                return DecodeStatus::Exit;
-            }
-            self.put_sample(0);
-        }
-        self.mode = Mode::NextCds;
-        DecodeStatus::Continue
-    }
-
+    */
     fn run_zero_block(&mut self) -> DecodeStatus {
         if !self.fs_ask() {
             return DecodeStatus::Exit;
         }
-        let mut zero_blocks: usize = (self.fs + 1).try_into().unwrap();
+        let mut zero_blocks: u32 = self.fs + 1;
+        // Fs = 0 and bitp -= 1
         self.fs_drop();
 
         if zero_blocks == ROS {
-            let b = self.rsi_used_size() / self.block_size;
-            zero_blocks = std::cmp::min(self.rsi - b, 64 - (b % 64));
+            // let b: i32 = (self.rsi_used_size() as i32) / self.block_size.try_into().unwrap();
+            // let a = (self.rsi - b) as i32;
+            // let c = 64 - (b % 64);
+            // zero_blocks = if a < c { a as u32 } else { c as u32 };
+            let b = (self.rsi_used_size() as i32) / self.block_size as i32;
+            zero_blocks = std::cmp::min(
+                self.rsi as i32 - b,
+                64 - (b % 64)
+            ) as u32;
         } else if zero_blocks > ROS {
             zero_blocks -= 1;
         }
 
-        let zero_samples = zero_blocks * self.block_size - self.reff;
+        let block_size = self.block_size as u32;
+        let reff = self.reff as u32;
+
+        let zero_samples = (zero_blocks * block_size - reff) as usize;
         if (self.rsi_size - self.rsi_used_size()) < zero_samples {
-            return DecodeStatus::Error(format!("Not enough space to write zero samples: size {} used {} needed {}", self.rsi_size, self.rsi_used_size(), zero_samples));
+            return DecodeStatus::Error(format!("Not enough space to write zero samples: size {} used {} needed {} blocks: {}", self.rsi_size, self.rsi_used_size(), zero_samples, zero_blocks));
         }
-        let zero_bytes = zero_samples * self.bytes_per_sample;
+        let zero_bytes = (zero_samples as usize) * self.bytes_per_sample;
         if self.avail_out >= zero_bytes {
             for _ in 0..zero_samples {
                 self.rsi_buffer[self.rsip] = 0;
                 self.rsip += 1;
+                self.avail_out -= self.bytes_per_sample;
             }
-            self.avail_out -= zero_bytes;
             self.mode = Mode::NextCds;
         } else {
             self.sample_counter = zero_samples as u32;
@@ -1250,23 +1303,22 @@ impl InternalState {
 
             while i < self.block_size as u32 {
                 // Get the next value from input stream
-                let m = self.direct_get_fs() as u32;
+                let m = self.direct_get_fs();
 
                 // Validate m is within bounds
-                if m > SE_TABLE_SIZE {
+                if m > SE_TABLE_SIZE as u32 {
                     return DecodeStatus::Error(format!("SE table index out of bounds (se) {}", m));
                 }
-
-                let d1 = m as i32 - self.se_table[2 * m as usize + 1];
+                let d1: i32 = (m as i32) - self.se_table[(2 * m + 1) as usize];
 
                 // Handle even-numbered samples
                 if (i & 1) == 0 {
-                    self.put_sample((self.se_table[2 * m as usize] - d1) as u32);
+                    self.put_sample_signed(self.se_table[(2 * m) as usize] - d1);
                     i += 1;
                 }
 
                 // Handle all samples
-                self.put_sample(d1 as u32);
+                self.put_sample_signed(d1);
                 i += 1;
             }
 
@@ -1317,21 +1369,27 @@ impl InternalState {
     fn run_se_decode(&mut self) -> DecodeStatus {
         while self.sample_counter < self.block_size as u32 {
             // Get next value from input stream
-            let m = self.direct_get(8) as u32;
+            // let m = self.direct_get(8) as i32;
+            
+            if !self.fs_ask() {
+                return DecodeStatus::Exit;
+            }
+
+            let m: i32 = self.fs as i32;
 
             // Validate m is within bounds
-            if m > SE_TABLE_SIZE {
+            if m > SE_TABLE_SIZE.try_into().unwrap() {
                 return DecodeStatus::Error(format!("SE table index out of bounds (se_decode) {}", m));
             }
 
-            let d1 = m as i32 - self.se_table[2 * m as usize + 1];
+            let d1: i32 = m - self.se_table[(2 * m + 1) as usize];
 
             // Handle even-numbered samples
             if (self.sample_counter & 1) == 0 {
                 if self.avail_out < self.bytes_per_sample {
                     return DecodeStatus::Exit;
                 }
-                self.put_sample((self.se_table[2 * m as usize] - d1) as u32);
+                self.put_sample_signed(self.se_table[(2 * m) as usize] - d1);
                 self.sample_counter += 1;
             }
 
@@ -1339,7 +1397,7 @@ impl InternalState {
             if self.avail_out < self.bytes_per_sample {
                 return DecodeStatus::Exit;
             }
-            self.put_sample(d1 as u32);
+            self.put_sample_signed(d1);
             self.sample_counter += 1;
             self.fs_drop();
         }
@@ -1348,21 +1406,10 @@ impl InternalState {
         DecodeStatus::Continue
     }
 
-    /**
-         * static int m_uncomp_copy(struct aec_stream *strm)
-    {
-        struct internal_state *state = strm->state;
 
-        do {
-            if (copysample(strm) == 0)
-                return M_EXIT;
-        } while(--state->sample_counter);
 
-        state->mode = m_next_cds;
-        return M_CONTINUE;
-    }
-
-    static int m_uncomp(struct aec_stream *strm)
+            /*
+        static int m_uncomp(struct aec_stream *strm)
     {
         struct internal_state *state = strm->state;
 
@@ -1377,13 +1424,12 @@ impl InternalState {
         }
         return M_CONTINUE;
     }
-         */
+    */
     fn run_uncomp(&mut self) -> DecodeStatus {
         if self.buffer_space() {
             // We have enough output buffer space to process the entire block at once
-            for _ in 0..self.block_size {
-                let sample = self.direct_get(self.bits_per_sample as u8);
-                self.rsi_buffer[self.rsip] = sample as u32;
+            for _ in 0..self.block_size {                
+                self.rsi_buffer[self.rsip] = self.direct_get(self.bits_per_sample) as u32;
                 self.rsip += 1;
             }
             self.avail_out -= self.out_blklen as usize;
@@ -1396,16 +1442,32 @@ impl InternalState {
         DecodeStatus::Continue
     }
 
+        /**
+         * static int m_uncomp_copy(struct aec_stream *strm)
+    {
+        struct internal_state *state = strm->state;
+
+        do {
+            if (copysample(strm) == 0)
+                return M_EXIT;
+        } while(--state->sample_counter);
+
+        state->mode = m_next_cds;
+        return M_CONTINUE;
+    }
+
+         */
+
     // Add this method for incremental processing
     fn run_uncomp_copy(&mut self) -> DecodeStatus {
-        while self.sample_counter > 0 {
-            if self.avail_out < self.bytes_per_sample {
+        loop {
+            if !self.copysample() {
                 return DecodeStatus::Exit;
             }
-
-            let sample = self.direct_get(self.bits_per_sample as u8);
-            self.put_sample(sample as u32);
-            self.avail_out -= self.bytes_per_sample;
+            if self.sample_counter <= 0 {
+                self.sample_counter -= 1;
+                break;
+            } 
             self.sample_counter -= 1;
         }
 
@@ -1451,16 +1513,16 @@ impl InternalState {
         return M_CONTINUE;
     }
          */
+        
     fn run_split(&mut self) -> DecodeStatus {
         if self.buffer_space() {
             // Process entire block at once when we have enough buffer space
-            let k = self.id.saturating_sub(1);
-            let binary_part = (k * self.encoded_block_size as usize) / 8 + 9;
+            let k: i32 = (self.id  as i32) - 1;
+            let binary_part = ((k as usize) * self.encoded_block_size as usize) / 8 + 9;
 
             // Handle reference sample if needed
             if self.reff != 0 {
-                let sample = self.direct_get(self.bits_per_sample as u8);
-                self.rsi_buffer[self.rsip] = sample as u32;
+                self.rsi_buffer[self.rsip] = self.direct_get(self.bits_per_sample);
                 self.rsip += 1;
             }
 
@@ -1471,19 +1533,19 @@ impl InternalState {
             //     base_values.push(fs << k);
             // }
             for i in 0..self.encoded_block_size {
-                let fs = self.direct_get(8);
+                let fs = self.direct_get_fs() << k;
                 self.rsi_buffer[self.rsip + i as usize] = fs << k;
             }
 
             // Second pass: add remainder bits if k > 0
-            if k > 0 {
+            if k != 0 {
                 if self.avail_in < binary_part {
                     return DecodeStatus::Error("Insufficient input for binary part".into());
                 }
 
                 for _ in 0..self.encoded_block_size {
-                    let remainder = self.direct_get(k as u8);
-                    self.rsi_buffer[self.rsip] = remainder;
+                    let remainder = self.direct_get(k as usize);
+                    self.rsi_buffer[self.rsip] += remainder;
                     self.rsip += 1;
                 }
             } else {
@@ -1494,15 +1556,7 @@ impl InternalState {
             self.avail_out -= self.out_blklen as usize;
             self.mode = Mode::NextCds;
         } else {
-            // Not enough output space, switch to incremental processing
-            // if self.sample_counter > 0 {
-            //     let sample = self.direct_get(self.bits_per_sample as u8);
-            //     if self.avail_out < self.bytes_per_sample {
-            //         return DecodeStatus::Exit;
-            //     }
-            //     self.rsip.push(sample as u32);
-            // }
-            if (self.reff != 0) && self.copysample() == 0 {
+            if (self.reff != 0) && !self.copysample() {
                 return DecodeStatus::Exit;
             }
             self.sample_counter = 0;
@@ -1534,20 +1588,18 @@ impl InternalState {
     */
 
     fn run_split_fs(&mut self) -> DecodeStatus {
-        let k = self.id.saturating_sub(1);
-        let mut looping = true;
+        let k = self.id - 1;
 
-        while looping {
+        loop {
             // Get fundamental sequence value
-            // let fs = self.direct_get(8);
             if !self.fs_ask() {
                 return DecodeStatus::Exit;
             }
             // Store base value
             self.rsi_buffer[self.rsip + self.sample_counter as usize] = self.fs << k;
             self.fs_drop();
-            if self.sample_counter >= self.encoded_block_size {
-                looping = false;
+            if self.sample_counter < self.encoded_block_size {
+                break;
             }
             self.sample_counter += 1;
         }
@@ -1579,32 +1631,26 @@ impl InternalState {
     } */
 
     fn run_split_output(&mut self) -> DecodeStatus {
-        let k = self.id.saturating_sub(1);
-        let mut looping = true;
-        while looping {
+        let k = self.id - 1;
+        loop {
             // Check if we have enough output space
-            if !self.bits_ask(k as u8) || self.avail_out < self.bytes_per_sample {
+            if !self.bits_ask(k) || self.avail_out < self.bytes_per_sample {
                 return DecodeStatus::Exit;
             }
 
 
             // Get remainder bits if k > 0
             if k > 0 {
-                let remainder = self.direct_get(k as u8);
-                if remainder == 0 {
-                    return DecodeStatus::Exit;
-                }
-                self.rsi_buffer[self.rsip] = self.bits_get(k as u8) as u32;
+                self.rsi_buffer[self.rsip] += self.bits_get(k) as u32;
                 self.rsip += 1;
             } else {
-                // self.rsi_buffer.push(self.rsi_buffer[self.sample_counter]);
                 self.rsip += 1;
             }
-            // self.rsip += 1;
             self.avail_out -= self.bytes_per_sample;
-            self.bits_drop(k as u8);
-            if self.sample_counter >= self.encoded_block_size {
-                looping = false;
+            self.bits_drop(k);
+            if self.sample_counter < self.encoded_block_size {
+                self.sample_counter += 1;
+                break;
             }
             self.sample_counter += 1;
         }
@@ -1657,7 +1703,7 @@ impl InternalState {
             // TODO: focus on this later
             self.flush_start = 0;
             // self.rsi_buffer.clear();
-            self.rsi_buffer = vec![0; self.rsi_size];
+            // self.rsi_buffer = vec![0; self.rsi_size];
             self.rsip = 0;
 
             // Handle preprocessing flag
@@ -1678,30 +1724,153 @@ impl InternalState {
         }
 
         // Switch back to ID mode
-        self.mode = Mode::Id;
-        DecodeStatus::Continue
+        // self.mode = Mode::Id;
+        // DecodeStatus::Continue
+        return self.run_id();
     }
 }
 
-fn read_f64_from_bytes(bytes: &[u8]) -> Vec<f64> {
-    // Ensure we're reading complete f64s (8 bytes each)
-    let mut result = Vec::with_capacity(bytes.len() / 8);
+// fn read_f64_from_bytes(bytes: &[u8]) -> Vec<f64> {
+//     // Ensure we're reading complete f64s (8 bytes each)
+//     let mut result = Vec::with_capacity(bytes.len() / 8);
 
-    // Process chunks of 8 bytes
-    for chunk in bytes.chunks(8) {
-        if chunk.len() == 8 {
-            // Only process complete f64s
-            let value = f64::from_be_bytes(chunk.try_into().unwrap());
-            result.push(value);
-        }
+//     // Process chunks of 8 bytes
+//     for chunk in bytes.chunks(8) {
+//         if chunk.len() == 8 {
+//             // Only process complete f64s
+//             let value = f64::from_be_bytes(chunk.try_into().unwrap());
+//             result.push(value);
+//         }
+//     }
+
+//     result
+// }
+
+// fn read_u32_from_bytes(bytes: &[u8]) -> Vec<u32> {
+//     // bytes.chunks(4).map(|chunk| u32::from_be_bytes(chunk.try_into().unwrap())).collect()
+//     // let mut result = Vec::with_capacity(bytes.len() / 4);
+//     // for chunk in bytes.chunks(4) {
+//     //     if chunk.len() == 4 {
+//     //         result.push(u32::from_be_bytes(chunk.try_into().unwrap()));
+//     //     }
+//     // }
+//     let mut result = Vec::with_capacity(bytes.len());
+//     for chunk in bytes.iter() {
+//         result.push(*chunk as u32);
+//     }
+//     result
+// }
+
+// fn read_bits_from_bytes(bytes: &[u8], bits_per_sample: usize) -> Vec<u32> {
+//     if bits_per_sample == 0 || bits_per_sample > 32 {
+//         return Vec::new();
+//     }
+
+//     // Calculate total bits available and how many complete samples we can make
+//     let total_bits = bytes.len() * 8;
+//     let num_samples = total_bits / bits_per_sample;
+//     let mut result = Vec::with_capacity(num_samples);
+    
+//     let mut bit_buffer: u64 = 0; // Use u64 to handle overflow during shifting
+//     let mut bits_in_buffer = 0;
+//     let mut current_byte_idx = 0;
+
+//     // Process each sample
+//     for _ in 0..num_samples {
+//         // Fill buffer with enough bits for at least one sample
+//         while bits_in_buffer < bits_per_sample && current_byte_idx < bytes.len() {
+//             bit_buffer = (bit_buffer << 8) | (bytes[current_byte_idx] as u64);
+//             bits_in_buffer += 8;
+//             current_byte_idx += 1;
+//         }
+
+//         // Extract one sample
+//         let shift = bits_in_buffer - bits_per_sample;
+//         let mask = (1u64 << bits_per_sample) - 1;
+//         let sample = ((bit_buffer >> shift) & mask) as u32;
+//         result.push(sample);
+
+//         // Remove used bits from buffer
+//         bits_in_buffer -= bits_per_sample;
+//         bit_buffer &= (1u64 << bits_in_buffer) - 1;
+//     }
+
+//     result
+// }
+
+
+fn read_u32_from_bytes(bytes: &[u8], bytes_per_sample: usize) -> Vec<f32> {
+    if bytes_per_sample == 0 || bytes_per_sample > 4 {
+        return Vec::new();
     }
 
+    match bytes_per_sample {
+        1 => bytes.iter().map(|&b| b as f32).collect(),
+        2 => bytes.chunks(2).map(|chunk| u16::from_be_bytes(chunk.try_into().unwrap()) as f32).collect(),
+        3 => bytes.chunks(3).map(|chunk| u32::from_be_bytes(chunk.try_into().unwrap()) as f32).collect(),
+        4 => bytes.chunks(4).map(|chunk| f32::from_be_bytes(chunk.try_into().unwrap())).collect(),
+        _ => Vec::new(),
+    }
+
+    // result
+}
+
+fn unpk_vec(
+    bits0: &[u8],
+    n_bits: usize,
+    n: usize,
+) -> Vec<f32> {
+    let mut bits = bits0.iter();
+    let jmask: u32 = (1u32 << n_bits) - 1u32;
+    let mut tbits: u32 = 0;
+    let mut t_bits: usize = 0;
+    let mut result = Vec::with_capacity(n);
+    // for _ in 0..n {
+    //     while t_bits < n_bits {
+    //         let next_bit_or_error = bits.next();
+    //         if let Some(next_bit) = next_bit_or_error {
+    //             tbits = (tbits << 8) | (*next_bit as u32);
+    //             t_bits += 8;
+    //         } else {
+    //             println!("Error reading bits");
+    //             println!("Error reading bits");
+    //             println!("Error reading bits");
+    //             println!("Error reading bits");
+    //             return result;
+    //         }
+    //     }
+    //     t_bits -= n_bits;
+    //     let val = (tbits >> t_bits) & jmask;
+    //     result.push(val as f32);
+    // }
+    /*
+    	    for (i = 0; i < n; i++) {
+                while (t_bits < n_bits) {
+                    tbits = (tbits * 256) + *bits++;
+                    t_bits += 8;
+                }
+                t_bits -= n_bits;
+                flt[i] = (tbits >> t_bits) & jmask;
+            } 
+            */
+    for _ in 0..n {
+        while t_bits < n_bits {
+            let next_bit_or_error = bits.next();
+            if let Some(next_bit) = next_bit_or_error {
+                tbits = (tbits * 256) + (*next_bit as u32);
+                t_bits += 8;
+            } else {
+                println!("Error reading bits");
+                return result;
+            }
+        }
+        t_bits -= n_bits;
+        let val = (tbits >> t_bits) & jmask;
+        result.push(val as f32);
+    }
     result
 }
 
-fn read_u32_from_bytes(bytes: &[u8]) -> Vec<u32> {
-    bytes.chunks(4).map(|chunk| u32::from_be_bytes(chunk.try_into().unwrap())).collect()
-}
 /*
 static void create_se_table(int *table)
 {
@@ -1718,13 +1887,14 @@ static void create_se_table(int *table)
      */
 
 fn create_se_table() -> Vec<i32> {
-    let mut table = vec![0; 2 * (SE_TABLE_SIZE as usize + 1)];
+    let mut table = vec![0; 2 * (SE_TABLE_SIZE + 1)];
     let mut k: i32 = 0;
     for i in 0..13 {
-        let ms = k;
+        let ms: i32 = k;
         for _ in 0..=i {
-            table[2 * k as usize] = i;
-            table[2 * k as usize + 1] = ms;
+            let ksize = k as usize;
+            table[2 * ksize] = i;
+            table[2 * ksize + 1] = ms;
             k += 1;
         }
     }
@@ -1735,18 +1905,24 @@ pub fn extract_ccsds_data(
     data: Vec<u8>,
     block_len: u8,
     compression_options_mask: u8,
-    num_samples: usize,
+    avail_out: usize,
     reference_sample_interval: u16,
-) -> Result<Vec<u32>, GribberishError> {
-    println!("Initializing CCSDS decoder, input size: {:?}", data.len());
+    bits_per_sample: usize,
+) -> Result<Vec<f32>, GribberishError> {
+    let nbytes_per_sample: usize = (bits_per_sample + 7) / 8;
+    // let datalen = data.len();
+    // let n_samples = (datalen as i32) * ((bits_per_sample as i32) + 7) / 8;
+    println!("Initializing CCSDS decoder, input size: {:?}, bits_per_sample: {:?}, nbytes_per_sample: {:?}, avail_out: {:?}", data.len(), bits_per_sample, nbytes_per_sample, avail_out);
+    // println!("Ratio from two sources of length: {:?}", n_samples as f64 / avail_out as f64);
     // Prepare the input stream
     let state_or_error = InternalState::new(
-        32,
+        bits_per_sample,
         block_len as usize,
-        reference_sample_interval as usize,
+        reference_sample_interval as u32,
         Flags::from_bits_truncate(compression_options_mask),
-        num_samples,
-        data,
+        avail_out,
+        // n_samples as usize,
+        data
     );
     if let Err(e) = state_or_error {
         return Err(GribberishError::MessageError(e.to_string()));
@@ -1763,145 +1939,205 @@ pub fn extract_ccsds_data(
     // let state = strm.state.as_mut().unwrap();
 
     // Decode the data
+    let mut status: DecodeStatus;
+    let mut count = 0;
     loop {
-        let status = state.run();
+        status = state.run();
+        count += 1;
 
         match status {
             DecodeStatus::Continue => continue,
             DecodeStatus::Exit => break,
-            DecodeStatus::Error(msg) => return Err(GribberishError::MessageError(msg)),
+            // DecodeStatus::Error(_msg) => {return  Ok(vec![]);}
+            DecodeStatus::Error(msg) => return Err(GribberishError::MessageError(
+                format!("Error: {:?} at count: {:?}, still available: {:?}, processed: {:?}", msg, count, state.avail_out, state.next_out.len())
+            )),
         }
     }
 
-    println!("Finished decoding, mode: {:?}", state.mode);
+    println!("Finished decoding, mode: {:?}, count: {:?}", state.mode, count);
+
+    /*
+      if (status == M_EXIT && strm->avail_out > 0 &&
+        strm->avail_out < state->bytes_per_sample)
+        return AEC_MEM_ERROR; */
+    // Validate
+    if matches!(status, DecodeStatus::Exit) && state.avail_out > 0 && state.avail_out < state.bytes_per_sample {
+        return Err(GribberishError::MessageError("Memory error".to_string()));
+    }
 
     // Flush remaining data
     state.flush();
 
-    // let mut decompressed_data = Vec::new();
-    // // Collect decompressed data
-    // for chunk in state.rsip.iter() {
-    //     decompressed_data.push(*chunk as f64);
-    // }
-    let decompressed_data: Vec<u32> = read_u32_from_bytes(state.next_out.as_slice());
-    // let decompressed_data = state.next_out.as_slice().load_be::<u32>();
-    // let decompressed_data = (0..bits.len())
-    //         .step_by(bits_per_val)
-    //         .filter_map(|i| {
-    //             let mut i_end_index = i + bits_per_val;
-    //             if i_end_index >= bits.len() {
-    //                 i_end_index = bits.len() - 1;
-    //             }
+    println!("Ratio from CCSDS: {:?}", state.next_out.len() as f64 / avail_out as f64);
 
-    //             let relevent_bits = &bits[i..i_end_index];
-    //             if relevent_bits.len() == 0 {
-    //                 None
-    //             } else {
-    //                 Some(relevent_bits.load_be::<u32>())
-    //             }
-    //         });
+    println!("Actual decompressed length: {:?}, desired length: {:?}", state.next_out.len(), avail_out);
+    // let decompressed_data: Vec<u32> = read_u32_from_bytes(state.next_out.as_slice());
+    // let decompressed_data: Vec<u32> = read_bits_from_bytes(state.next_out.as_slice(), 
+    // bits_per_sample);
+    // let decompressed_data: Vec<f32> = read_u32_from_bytes(state.next_out.as_slice(), nbytes_per_sample);
+    let decompressed_data: Vec<f32> = unpk_vec(state.next_out.as_slice(), bits_per_sample, avail_out / nbytes_per_sample);
     println!("Decompressed data size: {:?}", decompressed_data.len());
     Ok(decompressed_data)
 }
 
-// pub fn extract_ccsds_data(data: &[u8], block_len: u8, compression_options_mask: u8) -> Result<Vec<f64>, GribberishError> {
 
-// }
 
-// use ccsds::{ASM, FrameRSDecoder, SCID, FrameDecoder, Synchronizer, decode_framed_packets};
-// use itertools::Itertools;
 
-// use crate::error::GribberishError;
 
-// // pub fn extract_ccsds_data(
-// //     data0: Vec<u8>,
-// //     block_len: u8,
-// //     compression_options_mask: u8,
-// // ) -> Result<Vec<f64>, GribberishError> {
-// //     let izone_len = 0;
-// //     let trailer_len = 0;
-// //     let data = data0.as_slice();
-// //     let blocks: Vec<_> = Synchronizer::new(
-// //         data, &ASM.to_vec(),
-// //         block_len as usize)
-// //     .into_iter()
-// //     .filter_map(Result::ok)
-// //     .collect();
 
-// //     // 2. Decode blocks into Frames
-// //     let frames = FrameRSDecoder::builder()
-// //         .interleave(1)
-// //         .build()
-// //         .decode(blocks.into_iter())
-// //         .filter_map(Result::ok)
-// //         ;
 
-// //     let decoded_data = decode_framed_packets(
-// //         frames, izone_len, trailer_len);
 
-// //     // Map to Vec<u8>
-// //     let output_data1: Vec<Vec<u8>> = decoded_data.map(|p| p.packet.data).collect_vec();
 
-// //     // Convert each Vec<u8> to Vec<f64> and flatten the results
-// //     let output_data2: Vec<f64> = output_data1.iter()
-// //         .flat_map(|bytes| read_f64_from_bytes(bytes))
-// //         .collect();
 
-// //     Ok(output_data2)
-// // }
 
-// pub fn extract_ccsds_data(
-//     data0: Vec<u8>,
-//     block_len: u8,
-//     compression_options_mask: u8,
-// ) -> Result<Vec<f64>, GribberishError> {
-//     let izone_len = 0;
-//     let trailer_len = 0;
-//     let data = data0.as_slice();
-//     let blocks: Vec<_> = Synchronizer::new(
-//         data, &ASM.to_vec(),
-//         (block_len as usize) - &ASM.len())
-//     .into_iter()
-//     .filter_map(Result::ok)
-//     .collect();
 
-//     println!("BLOCKS!!-------: {:?}", blocks.len());
 
-//     // Print the compression options mask, each bit is a flag
-//     println!("compression options mask 1: {:b}, 2: {:b}, 3: {:b}, 4: {:b}, 5: {:b}, 6: {:b}, 7: {:b}, 8: {:b}", compression_options_mask & 0b00000001, compression_options_mask & 0b00000010, compression_options_mask & 0b00000100, compression_options_mask & 0b00001000, compression_options_mask & 0b00010000, compression_options_mask & 0b00100000, compression_options_mask & 0b01000000, compression_options_mask & 0b10000000);
 
-//     // 2. Decode blocks into Frames
-//     let frames = FrameDecoder::builder()
-//         .build()
-//         .decode(blocks.into_iter())
-//         // .filter_map(Result::ok)
-//         ;
 
-//     let decoded_data = decode_framed_packets(
-//         frames, izone_len, trailer_len);
 
-//     // Map to Vec<u8>
-//     let output_data1: Vec<Vec<u8>> = decoded_data.map(|p| p.packet.data).collect_vec();
 
-//     // Convert each Vec<u8> to Vec<f64> and flatten the results
-//     let output_data2: Vec<f64> = output_data1.iter()
-//         .flat_map(|bytes| read_f64_from_bytes(bytes))
-//         .collect();
 
-//     Ok(output_data2)
-// }
 
-// fn read_f64_from_bytes(bytes: &[u8]) -> Vec<f64> {
-//     // Ensure we're reading complete f64s (8 bytes each)
-//     let mut result = Vec::with_capacity(bytes.len() / 8);
 
-//     // Process chunks of 8 bytes
-//     for chunk in bytes.chunks(8) {
-//         if chunk.len() == 8 {  // Only process complete f64s
-//             let value = f64::from_be_bytes(chunk.try_into().unwrap());
-//             result.push(value);
+
+
+
+
+
+
+// pub fn unpk_0(
+//     // Where to write the output
+//     flt: &mut [f32],
+//     // The data (output from CCSDS decoder)
+//     bits0: &[u8],
+//     // Mask pointer
+//     bitmap0: Option<&[u8]>,
+//     // Bitcount (number of bits per sample)
+//     n_bits: usize,
+//     // Number of samples
+//     n: usize,
+//     // Reference value
+//     ref_val: f64,
+//     // Binary scale factor
+//     scale: f64,
+//     // Decimal scale factor
+//     dec_scale: f64,
+// ) {
+//     let mut ref_scaled = ref_val * dec_scale;
+//     let mut scale_scaled = scale * dec_scale;
+//     let mut bits_iter = bits0.iter();
+//     let bitmap = bitmap0.unwrap_or(&[]);
+
+//     let jmask = if n_bits <= 25 {
+//         (1 << n_bits) - 1
+//     } else {
+//         panic!("n_bits > 25 is not supported");
+//     };
+
+//     let mut tbits = 0;
+//     let mut t_bits = 0;
+//     let mut bbits = 0;
+
+//     if let Some(bitmap) = bitmap0 {
+//         for (i, flt_val) in flt.iter_mut().enumerate().take(n) {
+//             let mask_idx = i % 8;
+//             if mask_idx == 0 {
+//                 bbits = *bitmap.get(i / 8).unwrap_or(&0);
+//             }
+//             if bbits & (1 << (7 - mask_idx)) == 0 {
+//                 *flt_val = f32::NAN; // Equivalent to UNDEFINED
+//                 continue;
+//             }
+
+//             while t_bits < n_bits {
+//                 tbits = (tbits << 8) | (*bits_iter.next().unwrap_or(&0) as usize);
+//                 t_bits += 8;
+//             }
+//             t_bits -= n_bits;
+//             let j = (tbits >> t_bits) & jmask;
+//             *flt_val = (ref_scaled + scale_scaled * j as f64) as f32;
+//         }
+//     } else {
+//         for flt_val in flt.iter_mut().take(n) {
+//             while t_bits < n_bits {
+//                 tbits = (tbits << 8) | (*bits_iter.next().unwrap_or(&0) as usize);
+//                 t_bits += 8;
+//             }
+//             t_bits -= n_bits;
+//             let j = (tbits >> t_bits) & jmask;
+//             *flt_val = j as f32; // Store intermediate integer result
+//         }
+
+//         // Apply scaling and reference value
+//         for flt_val in flt.iter_mut().take(n) {
+//             *flt_val = (ref_scaled + scale_scaled * *flt_val as f64) as f32;
 //         }
 //     }
-
-//     result
 // }
+
+// fn unpk_0(
+//     flt: &mut [f64], 
+//     bits0: &[u8], 
+//     // bitcount
+//     n_bits: usize, 
+//     // number of samples
+//     n: usize, 
+//     // reference value
+//     ref_val: f64, 
+//     // binary scale factor
+//     scale: f64, 
+//     // decimal scale factor
+//     dec_scale: f64,
+// ) {
+//     let mut bits = bits0.iter();
+//     let ref_scaled = ref_val * dec_scale;
+//     let scale_scaled = scale * dec_scale;
+
+//     let jmask = (1 << n_bits) - 1;
+//     let mut tbits: usize = 0;
+//     let mut t_bits: usize = 0;
+
+//     // Unpack the bit-packed integers
+//     for i in 0..n {
+//         while t_bits < n_bits {
+//             tbits = (tbits << 8) | (*bits.next().unwrap() as usize);
+//             t_bits += 8;
+//         }
+//         t_bits -= n_bits;
+//         let val = (tbits >> t_bits) & jmask;
+//         flt[i] = val as f64;
+//     }
+
+//     // Apply scaling and reference transformation
+//     for i in 0..n {
+//         flt[i] = ref_scaled + scale_scaled * flt[i];
+//     }
+// }
+
+// fn unpk_0(
+//     flt: &mut [f64], 
+//     bits0: &[u8], 
+//     // bitcount
+//     n_bits: usize, 
+//     // number of samples
+//     n: usize
+// ) {
+//     let mut bits = bits0.iter();
+
+//     let jmask = (1 << n_bits) - 1;
+//     let mut tbits: usize = 0;
+//     let mut t_bits: usize = 0;
+
+//     // Unpack the bit-packed integers
+//     for i in 0..n {
+//         while t_bits < n_bits {
+//             tbits = (tbits << 8) | (*bits.next().unwrap() as usize);
+//             t_bits += 8;
+//         }
+//         t_bits -= n_bits;
+//         let val = (tbits >> t_bits) & jmask;
+//         flt[i] = val as f64;
+//     }
+// }
+
