@@ -1765,9 +1765,9 @@ fn read_u32_from_bytes(bytes: &[u8], bytes_per_sample: usize) -> Vec<f32> {
 
     match bytes_per_sample {
         1 => bytes.iter().map(|&b| b as f32).collect(),
-        2 => bytes.chunks(2).map(|chunk| u16::from_be_bytes(chunk.try_into().unwrap()) as f32).collect(),
-        3 => bytes.chunks(3).map(|chunk| u32::from_be_bytes(chunk.try_into().unwrap()) as f32).collect(),
-        4 => bytes.chunks(4).map(|chunk| f32::from_be_bytes(chunk.try_into().unwrap())).collect(),
+        2 => bytes.chunks(2).map(|chunk| u16::from_le_bytes(chunk.try_into().unwrap()) as f32).collect(),
+        3 => bytes.chunks(3).map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()) as f32).collect(),
+        4 => bytes.chunks(4).map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap())).collect(),
         _ => Vec::new(),
     }
 
@@ -1898,6 +1898,34 @@ pub fn modify_aec_flags(flags: Flags) -> Flags {
 }
 
 
+/*
+    // ECC-1602: Performance improvement
+    switch (nbytes) {
+        case 1:
+            for (i = 0; i < n_vals; i++) {
+                val[i] = (reinterpret_cast<uint8_t*>(decoded)[i] * bscale + reference_value) * dscale;
+            }
+            break;
+        case 2:
+            for (i = 0; i < n_vals; i++) {
+                val[i] = (reinterpret_cast<uint16_t*>(decoded)[i] * bscale + reference_value) * dscale;
+            }
+            break;
+        case 4:
+            for (i = 0; i < n_vals; i++) {
+                val[i] = (reinterpret_cast<uint32_t*>(decoded)[i] * bscale + reference_value) * dscale;
+            }
+            break;
+        default:
+            grib_context_log(context_, GRIB_LOG_ERROR, "%s %s: unpacking %s, bitsPerValue=%ld (max %ld)",
+                             class_name_, __func__, name_, bits_per_value, MAX_BITS_PER_VALUE);
+            err = GRIB_INVALID_BPV;
+            goto cleanup;
+    }
+
+*/
+
+
 
 pub fn extract_ccsds_data(
     data: Vec<u8>,
@@ -1987,8 +2015,8 @@ pub fn extract_ccsds_data(
     // let decompressed_data: Vec<u32> = read_u32_from_bytes(state.next_out.as_slice());
     // let decompressed_data: Vec<u32> = read_bits_from_bytes(state.next_out.as_slice(), 
     // bits_per_sample);
-    // let decompressed_data: Vec<f32> = read_u32_from_bytes(state.next_out.as_slice(), nbytes_per_sample);
-    let decompressed_data: Vec<f32> = unpk_vec(state.next_out.as_slice(), bits_per_sample, avail_out / nbytes_per_sample);
+    let decompressed_data: Vec<f32> = read_u32_from_bytes(state.next_out.as_slice(), nbytes_per_sample);
+    // let decompressed_data: Vec<f32> = unpk_vec(state.next_out.as_slice(), bits_per_sample, avail_out / nbytes_per_sample);
     println!("Decompressed data size: {:?}", decompressed_data.len());
     Ok(decompressed_data)
 }
