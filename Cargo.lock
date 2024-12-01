@@ -307,7 +307,7 @@ version = "0.21.0"
 
 [[package]]
 name = "gribberishjs"
-version = "0.20.1"
+version = "0.21.0"
 dependencies = [
  "chrono",
  "gribberish",
