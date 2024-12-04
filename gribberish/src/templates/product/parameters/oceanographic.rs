@@ -1,8 +1,8 @@
-use gribberish_macros::{DisplayDescription, FromValue, ToParameter};
+use gribberish_macros::{DisplayDescription, FromAbbrevStr, FromValue, ToParameter};
 use gribberish_types::Parameter;
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum WavesProduct {
     #[description = "primary wave spectra"]
     #[abbrev = "WVSP1"]
@@ -200,7 +200,7 @@ pub enum WavesProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum CurrentsProduct {
     #[description = "current direction"]
     #[abbrev = "DIRC"]
@@ -225,7 +225,7 @@ pub enum CurrentsProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum SurfacePropertiesProduct {
     #[description = "water temperature"]
     #[abbrev = "WTMP"]
@@ -270,7 +270,7 @@ pub enum SurfacePropertiesProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum IceProduct {
     #[description = "ice cover"]
     #[abbrev = "ICEC"]
