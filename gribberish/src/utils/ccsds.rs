@@ -60,6 +60,7 @@ pub struct InternalState {
     pub avail_in: usize,
     pub avail_out: usize,
     pub total_in: usize,
+    #[allow(dead_code)]
     pub total_out: usize,
 
     /** First not yet flushed byte in rsi_buffer */
