@@ -1,6 +1,6 @@
 [package]
 name = "gribberishpy"
-version = "0.21.1"
+version = "0.21.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,5 +10,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = "0.23.1"
-gribberish = { path = "../gribberish", version = "0.21.1" }
+gribberish = { path = "../gribberish", version = "0.21.2" }
 numpy = "0.23.0"
