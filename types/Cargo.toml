@@ -1,6 +1,6 @@
 [package]
 name = "gribberish-types"
-version = "0.20.2"
+version = "0.21.2"
 authors = ["Matthew Iannucci <mpiannucci@gmail.com>"]
 description = "Common types for the gribberish crate"
 edition = "2021"

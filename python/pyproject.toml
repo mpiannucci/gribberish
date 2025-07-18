@@ -12,11 +12,12 @@ classifiers = [
 ]
 dynamic = ["version"]
 
-dependencies = ["numpy < 2"]
+dependencies = ["numpy >= 2"]
 
 [project.optional-dependencies]
 xarray = ["xarray", "fsspec"]
 kerchunk = ["kerchunk", "zarr", "numcodecs", "fsspec"]
+zarr = ["zarr==3.0.0b2"]
 dev = [
     "matplotlib",
     "cf_xarray",
@@ -31,6 +32,8 @@ dev = [
     "s3fs",
     "cfgrib",
     "pyproj",
+    "pytest",
+    "pytest-asyncio",
 ]
 
 [project.entry-points."xarray.backends"]
@@ -39,6 +42,12 @@ gribberish = "gribberish.gribberish_backend:GribberishBackend"
 [project.entry-points."numcodecs.codecs"]
 gribberish = "gribberish.kerchunk:GribberishCodec"
 
+[project.entry-points."zarr.codecs"]
+gribberish = "gribberish.zarr:GribberishCodec"
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
 module-name = "gribberish._gribberish_python"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
