@@ -41,7 +41,7 @@ jobs:
         with:
           working-directory: python
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist -i 3.11 -i 3.12 -i 3.13 -i pypy3.10 
           sccache: 'true'
           manylinux: auto
       - name: Upload wheels
@@ -73,7 +73,7 @@ jobs:
         with:
           working-directory: python
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist -i 3.11 -i 3.12 -i 3.13 -i pypy3.10 
           sccache: 'true'
           manylinux: musllinux_1_2
       - name: Upload wheels
@@ -102,7 +102,7 @@ jobs:
         with:
           working-directory: python
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist -i 3.11 -i 3.12 -i 3.13
           sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -129,7 +129,7 @@ jobs:
         with:
           working-directory: python
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist -i 3.11 -i 3.12 -i 3.13 -i pypy3.10 
           sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
