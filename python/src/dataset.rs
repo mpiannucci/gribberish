@@ -563,6 +563,9 @@ pub fn parse_grib_dataset<'py>(
             )
             .unwrap();
         var_metadata
+            .set_item("first_fixed_surface_type_coordinate", first.2.first_fixed_surface_type.coordinate_name())
+            .unwrap();
+        var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())
             .unwrap();
         var_metadata
