@@ -1,8 +1,8 @@
-use gribberish_macros::{DisplayDescription, FromValue, ToParameter};
+use gribberish_macros::{DisplayDescription, FromAbbrevStr, FromValue, ToParameter};
 use gribberish_types::Parameter;
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum MRMSLightningProduct {
     #[description = "CG Average Lightning Density 1-min"]
     #[abbrev = "NLDN_CG_001min_AvgDensity"]
@@ -40,7 +40,7 @@ pub enum MRMSLightningProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum MRMSConvectionProduct {
     #[description = "Rotation Track 0-2km AGL 30-min"]
     #[abbrev = "RotationTrack30min"]
@@ -90,7 +90,7 @@ pub enum MRMSConvectionProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum MRMSPrecipitationProduct {
     #[description = "Surface Precipitation Type (Convective, Stratiform, Tropical, Hail, Snow)"]
     #[abbrev = "PrecipFlag"]
@@ -196,7 +196,7 @@ pub enum MRMSPrecipitationProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum MRMSCompositeReflectivityProduct {
     #[description = "Composite Reflectivity Mosaic (optimal method)"]
     #[abbrev = "MergedReflectivityQCComposite"]
@@ -238,7 +238,7 @@ pub enum MRMSCompositeReflectivityProduct {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum MRMSMergedReflectivityProduct {
     #[description = "Base Reflectivity Mosaic (optimal method)"]
     #[abbrev = "MergedBaseReflectivityQC"]
