@@ -1,0 +1,12 @@
+[package]
+name = "libaec"
+version = "0.1.0"
+edition = "2021"
+authors = []
+description = "Safe Rust wrapper for libaec (Adaptive Entropy Coding library)"
+license = "MIT"
+repository = "https://github.com/mpiannucci/gribberish"
+
+[dependencies]
+libaec-sys = { path = "../libaec-sys", version = "0.1.0" }
+thiserror = "1.0"

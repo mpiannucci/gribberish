@@ -7,9 +7,15 @@ use crate::{
     error::GribberishError,
     templates::template::{Template, TemplateType},
     utils::{
-        extract_ccsds_data, iter::ScaleGribValueIterator, read_u16_from_bytes, read_u32_from_bytes,
+        iter::ScaleGribValueIterator, read_u16_from_bytes, read_u32_from_bytes,
     },
 };
+
+#[cfg(feature = "libaec")]
+use crate::utils::ccsds_libaec::extract_ccsds_data;
+
+#[cfg(not(feature = "libaec"))]
+use crate::utils::ccsds::extract_ccsds_data;
 
 pub struct CCSDSDataRepresentationTemplate {
     data: Vec<u8>,
