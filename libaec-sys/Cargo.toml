@@ -6,14 +6,7 @@ authors = []
 description = "Raw FFI bindings to libaec (Adaptive Entropy Coding library)"
 license = "MIT"
 repository = "https://github.com/mpiannucci/gribberish"
-links = "aec"
-
-[dependencies]
 
 [build-dependencies]
 bindgen = "0.70"
-cc = "1.0"
 cmake = "0.1"
-
-[features]
-default = []

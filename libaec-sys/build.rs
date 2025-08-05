@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=wrapper.h");
 
     // Always build libaec from source for predictability and simplicity
     build_libaec_from_source();
@@ -13,7 +12,7 @@ fn main() {
     let include_path = format!("{}/include", out_dir);
 
     let bindings = bindgen::Builder::default()
-        .header("wrapper.h")
+        .header(format!("{include_path}/libaec.h"))
         .clang_arg(format!("-I{}", include_path))
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
@@ -38,7 +37,7 @@ fn build_libaec_from_source() {
                 "https://gitlab.dkrz.de/k202009/libaec.git",
                 &libaec_dir,
                 "--depth=1",
-                "--branch=v1.1.4", // Use specific stable version
+                "--branch=v1.1.4",
             ])
             .status()
             .expect("Failed to clone libaec repository. Please ensure git is installed.");
@@ -49,13 +48,7 @@ fn build_libaec_from_source() {
     }
 
     // Build libaec using cmake
-    let dst = cmake::Config::new(&libaec_dir)
-        .define("BUILD_SHARED_LIBS", "OFF") // Static linking
-        .define("CMAKE_BUILD_TYPE", "Release") // Optimized build
-        .define("CMAKE_POSITION_INDEPENDENT_CODE", "ON") // Needed for static linking in shared libs
-        .build();
-
+    let dst = cmake::build(libaec_dir);
     println!("cargo:rustc-link-search=native={}/lib", dst.display());
     println!("cargo:rustc-link-lib=static=aec");
-    println!("cargo:include={}/include", dst.display());
 }
