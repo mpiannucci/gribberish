@@ -344,7 +344,7 @@ dependencies = [
  "gribberish-macros",
  "gribberish-types",
  "itertools",
- "libaec",
+ "libaec-sys",
  "mappers",
  "num",
  "openjpeg-sys",
@@ -445,16 +445,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "libaec"
-version = "0.1.0"
-dependencies = [
- "libaec-sys",
- "thiserror",
-]
-
-[[package]]
 name = "libaec-sys"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf6ddb5e5dd7a2fffc4db1ba0a6713b55cf61c9361dd5022795bf273716d3a93"
 dependencies = [
  "bindgen",
  "cmake",

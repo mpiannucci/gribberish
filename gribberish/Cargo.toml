@@ -21,13 +21,13 @@ mappers = "0.7.1"
 bitvec = "1.0.1"
 thiserror = "1.0.60"
 bitflags = "2.6.0"
-libaec = { path = "../libaec", version = "0.1.0", optional = true }
+libaec-sys = { version = "0.1.1", optional = true }
 
 [features]
 default = ["png", "jpeg"]
 png = ["dep:png"]
 jpeg = ["dep:openjpeg-sys"]
-libaec = ["dep:libaec"]
+libaec = ["dep:libaec-sys"]
 
 [dev-dependencies]
 clap = { version = "4.3.19", features = ["derive"] }
