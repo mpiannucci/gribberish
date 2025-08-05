@@ -98,11 +98,7 @@ impl Decoder {
         if result as u32 != AEC_OK {
             return Err(AecError::from(result));
         }
-        
-        // Resize output to actual decoded size
-        let decoded_size = output.len() - self.stream.avail_out;
-        output.truncate(decoded_size);
-        
+
         Ok(output)
     }
 }
