@@ -1,7 +1,7 @@
 //! Minimal Rust wrapper for libaec (Adaptive Entropy Coding library)
 //!
-//! This crate provides a simple interface to the libaec library for CCSDS 
-//! lossless compression as used in GRIB2 meteorological files.
+//! This crate provides a simple interface to the libaec library for CCSDS
+//! lossless compression.
 
 use libaec_sys::*;
 use std::ffi::c_int;
@@ -48,12 +48,12 @@ impl Decoder {
         compression_options_mask: u8,
     ) -> Result<Self, AecError> {
         let mut stream = unsafe { std::mem::zeroed::<aec_stream>() };
-        
+
         // Configure the stream
         stream.bits_per_sample = bits_per_sample;
         stream.block_size = block_size;
         stream.rsi = reference_sample_interval;
-        
+
         // Parse compression flags
         let mut flags = 0u32;
         if (compression_options_mask & 0x01) != 0 {
@@ -71,32 +71,32 @@ impl Decoder {
         if (compression_options_mask & 0x10) != 0 {
             flags |= AEC_PAD_RSI;
         }
-        
+
         stream.flags = flags;
-        
+
         // Initialize decoder
-        let ret = unsafe { aec_decode_init(&mut stream) };
-        if ret != AEC_OK as c_int {
-            return Err(AecError::from(ret));
+        let result = unsafe { aec_decode_init(&mut stream) };
+        if result != AEC_OK as c_int {
+            return Err(AecError::from(result));
         }
-        
+
         Ok(Self { stream })
     }
-    
+
     /// Decode compressed data
     pub fn decode(&mut self, input: &[u8], output_size: usize) -> Result<Vec<u8>, AecError> {
         let mut output = vec![0u8; output_size];
-        
+
         // Set up input/output buffers
         self.stream.next_in = input.as_ptr();
         self.stream.avail_in = input.len();
         self.stream.next_out = output.as_mut_ptr();
         self.stream.avail_out = output.len();
-        
+
         // Decode
-        let ret = unsafe { aec_decode(&mut self.stream, AEC_FLUSH as c_int) };
-        if ret != AEC_OK as c_int {
-            return Err(AecError::from(ret));
+        let result = unsafe { aec_decode(&mut self.stream, AEC_FLUSH as i32) };
+        if result as u32 != AEC_OK {
+            return Err(AecError::from(result));
         }
         
         // Resize output to actual decoded size

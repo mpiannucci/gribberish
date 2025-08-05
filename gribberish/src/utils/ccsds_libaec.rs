@@ -1,11 +1,10 @@
 //! CCSDS decompression using libaec
 //!
 //! This module provides CCSDS lossless decompression functionality for GRIB2 files
-//! using the libaec library, which is the reference implementation used by
-//! meteorological organizations worldwide.
+//! using the libaec library.
 
 use crate::error::GribberishError;
-use libaec::{Decoder, AecError};
+use libaec::{AecError, Decoder};
 
 /// Extract CCSDS compressed data using libaec
 ///
@@ -44,7 +43,7 @@ pub fn extract_ccsds_data(
         ));
     }
 
-    // Parse compression flags from the options mask  
+    // Parse compression flags from the options mask
     let big_endian = (compression_options_mask & 0x04) != 0;
 
     // Build decoder with parameters
@@ -63,18 +62,25 @@ pub fn extract_ccsds_data(
     let output_buffer_size = num_samples * ((bits_per_sample + 7) / 8);
 
     // Decode the compressed data
-    let decompressed_bytes = decoder
-        .decode(&data, output_buffer_size)
-        .map_err(|e| match e {
-            AecError::Config(msg) => GribberishError::MessageError(format!("Configuration error: {}", msg)),
-            AecError::Stream(msg) => GribberishError::MessageError(format!("Stream error: {}", msg)),
-            AecError::Data(msg) => GribberishError::MessageError(format!("Data error: {}", msg)),
-            AecError::Memory(msg) => GribberishError::MessageError(format!("Memory error: {}", msg)),
-            AecError::Unknown(code) => GribberishError::MessageError(format!("Unknown error code: {}", code)),
-        })?;
+    let decompressed_bytes = decoder.decode(&data, avail_out).map_err(|e| match e {
+        AecError::Config(msg) => {
+            GribberishError::MessageError(format!("Configuration error: {}", msg))
+        }
+        AecError::Stream(msg) => GribberishError::MessageError(format!("Stream error: {}", msg)),
+        AecError::Data(msg) => GribberishError::MessageError(format!("Data error: {}", msg)),
+        AecError::Memory(msg) => GribberishError::MessageError(format!("Memory error: {}", msg)),
+        AecError::Unknown(code) => {
+            GribberishError::MessageError(format!("Unknown error code: {}", code))
+        }
+    })?;
 
     // Convert bytes to f32 values to match pure Rust interface
-    let f32_values = bytes_to_f32_values(&decompressed_bytes, bits_per_sample, num_samples, big_endian)?;
+    let f32_values = bytes_to_f32_values(
+        &decompressed_bytes,
+        bits_per_sample,
+        num_samples,
+        big_endian,
+    )?;
 
     Ok(f32_values)
 }
@@ -96,9 +102,11 @@ fn bytes_to_f32_values(
 
     let expected_byte_count = num_samples * storage_size;
     if bytes.len() < expected_byte_count {
-        return Err(GribberishError::MessageError(
-            format!("Insufficient decompressed data: got {} bytes, expected {}", bytes.len(), expected_byte_count),
-        ));
+        return Err(GribberishError::MessageError(format!(
+            "Insufficient decompressed data: got {} bytes, expected {}",
+            bytes.len(),
+            expected_byte_count
+        )));
     }
 
     let mut values = Vec::with_capacity(num_samples);
@@ -106,21 +114,13 @@ fn bytes_to_f32_values(
     for i in 0..num_samples {
         let start_idx = i * storage_size;
         let value = match storage_size {
-            1 => {
-                bytes[start_idx] as u32
-            }
+            1 => bytes[start_idx] as u32,
             2 => {
                 // Use the correct endianness based on CCSDS compression flags
                 if big_endian {
-                    u16::from_be_bytes([
-                        bytes[start_idx],
-                        bytes[start_idx + 1],
-                    ]) as u32
+                    u16::from_be_bytes([bytes[start_idx], bytes[start_idx + 1]]) as u32
                 } else {
-                    u16::from_le_bytes([
-                        bytes[start_idx],
-                        bytes[start_idx + 1],
-                    ]) as u32
+                    u16::from_le_bytes([bytes[start_idx], bytes[start_idx + 1]]) as u32
                 }
             }
             4 => {
