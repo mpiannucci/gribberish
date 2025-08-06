@@ -131,3 +131,43 @@ fn read_complex_zerod() {
     let data = data.unwrap();
     println!("spatial complex zero unpacking data() took {:?} for {} data points", end.duration_since(start), data.len());
 }
+
+#[cfg(not(feature = "libaec"))]
+#[test]
+#[should_panic]
+fn read_ccsds_without_libaec_should_panic() {
+    let read_data = read_grib_messages("tests/data/meteofrance.mfwam.arome-SWELL.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop();
+    assert!(message.is_some());
+    let message = message.unwrap();
+
+    // NOTE: Some files from [MeteoFrance](https://portail-api.meteofrance.fr/web/en/api/PaquetWAVESMODELS)
+    // may cause a panic when loading data.
+    let _data = message.data();
+}
+
+#[cfg(feature = "libaec")]
+#[test]
+fn read_ccsds_with_libaec_should_work() {
+    let read_data = read_grib_messages("tests/data/meteofrance.mfwam.arome-SWELL.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop();
+    assert!(message.is_some());
+    let message = message.unwrap();
+
+    let start = Instant::now();
+    let data = message.data();
+    let end = Instant::now();
+    assert!(data.is_ok());
+    let data = data.unwrap();
+    println!(
+        "ccsds unpacking data() took {:?} for {} data points",
+        end.duration_since(start),
+        data.len()
+    );
+}
