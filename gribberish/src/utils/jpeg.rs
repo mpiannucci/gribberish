@@ -34,7 +34,7 @@ pub unsafe extern "C" fn jpeg_opj_stream_read_fn(
     let userdata = p_user_data as *mut JpegUserData;
     assert!((*userdata).input_stream);
 
-    let n_imgsize = (*userdata).input.len();
+    let n_imgsize = (&(*userdata).input).len();
     let n_byteleft = n_imgsize - (*userdata).offset;
 
     let mut n_read = p_nb_bytes;
@@ -43,7 +43,7 @@ pub unsafe extern "C" fn jpeg_opj_stream_read_fn(
         n_read = n_byteleft;
     }
 
-    if (*userdata).input.is_empty() || p_buffer.is_null() || n_read == 0 || n_byteleft == 0 {
+    if (&(*userdata).input).is_empty() || p_buffer.is_null() || n_read == 0 || n_byteleft == 0 {
         // TODO: The original returned -1 here,
         // but for some reason our signature is usize...
         return 0;
@@ -82,7 +82,7 @@ pub unsafe extern "C" fn jpeg_opj_stream_skip_fn(p_nb_bytes: i64, p_user_data: *
     let userdata = p_user_data as *mut JpegUserData;
     assert!((*userdata).input_stream);
 
-    let n_imgsize = (*userdata).input.len();
+    let n_imgsize = (&(*userdata).input).len();
     let n_byteleft = (n_imgsize - (*userdata).offset) as i64;
 
     let mut n_skip = p_nb_bytes;
@@ -99,7 +99,7 @@ pub unsafe extern "C" fn jpeg_opj_stream_seek_fn(p_nb_bytes: i64, p_user_data: *
     let userdata = p_user_data as *mut JpegUserData;
     assert!((*userdata).input_stream);
 
-    let n_imgsize = (*userdata).input.len();
+    let n_imgsize = (&(*userdata).input).len();
     let n_seek = p_nb_bytes as usize;
 
     if n_seek > n_imgsize {
