@@ -23,6 +23,7 @@ impl <'a> ProductDefinitionSection<'a> {
     pub fn product_definition_template(&self, discipline: u8) -> Option<Box<dyn ProductTemplate>> {
         match self.product_definition_template_number() {
             0 => Some(Box::new(HorizontalAnalysisForecastTemplate::new(self.data.to_vec(), discipline))),
+            1 => Some(Box::new(HorizontalEnsembleForecastTemplate::new(self.data.to_vec(), discipline))),
             2 => Some(Box::new(DerivedEnsembleHorizontalAnalysisForecastTemplate::new(self.data.to_vec(), discipline))),
             8 => Some(Box::new(AverageAccumulationExtremeHorizontalAnalysisForecastTemplate::new(self.data.to_vec(), discipline))),
             12 => Some(Box::new(DerivedEnsembleHorizontalForecastTimeIntervalTemplate::new(self.data.to_vec(), discipline))),
