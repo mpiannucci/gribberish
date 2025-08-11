@@ -1,4 +1,4 @@
-use crate::{utils::{read_u16_from_bytes, read_u32_from_bytes}, templates::product::{product_template::ProductTemplate, HorizontalAnalysisForecastTemplate, AverageAccumulationExtremeHorizontalAnalysisForecastTemplate, DerivedEnsembleHorizontalAnalysisForecastTemplate, derived_ensemble_horizontal_forecast_time_interval_template::DerivedEnsembleHorizontalForecastTimeIntervalTemplate}};
+use crate::{utils::{read_u16_from_bytes, read_u32_from_bytes}, templates::product::{product_template::ProductTemplate, HorizontalAnalysisForecastTemplate, HorizontalEnsembleForecastTemplate , AverageAccumulationExtremeHorizontalAnalysisForecastTemplate, DerivedEnsembleHorizontalAnalysisForecastTemplate, derived_ensemble_horizontal_forecast_time_interval_template::DerivedEnsembleHorizontalForecastTimeIntervalTemplate}};
 use super::grib_section::GribSection;
 
 pub struct ProductDefinitionSection<'a> {
