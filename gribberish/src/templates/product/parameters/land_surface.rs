@@ -1,11 +1,11 @@
-use gribberish_macros::{DisplayDescription, FromValue, ToParameter};
+use gribberish_macros::{DisplayDescription, FromAbbrevStr, FromValue, ToParameter};
 use gribberish_types::Parameter;
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 pub enum VegetationProduct {
     #[description = "land cover"]
-    #[abbrev = "lAND"]
+    #[abbrev = "LAND"]
     #[unit = "proportion"]
     LandCover = 0,
     #[description = "soil temperature"]
