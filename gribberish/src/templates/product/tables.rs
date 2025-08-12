@@ -227,6 +227,7 @@ pub enum GeneratingProcess {
     PerturbedAnalysisForEnsembleInitialization = 196,
 }
 
+
 impl GeneratingProcess {
     pub fn abbv(&self) -> String {
         match self {
@@ -256,6 +257,21 @@ impl GeneratingProcess {
             GeneratingProcess::PerturbedAnalysisForEnsembleInitialization => "pert_anl".to_string(),
         }
     }
+}
+
+#[repr(u8)]
+#[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+pub enum EnsembleForecastType {
+    UnperturbedHighResolutionControlForecast = 0,
+    NegativelyPerturbedForecast = 1,
+    PositivelyPerturbedForecast = 2,
+    MultiModelForecast = 3,
+    UnperturbedForecast = 4,
+    PerturbedForecast = 5,
+    InitialConditionsPerturbations = 6,
+    ModelPhysicsPerturbations = 7,
+    InitialConditionsAndModelPhysicsPerturbations = 8,
+    Missing = 255,
 }
 
 #[repr(u8)]
