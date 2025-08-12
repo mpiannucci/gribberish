@@ -51,7 +51,7 @@ pub unsafe extern "C" fn jpeg_opj_stream_read_fn(
 
     let target = slice::from_raw_parts_mut(p_buffer as *mut u8, n_read);
     let offset = (*userdata).offset;
-    target.copy_from_slice(&(*userdata).input[offset..offset + n_read]);
+    target.copy_from_slice(&(&(*userdata).input)[offset..offset + n_read]);
 
     (*userdata).offset += n_read;
 
