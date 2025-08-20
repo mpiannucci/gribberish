@@ -1,7 +1,8 @@
-use gribberish_macros::{DisplayDescription, FromValue, ToParameter};
+use gribberish_macros::{DisplayDescription, FromAbbrevStr, FromValue, ToParameter};
 use gribberish_types::Parameter;
+use std::str::FromStr;
 
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter, FromAbbrevStr)]
 enum Shape {
     #[description = "rectangle"]
     #[abbrev = "rect"]
@@ -52,4 +53,12 @@ fn shape_parameter_attributes() {
     let circle: Shape = 2u8.into();
     assert_eq!(circle.unit(), "radius");
     assert_eq!(circle.name(), "round one");
+}
+
+#[test]
+fn shape_from_abbrev_str() {
+    assert_eq!(Shape::from_str("rect"), Ok(Shape::Rectangle));
+    assert_eq!(Shape::from_str("tri"), Ok(Shape::Triangle));
+    assert_eq!(Shape::from_str("cir"), Ok(Shape::Circle));
+    assert!(Shape::from_str("foo").is_err());
 }

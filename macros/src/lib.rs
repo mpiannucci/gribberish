@@ -185,3 +185,58 @@ fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
         }
     }).into()
 }
+
+
+#[proc_macro_derive(FromAbbrevStr, attributes(name, abbrev))]
+pub fn from_abbrev_str(input: TokenStream) -> TokenStream {
+    // Parse the input tokens into a syntax tree
+    let input = parse_macro_input!(input as DeriveInput);
+    let item: Item = input.into();
+
+    if let Item::Enum(e) = item {
+        // Build the output, possibly using quasi-quotation
+        let expanded = generate_from_abbrev_str(&e);
+
+        // Hand the output tokens back to the compiler
+        TokenStream::from(expanded)
+    } else {
+        panic!("Only Enums are supported for DisplayDescription!");
+    }
+}
+
+fn generate_from_abbrev_str(enum_data: &ItemEnum) -> TokenStream {
+    let name: &syn::Ident = &enum_data.ident;
+    let variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma> =
+        &enum_data.variants;
+    let variant_names = variants.into_iter().map(|v| v.ident.clone());
+
+    let variant_abbreviations = variants.into_iter().map(|v| {
+        let abbrev_attribute = v.attrs.iter().find(|a| a.path.is_ident("abbrev"));
+        match abbrev_attribute {
+            Some(a) => a
+                .tokens
+                .to_string()
+                .replace("=", "")
+                .replace("\"", "")
+                .trim()
+                .to_string(),
+            None => v.ident.to_string().to_lowercase(),
+        }
+    });
+
+    (quote! {
+        impl std::str::FromStr for #name {
+            type Err = gribberish_types::ParseAbbrevError;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s {
+                    #(
+                        #variant_abbreviations => Ok(#name::#variant_names),
+                    )*
+                    _ => Err(gribberish_types::ParseAbbrevError(format!("Unrecognised abbreviation: {s}"))),
+                }
+            }
+        }
+    })
+    .into()
+}
