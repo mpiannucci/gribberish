@@ -105,6 +105,11 @@ impl<'a> Message<'a> {
             .unwrap_or("".into())
             .to_string();
         let var = self.variable_abbrev()?;
+        let derived_forecast_type = if let Some(dft) = self.derived_forecast_type()? {
+            dft.abbv()
+        } else {
+            "".into()
+        };
         let generating_process = self.generating_process()?.to_string();
         let statistical_process = self
             .statistical_process_type()
@@ -143,7 +148,7 @@ impl<'a> Message<'a> {
         };
 
         Ok(format!(
-            "{var}{time}{first_level}{second_level}:{statistical_process}{generating_process}"
+            "{var}{time}{first_level}{second_level}:{statistical_process}{generating_process}{derived_forecast_type}"
         ))
     }
 
