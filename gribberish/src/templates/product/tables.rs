@@ -414,10 +414,41 @@ pub enum DerivedForecastType {
     ClimatePercentile = 197,
     DeviationOfMeanFromClimatology = 198,
     ExtremeForecastIndex = 199,
-    EquallyWeightedMena = 200,
+    EquallyWeightedMean = 200,
     FifthPercentile = 201,
     TwentyFifthPercentile = 202,
     SeventyFifthPercentile = 203,
     NinetyFifthPercentile = 204,
     Missing = 255,
+}
+
+impl DerivedForecastType {
+    pub fn abbv(&self) -> String {
+        match self {
+            DerivedForecastType::UnweightedMean => "mean".to_string(),
+            DerivedForecastType::WeightedMean => "wmean".to_string(),
+            DerivedForecastType::StandardDeviation => "stddev".to_string(),
+            DerivedForecastType::NormalizedStandardDeviation => "nstddev".to_string(),
+            DerivedForecastType::Spread => "spread".to_string(),
+            DerivedForecastType::LargeAnomaly => "lanomaly".to_string(),
+            DerivedForecastType::UnweightedMeanOfClustered => "uwmeanclustered".to_string(),
+            DerivedForecastType::InterquartileRange => "intquartrange".to_string(),
+            DerivedForecastType::Minimum => "min".to_string(),
+            DerivedForecastType::Maximum => "max".to_string(),
+            DerivedForecastType::UnweightedMode => "mode".to_string(),
+            DerivedForecastType::TenthPercentile => "10%".to_string(),
+            DerivedForecastType::FiftiethPercentile => "50%".to_string(),
+            DerivedForecastType::NinetiethPercentile => "90%".to_string(),
+            DerivedForecastType::StatisticallyWeighted => "statweighted".to_string(),
+            DerivedForecastType::ClimatePercentile => "clim%".to_string(),
+            DerivedForecastType::DeviationOfMeanFromClimatology => "devmeanfromclim".to_string(),
+            DerivedForecastType::ExtremeForecastIndex => "extremeforecastidx".to_string(),
+            DerivedForecastType::EquallyWeightedMean => "eqwmean".to_string(),
+            DerivedForecastType::FifthPercentile => "5%".to_string(),
+            DerivedForecastType::TwentyFifthPercentile => "25%".to_string(),
+            DerivedForecastType::SeventyFifthPercentile => "75%".to_string(),
+            DerivedForecastType::NinetyFifthPercentile => "90%".to_string(),
+            DerivedForecastType::Missing => "".to_string(),
+        }
+    }
 }
