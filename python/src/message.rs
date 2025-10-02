@@ -151,6 +151,11 @@ impl GribMessageMetadata {
         let (lat, lng) = self.inner.latlng();
         (PyArray::from_vec(py, lat), PyArray::from_vec(py, lng))
     }
+
+    fn xy<'py>(&self, py: Python<'py>) -> (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>) {
+        let (x, y) = self.inner.xy();
+        (PyArray::from_vec(py, x), PyArray::from_vec(py, y))
+    }
 }
 
 #[pyclass]
