@@ -49,6 +49,10 @@ impl MessageMetadata {
         self.projector.lat_lng()
     }
 
+    pub fn xy(&self) -> (Vec<f64>, Vec<f64>) {
+        (self.projector.x(), self.projector.y())
+    }
+
     pub fn as_idx(&self, index: usize) -> String {
         let formatted_date = self.reference_date.format("%Y%m%d%H").to_string();
         let level = if self.first_fixed_surface_type.is_single_level() {
