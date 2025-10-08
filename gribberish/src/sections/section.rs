@@ -23,7 +23,7 @@ pub enum Section<'a> {
 }
 
 impl <'a> Section<'a> {
-    pub fn from_data(data: &[u8], offset: usize) -> Option<Section> {
+    pub fn from_data(data: &'a [u8], offset: usize) -> Option<Section<'a>> {
         let section_len = section_length(data, offset)?;
         let section_num = section_number(data, offset)?;
 
