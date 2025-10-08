@@ -20,7 +20,7 @@ impl GribMessageMetadata {
     fn message_size(&self) -> usize {
         self.inner.message_size
     }
-
+ 
     #[getter]
     fn var_name(&self) -> &str {
         self.inner.name.as_str()

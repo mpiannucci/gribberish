@@ -71,7 +71,7 @@ pub struct Message<'a> {
 }
 
 impl<'a> Message<'a> {
-    pub fn from_data(data: &'a [u8], offset: usize) -> Option<Message> {
+    pub fn from_data(data: &'a [u8], offset: usize) -> Option<Message<'a>> {
         let mut sections = SectionIterator { data: data, offset };
 
         match sections.next() {
@@ -91,7 +91,7 @@ impl<'a> Message<'a> {
         self.offset
     }
 
-    pub fn sections(&self) -> SectionIterator {
+    pub fn sections(&self) -> SectionIterator<'_> {
         SectionIterator {
             data: self.data,
             offset: self.offset,
