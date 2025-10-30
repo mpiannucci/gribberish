@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use gribberish::{
+    grib_naming::{cfgrib_variable_name, cfgrib_coordinate_name},
     message::Message, message_metadata::scan_message_metadata,
     templates::product::tables::FixedSurfaceType,
 };
@@ -106,17 +107,32 @@ pub fn parse_grib_dataset<'py>(
         .collect::<HashMap<_, _>>();
 
     if mapping.keys().len() == 0 {
-        return Err(PyValueError::new_err("No valid GRIB messages found"));
+        return Err(PyValueError::new_err(
+            "No valid GRIB messages found. \
+            This file may contain product templates not supported by the native backend. \
+            Try building gribberish with eccodes support: \
+            'pip install gribberish[eccodes]' or install from source with --features eccodes."
+        ));
     }
 
     let mut vars: HashMap<String, HashSet<String>> = HashMap::new();
     let mut hash_mapping: HashMap<String, Vec<String>> = HashMap::new();
 
     for (k, v) in mapping.iter() {
-        let var = v.2.var.clone();
+        // Generate cfgrib-style variable name
+        let cfgrib_var = cfgrib_variable_name(
+            &v.2.var,
+            &v.2.first_fixed_surface_type,
+            v.2.first_fixed_surface_value,
+            v.2.statistical_process.as_ref(),
+        );
+
+        // Create a hash for grouping similar variables
+        // Use original key components for uniqueness
         let hash = format!(
-            "{var}{surf}_{stat}{gen}",
-            surf = v.2.first_fixed_surface_type.coordinate_name(),
+            "{var}_{surf}_{stat}{gen}",
+            var = cfgrib_var,
+            surf = cfgrib_coordinate_name(&v.2.first_fixed_surface_type),
             stat =
                 v.2.statistical_process
                     .clone()
@@ -132,12 +148,12 @@ pub fn parse_grib_dataset<'py>(
             hash_mapping.insert(hash.clone(), vec![k.clone()]);
         }
 
-        if vars.contains_key(&var) {
-            vars.get_mut(&var).unwrap().insert(hash);
+        if vars.contains_key(&cfgrib_var) {
+            vars.get_mut(&cfgrib_var).unwrap().insert(hash);
         } else {
             let mut set = HashSet::new();
             set.insert(hash);
-            vars.insert(var, set);
+            vars.insert(cfgrib_var, set);
         }
     }
 
@@ -188,6 +204,64 @@ pub fn parse_grib_dataset<'py>(
         .collect::<HashMap<String, Vec<usize>>>();
 
     let coords = PyDict::new(py);
+
+    // Ensemble dims - handle 'number' dimension for ensemble members
+    let mut ensemble_map = HashMap::new();
+    let mut ensemble_dim_map: HashMap<String, Vec<String>> = HashMap::new();
+    for (var, v) in var_mapping.iter() {
+        let mut ensemble_numbers = HashSet::new();
+        for k in v.iter() {
+            if let Some(pert_num) = mapping.get(k).unwrap().2.perturbation_number {
+                ensemble_numbers.insert(pert_num);
+            }
+        }
+
+        // Only create ensemble dimension if there are actually multiple members
+        if ensemble_numbers.len() > 1 {
+            let mut numbers = ensemble_numbers.into_iter().collect::<Vec<_>>();
+            numbers.sort();
+            let ensemble_key: String = numbers
+                .iter()
+                .map(|n| n.to_string())
+                .collect::<Vec<_>>()
+                .join("_");
+
+            if ensemble_dim_map.contains_key(&ensemble_key) {
+                ensemble_dim_map.get_mut(&ensemble_key).unwrap().push(var.clone());
+            } else {
+                ensemble_dim_map.insert(ensemble_key.clone(), vec![var.clone()]);
+            }
+            ensemble_map.insert(ensemble_key, numbers);
+        }
+    }
+
+    let mut ensemble_index = 0;
+    for (ens_key, numbers) in ensemble_map.iter() {
+        let name = if ensemble_map.len() == 1 || ensemble_index == 0 {
+            "number".to_string()
+        } else {
+            format!("number_{ensemble_index}")
+        };
+        ensemble_index += 1;
+
+        let numbers_i64: Vec<i64> = numbers.iter().map(|&n| n as i64).collect();
+        let numbers_array = PyArray1::from_vec(py, numbers_i64);
+
+        ensemble_dim_map[ens_key].iter().for_each(|v: &String| {
+            var_dims.get_mut(v).unwrap().push(name.clone());
+            var_shape.get_mut(v).unwrap().push(numbers.len());
+        });
+
+        let ensemble_coord = PyDict::new(py);
+        let ensemble_metadata = PyDict::new(py);
+        ensemble_metadata.set_item("standard_name", "realization").unwrap();
+        ensemble_metadata.set_item("long_name", "ensemble member numerical id").unwrap();
+        ensemble_metadata.set_item("axis", "E").unwrap();
+        ensemble_coord.set_item("values", numbers_array).unwrap();
+        ensemble_coord.set_item("attrs", ensemble_metadata).unwrap();
+        ensemble_coord.set_item("dims", vec![name.clone()]).unwrap();
+        coords.set_item(name, ensemble_coord).unwrap();
+    }
 
     // Temporal dims
     let mut time_map = HashMap::new();
@@ -256,22 +330,34 @@ pub fn parse_grib_dataset<'py>(
     let mut vertical_dim_name_map: HashMap<String, HashSet<String>> = HashMap::new();
     let mut vertical_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     let mut vertical_attr_map: HashMap<String, FixedSurfaceType> = HashMap::new();
+    // Collect all unique values for each coordinate type (e.g., all heightAboveGround values)
+    let mut scalar_coord_values: HashMap<String, (Vec<f64>, FixedSurfaceType)> = HashMap::new();
+
     for (var, v) in var_mapping.iter() {
         let mut verticals = HashSet::new();
         let mut vertical_name = String::new();
         for k in v.iter() {
             if vertical_name.is_empty() {
-                vertical_name = mapping
-                    .get(k)
-                    .unwrap()
-                    .2
-                    .first_fixed_surface_type
-                    .coordinate_name()
-                    .to_string();
+                vertical_name = cfgrib_coordinate_name(
+                    &mapping.get(k).unwrap().2.first_fixed_surface_type
+                ).to_string();
             }
             if let Some(vertical_value) = mapping.get(k).unwrap().2.first_fixed_surface_value {
                 verticals.insert(format!("{:.5}", vertical_value));
             }
+        }
+
+        // For single-level coordinates, collect all values to create a coordinate
+        if !perserve_dims.contains(&vertical_name.to_lowercase()) && verticals.len() == 1 {
+            let value = verticals.iter().next().unwrap().parse::<f64>().unwrap();
+            let surface_type = mapping.get(v.first().unwrap()).unwrap().2.first_fixed_surface_type.clone();
+
+            scalar_coord_values
+                .entry(vertical_name.clone())
+                .or_insert_with(|| (Vec::new(), surface_type.clone()))
+                .0
+                .push(value);
+            continue;
         }
 
         if !perserve_dims.contains(&vertical_name.to_lowercase()) && verticals.len() < 2 {
@@ -393,6 +479,33 @@ pub fn parse_grib_dataset<'py>(
                 coords.set_item(name, vertical).unwrap();
             }
         }
+    }
+
+    // Add scalar coordinates for single-level vertical coordinates
+    // These coordinates have values from all variables that use them
+    for (coord_name, (values_vec, surface_type)) in scalar_coord_values.iter() {
+        let scalar_coord = PyDict::new(py);
+        let scalar_metadata = PyDict::new(py);
+        scalar_metadata
+            .set_item("standard_name", surface_type.to_string())
+            .unwrap();
+        scalar_metadata
+            .set_item("long_name", surface_type.to_string())
+            .unwrap();
+        if surface_type.is_vertical_level() {
+            scalar_metadata.set_item("axis", "Z").unwrap();
+        }
+
+        // Deduplicate and sort values
+        let mut values = values_vec.clone();
+        values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        values.dedup();
+
+        let value_array = PyArray1::from_vec(py, values);
+        scalar_coord.set_item("values", value_array).unwrap();
+        scalar_coord.set_item("attrs", scalar_metadata).unwrap();
+        scalar_coord.set_item("dims", vec![coord_name.clone()]).unwrap();
+        coords.set_item(coord_name, scalar_coord).unwrap();
     }
 
     // Lastly the spatial coords
@@ -563,7 +676,7 @@ pub fn parse_grib_dataset<'py>(
             )
             .unwrap();
         var_metadata
-            .set_item("first_fixed_surface_type_coordinate", first.2.first_fixed_surface_type.coordinate_name())
+            .set_item("first_fixed_surface_type_coordinate", cfgrib_coordinate_name(&first.2.first_fixed_surface_type))
             .unwrap();
         var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())
@@ -640,10 +753,12 @@ pub fn parse_grib_dataset<'py>(
             let a = mapping.get(a).unwrap();
             let b = mapping.get(b).unwrap();
             (
+                a.2.perturbation_number.unwrap_or(0),
                 a.2.forecast_date,
                 a.2.first_fixed_surface_value.unwrap_or(0.0),
             )
                 .partial_cmp(&(
+                    b.2.perturbation_number.unwrap_or(0),
                     b.2.forecast_date,
                     b.2.first_fixed_surface_value.unwrap_or(0.0),
                 ))

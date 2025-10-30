@@ -9,6 +9,12 @@ members = [
     "python"
 ]
 
+# eccodes is excluded by default since it requires the eccodes C library
+# To include it, build with: cargo build --features gribberish/eccodes
+exclude = [
+    "eccodes"
+]
+
 [profile.release]
 debug = true
 lto = true
