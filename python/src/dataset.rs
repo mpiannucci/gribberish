@@ -128,10 +128,10 @@ pub fn parse_grib_dataset<'py>(
         );
 
         // Create a hash for grouping similar variables
-        // Use original key components for uniqueness
+        // Use surface type, statistical process, and generating process for uniqueness
+        // Don't include variable name since it will be prepended later
         let hash = format!(
-            "{var}_{surf}_{stat}{gen}",
-            var = cfgrib_var,
+            "{surf}_{stat}{gen}",
             surf = cfgrib_coordinate_name(&v.2.first_fixed_surface_type),
             stat =
                 v.2.statistical_process
@@ -337,13 +337,22 @@ pub fn parse_grib_dataset<'py>(
         let mut verticals = HashSet::new();
         let mut vertical_name = String::new();
         for k in v.iter() {
+            let msg_metadata = &mapping.get(k).unwrap().2;
             if vertical_name.is_empty() {
                 vertical_name = cfgrib_coordinate_name(
-                    &mapping.get(k).unwrap().2.first_fixed_surface_type
+                    &msg_metadata.first_fixed_surface_type
                 ).to_string();
             }
-            if let Some(vertical_value) = mapping.get(k).unwrap().2.first_fixed_surface_value {
+            // Collect first fixed surface value
+            if let Some(vertical_value) = msg_metadata.first_fixed_surface_value {
                 verticals.insert(format!("{:.5}", vertical_value));
+            }
+            // Also collect second fixed surface value if it's the same type as first
+            // This handles layers defined between two surfaces of the same type
+            if msg_metadata.second_fixed_surface_type == msg_metadata.first_fixed_surface_type {
+                if let Some(second_value) = msg_metadata.second_fixed_surface_value {
+                    verticals.insert(format!("{:.5}", second_value));
+                }
             }
         }
 

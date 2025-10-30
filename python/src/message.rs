@@ -60,6 +60,16 @@ impl GribMessageMetadata {
     }
 
     #[getter]
+    fn second_fixed_surface_type(&self) -> String {
+        self.inner.second_fixed_surface_type.to_string()
+    }
+
+    #[getter]
+    fn second_fixed_surface_value(&self) -> Option<f64> {
+        self.inner.second_fixed_surface_value
+    }
+
+    #[getter]
     fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDateTime>> {
         PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
     }
@@ -224,7 +234,9 @@ pub fn parse_grib_mapping<'py>(
             if drop_variables.contains(&message.var_name().to_lowercase()) {
                 None
             } else {
-                Some((k.clone(), (v.0, v.1, message)))
+                // v is (index, byte_offset, metadata)
+                // Return (byte_offset, message_size, metadata)
+                Some((k.clone(), (v.1, message.inner.message_size, message)))
             }
         })
         .collect()

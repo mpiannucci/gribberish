@@ -452,3 +452,20 @@ impl DerivedForecastType {
         }
     }
 }
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+pub enum ProbabilityType {
+    #[description = "Probability of event below lower limit"]
+    BelowLowerLimit = 0,
+    #[description = "Probability of event above upper limit"]
+    AboveUpperLimit = 1,
+    #[description = "Probability of event between lower and upper limits"]
+    BetweenLimits = 2,
+    #[description = "Probability of event above lower limit"]
+    AboveLowerLimit = 3,
+    #[description = "Probability of event below upper limit"]
+    BelowUpperLimit = 4,
+    #[description = "Missing"]
+    Missing = 255,
+}

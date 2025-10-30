@@ -10,7 +10,7 @@ async def test_decode_data_var_gribberish():
     from zarr.core.array_spec import ArraySpec
     from zarr.core.buffer import default_buffer_prototype
 
-    with open("./../gribberish/tests/data/hrrr.t06z.wrfsfcf01-UGRD.grib2", "rb") as f:
+    with open("../../gribberish/tests/data/hrrr.t06z.wrfsfcf01-UGRD.grib2", "rb") as f:
         raw_data = f.read()
 
     buffer = default_buffer_prototype().buffer.from_bytes(raw_data)

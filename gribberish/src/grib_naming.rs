@@ -9,8 +9,8 @@ use crate::templates::product::tables::{FixedSurfaceType, TypeOfStatisticalProce
 ///
 /// This function creates short, readable variable names that follow cfgrib conventions:
 /// - Short parameter abbreviations (e.g., "t", "u", "v", "gh")
-/// - Level information embedded where relevant (e.g., "2t" for 2m temperature)
-/// - Statistical processing as prefix (e.g., "avg_t", "mn2t", "mx2t")
+/// - Level information embedded where relevant (e.g., "t2m" for 2m temperature)
+/// - Statistical processing as prefix (e.g., "avg_t", "mnt2m", "mxt2m")
 pub fn cfgrib_variable_name(
     var_abbrev: &str,
     surface_type: &FixedSurfaceType,
@@ -32,8 +32,8 @@ fn map_parameter_to_short_name(var_abbrev: &str) -> String {
     match var_abbrev.to_uppercase().as_str() {
         // Temperature
         "TMP" => "t".to_string(),
-        "TMAX" => "mx2t".to_string(),
-        "TMIN" => "mn2t".to_string(),
+        "TMAX" => "mxt2m".to_string(),
+        "TMIN" => "mnt2m".to_string(),
 
         // Wind components
         "UGRD" => "u".to_string(),
@@ -111,8 +111,9 @@ fn add_level_info(
                 let height_m = height as i32;
                 match (param, height_m) {
                     // Common patterns: 2m temperature, 10m wind, etc.
-                    ("t", 2) => "2t".to_string(),
-                    ("d", 2) => "2d".to_string(),
+                    // Use t2m/d2m format to ensure valid Python identifiers
+                    ("t", 2) => "t2m".to_string(),
+                    ("d", 2) => "d2m".to_string(),
                     ("u", 10) => "u10".to_string(),
                     ("v", 10) => "v10".to_string(),
                     ("ws", 10) => "ws10".to_string(),
@@ -151,22 +152,22 @@ fn add_statistical_prefix(
             TypeOfStatisticalProcessing::Average => {
                 // For some variables, use avg_ prefix, for special ones use embedded format
                 match var_name {
-                    "2t" => "avg_2t".to_string(),
-                    "2d" => "avg_2d".to_string(),
+                    "t2m" => "avg_t2m".to_string(),
+                    "d2m" => "avg_d2m".to_string(),
                     _ => format!("avg_{}", var_name),
                 }
             }
             TypeOfStatisticalProcessing::Minimum => {
                 // Use mn prefix or embedded format
                 match var_name {
-                    "2t" => "mn2t".to_string(),
+                    "t2m" => "mnt2m".to_string(),
                     _ => format!("mn_{}", var_name),
                 }
             }
             TypeOfStatisticalProcessing::Maximum => {
                 // Use mx prefix or embedded format
                 match var_name {
-                    "2t" => "mx2t".to_string(),
+                    "t2m" => "mxt2m".to_string(),
                     _ => format!("mx_{}", var_name),
                 }
             }
@@ -244,7 +245,7 @@ mod tests {
             Some(2.0),
             None,
         );
-        assert_eq!(name, "2t");
+        assert_eq!(name, "t2m");
     }
 
     #[test]
@@ -255,7 +256,7 @@ mod tests {
             Some(2.0),
             Some(&TypeOfStatisticalProcessing::Average),
         );
-        assert_eq!(name, "avg_2t");
+        assert_eq!(name, "avg_t2m");
     }
 
     #[test]
@@ -266,7 +267,7 @@ mod tests {
             Some(2.0),
             Some(&TypeOfStatisticalProcessing::Minimum),
         );
-        assert_eq!(name, "mn2t");
+        assert_eq!(name, "mnt2m");
     }
 
     #[test]

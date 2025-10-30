@@ -1,4 +1,4 @@
-use crate::{utils::{read_u16_from_bytes, read_u32_from_bytes}, templates::product::{product_template::ProductTemplate, HorizontalAnalysisForecastTemplate, HorizontalEnsembleForecastTemplate , AverageAccumulationExtremeHorizontalAnalysisForecastTemplate, DerivedEnsembleHorizontalAnalysisForecastTemplate, derived_ensemble_horizontal_forecast_time_interval_template::DerivedEnsembleHorizontalForecastTimeIntervalTemplate, EnsembleForecastTimeIntervalTemplate}};
+use crate::{utils::{read_u16_from_bytes, read_u32_from_bytes}, templates::product::{product_template::ProductTemplate, HorizontalAnalysisForecastTemplate, HorizontalEnsembleForecastTemplate , AverageAccumulationExtremeHorizontalAnalysisForecastTemplate, DerivedEnsembleHorizontalAnalysisForecastTemplate, derived_ensemble_horizontal_forecast_time_interval_template::DerivedEnsembleHorizontalForecastTimeIntervalTemplate, EnsembleForecastTimeIntervalTemplate, ProbabilityHorizontalForecastTemplate}};
 use super::grib_section::GribSection;
 
 pub struct ProductDefinitionSection<'a> {
@@ -25,6 +25,7 @@ impl <'a> ProductDefinitionSection<'a> {
             0 => Some(Box::new(HorizontalAnalysisForecastTemplate::new(self.data.to_vec(), discipline))),
             1 => Some(Box::new(HorizontalEnsembleForecastTemplate::new(self.data.to_vec(), discipline))),
             2 => Some(Box::new(DerivedEnsembleHorizontalAnalysisForecastTemplate::new(self.data.to_vec(), discipline))),
+            5 => Some(Box::new(ProbabilityHorizontalForecastTemplate::new(self.data.to_vec(), discipline))),
             8 => Some(Box::new(AverageAccumulationExtremeHorizontalAnalysisForecastTemplate::new(self.data.to_vec(), discipline))),
             11 => Some(Box::new(EnsembleForecastTimeIntervalTemplate::new(self.data.to_vec(), discipline))),
             12 => Some(Box::new(DerivedEnsembleHorizontalForecastTimeIntervalTemplate::new(self.data.to_vec(), discipline))),
