@@ -454,7 +454,7 @@ impl DerivedForecastType {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum ProbabilityType {
     #[description = "Probability of event below lower limit"]
     BelowLowerLimit = 0,

@@ -3,7 +3,7 @@
 /// This module provides functions to generate variable and coordinate names
 /// that match cfgrib's output conventions for better compatibility.
 
-use crate::templates::product::tables::{FixedSurfaceType, TypeOfStatisticalProcessing};
+use crate::templates::product::tables::{FixedSurfaceType, ProbabilityType, TypeOfStatisticalProcessing};
 
 /// Generate a cfgrib-style variable name from GRIB parameter info
 ///
@@ -188,6 +188,82 @@ fn add_statistical_prefix(
     }
 }
 
+/// Generate a probabilistic variable name with threshold information
+///
+/// This function creates names for probabilistic forecasts following the pattern:
+/// `probability_of_{variable}_{type}_{threshold(s)}`
+///
+/// # Arguments
+/// * `mapping_name` - Base variable name (e.g., "air_temperature_probabilities")
+/// * `probability_type` - Type of probability (below/above/between limits)
+/// * `lower_threshold` - Lower threshold value (if applicable)
+/// * `upper_threshold` - Upper threshold value (if applicable)
+/// * `precision` - Number of decimal places for threshold values
+///
+/// # Examples
+/// * "probability_of_air_temperature_below_273.15"
+/// * "probability_of_air_temperature_above_300.00"
+/// * "probability_of_air_temperature_between_273.15_and_300.00"
+pub fn cfgrib_probabilistic_name(
+    mapping_name: &str,
+    probability_type: &ProbabilityType,
+    lower_threshold: Option<f64>,
+    upper_threshold: Option<f64>,
+    precision: usize,
+) -> Result<String, String> {
+    // Remove "_probabilities" suffix to get base name
+    let base_name = mapping_name.replace("_probabilities", "");
+
+    // Build the probability type string with threshold(s)
+    let prob_type_str = match probability_type {
+        ProbabilityType::BelowLowerLimit => {
+            if let Some(lower) = lower_threshold {
+                format!("below_{:.precision$}", lower, precision = precision)
+            } else {
+                return Err(format!("BelowLowerLimit requires lower_threshold"));
+            }
+        }
+        ProbabilityType::AboveUpperLimit => {
+            if let Some(upper) = upper_threshold {
+                format!("above_{:.precision$}", upper, precision = precision)
+            } else {
+                return Err(format!("AboveUpperLimit requires upper_threshold"));
+            }
+        }
+        ProbabilityType::BetweenLimits => {
+            if let (Some(lower), Some(upper)) = (lower_threshold, upper_threshold) {
+                format!(
+                    "between_{:.precision$}_and_{:.precision$}",
+                    lower,
+                    upper,
+                    precision = precision
+                )
+            } else {
+                return Err(format!("BetweenLimits requires both lower_threshold and upper_threshold"));
+            }
+        }
+        ProbabilityType::AboveLowerLimit => {
+            if let Some(lower) = lower_threshold {
+                format!("above_{:.precision$}", lower, precision = precision)
+            } else {
+                return Err(format!("AboveLowerLimit requires lower_threshold"));
+            }
+        }
+        ProbabilityType::BelowUpperLimit => {
+            if let Some(upper) = upper_threshold {
+                format!("below_{:.precision$}", upper, precision = precision)
+            } else {
+                return Err(format!("BelowUpperLimit requires upper_threshold"));
+            }
+        }
+        ProbabilityType::Missing => {
+            return Err(format!("Cannot generate name for Missing probability type"));
+        }
+    };
+
+    Ok(format!("probability_of_{}_{}", base_name, prob_type_str))
+}
+
 /// Get cfgrib-style coordinate name for a fixed surface type
 pub fn cfgrib_coordinate_name(surface_type: &FixedSurfaceType) -> &'static str {
     match surface_type {
@@ -302,5 +378,92 @@ mod tests {
             cfgrib_coordinate_name(&FixedSurfaceType::IsobaricSurface),
             "isobaricInhPa"
         );
+    }
+
+    #[test]
+    fn test_probabilistic_name_below_lower() {
+        let name = cfgrib_probabilistic_name(
+            "air_temperature_probabilities",
+            &ProbabilityType::BelowLowerLimit,
+            Some(273.15),
+            None,
+            2,
+        );
+        assert_eq!(name.unwrap(), "probability_of_air_temperature_below_273.15");
+    }
+
+    #[test]
+    fn test_probabilistic_name_above_upper() {
+        let name = cfgrib_probabilistic_name(
+            "air_temperature_probabilities",
+            &ProbabilityType::AboveUpperLimit,
+            None,
+            Some(300.0),
+            2,
+        );
+        assert_eq!(name.unwrap(), "probability_of_air_temperature_above_300.00");
+    }
+
+    #[test]
+    fn test_probabilistic_name_between() {
+        let name = cfgrib_probabilistic_name(
+            "air_temperature_probabilities",
+            &ProbabilityType::BetweenLimits,
+            Some(273.15),
+            Some(300.0),
+            2,
+        );
+        assert_eq!(
+            name.unwrap(),
+            "probability_of_air_temperature_between_273.15_and_300.00"
+        );
+    }
+
+    #[test]
+    fn test_probabilistic_name_above_lower() {
+        let name = cfgrib_probabilistic_name(
+            "precipitation_probabilities",
+            &ProbabilityType::AboveLowerLimit,
+            Some(0.01),
+            None,
+            3,
+        );
+        assert_eq!(name.unwrap(), "probability_of_precipitation_above_0.010");
+    }
+
+    #[test]
+    fn test_probabilistic_name_below_upper() {
+        let name = cfgrib_probabilistic_name(
+            "wind_speed_probabilities",
+            &ProbabilityType::BelowUpperLimit,
+            None,
+            Some(10.5),
+            1,
+        );
+        assert_eq!(name.unwrap(), "probability_of_wind_speed_below_10.5");
+    }
+
+    #[test]
+    fn test_probabilistic_name_missing_threshold() {
+        let name = cfgrib_probabilistic_name(
+            "air_temperature_probabilities",
+            &ProbabilityType::BelowLowerLimit,
+            None,
+            None,
+            2,
+        );
+        assert!(name.is_err());
+    }
+
+    #[test]
+    fn test_probabilistic_name_missing_type() {
+        let name = cfgrib_probabilistic_name(
+            "air_temperature_probabilities",
+            &ProbabilityType::Missing,
+            Some(273.15),
+            None,
+            2,
+        );
+        assert!(name.is_err());
     }
 }

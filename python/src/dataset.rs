@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use gribberish::{
-    grib_naming::{cfgrib_variable_name, cfgrib_coordinate_name},
+    grib_naming::{cfgrib_variable_name, cfgrib_coordinate_name, cfgrib_probabilistic_name},
     message::Message, message_metadata::scan_message_metadata,
     templates::product::tables::FixedSurfaceType,
 };
@@ -120,27 +120,80 @@ pub fn parse_grib_dataset<'py>(
 
     for (k, v) in mapping.iter() {
         // Generate cfgrib-style variable name
-        let cfgrib_var = cfgrib_variable_name(
-            &v.2.var,
-            &v.2.first_fixed_surface_type,
-            v.2.first_fixed_surface_value,
-            v.2.statistical_process.as_ref(),
-        );
+        let cfgrib_var = if v.2.is_probability {
+            // For probability fields, generate name with threshold information
+            // First get the base variable name
+            let base_var = cfgrib_variable_name(
+                &v.2.var,
+                &v.2.first_fixed_surface_type,
+                v.2.first_fixed_surface_value,
+                v.2.statistical_process.as_ref(),
+            );
+
+            // Then create probabilistic name with thresholds
+            if let Some(prob_type) = &v.2.probability_type {
+                // Use the base variable name with "_probabilities" suffix as the mapping name
+                let mapping_name = format!("{}_probabilities", v.2.name.replace(" ", "_"));
+
+                match cfgrib_probabilistic_name(
+                    &mapping_name,
+                    prob_type,
+                    v.2.lower_limit,
+                    v.2.upper_limit,
+                    2, // precision for threshold values
+                ) {
+                    Ok(prob_name) => prob_name,
+                    Err(_) => {
+                        // If probabilistic naming fails, fall back to base name with _prob suffix
+                        format!("{}_prob", base_var)
+                    }
+                }
+            } else {
+                // If no probability type, fall back to base name with _prob suffix
+                format!("{}_prob", base_var)
+            }
+        } else {
+            // Regular (non-probability) fields use standard naming
+            cfgrib_variable_name(
+                &v.2.var,
+                &v.2.first_fixed_surface_type,
+                v.2.first_fixed_surface_value,
+                v.2.statistical_process.as_ref(),
+            )
+        };
 
         // Create a hash for grouping similar variables
-        // Use surface type, statistical process, and generating process for uniqueness
-        // Don't include variable name since it will be prepended later
-        let hash = format!(
-            "{surf}_{stat}{gen}",
-            surf = cfgrib_coordinate_name(&v.2.first_fixed_surface_type),
-            stat =
-                v.2.statistical_process
+        // For probability fields, include threshold information in the hash
+        // For regular fields, use surface type, statistical process, and generating process
+        let hash = if v.2.is_probability {
+            // Include probability type and thresholds in hash to separate different thresholds
+            let prob_type_ref = v.2.probability_type.as_ref().unwrap_or(&gribberish::templates::product::tables::ProbabilityType::Missing);
+            let lower = v.2.lower_limit.unwrap_or(0.0);
+            let upper = v.2.upper_limit.unwrap_or(0.0);
+
+            format!(
+                "{surf}_{stat}{gen}_prob_{prob_type:?}_{lower:.5}_{upper:.5}",
+                surf = cfgrib_coordinate_name(&v.2.first_fixed_surface_type),
+                stat = v.2.statistical_process
                     .clone()
                     .map(|s| s.abbv())
-                    .unwrap_or("".to_string())
-                    .to_string(),
-            gen = v.2.generating_process.abbv(),
-        );
+                    .unwrap_or("".to_string()),
+                gen = v.2.generating_process.abbv(),
+                prob_type = prob_type_ref,
+                lower = lower,
+                upper = upper,
+            )
+        } else {
+            format!(
+                "{surf}_{stat}{gen}",
+                surf = cfgrib_coordinate_name(&v.2.first_fixed_surface_type),
+                stat = v.2.statistical_process
+                    .clone()
+                    .map(|s| s.abbv())
+                    .unwrap_or("".to_string()),
+                gen = v.2.generating_process.abbv(),
+            )
+        };
 
         if hash_mapping.contains_key(&hash) {
             hash_mapping.get_mut(&hash).unwrap().push(k.clone());

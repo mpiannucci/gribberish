@@ -3,7 +3,7 @@ use crate::sections::{indicator::Discipline, section::Section, section::SectionI
 use crate::templates::grid_definition::GridDefinitionTemplate;
 use crate::templates::product::product_template::ProductTemplate;
 use crate::templates::product::tables::{
-    DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
+    DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit, TypeOfStatisticalProcessing,
 };
 use crate::utils::iter::projection::LatLngProjection;
 use bitvec::view::BitView;
@@ -626,6 +626,123 @@ impl<'a> Message<'a> {
                 } else {
                     Ok(None)
                 }
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Check if this message is a probability forecast
+    pub fn is_probability(&self) -> Result<bool, GribberishError> {
+        let template_id = self.product_template_id()?;
+        // Template 5 = probability forecast at horizontal level
+        // Template 9 = probability forecast time interval
+        Ok(matches!(template_id, 5 | 9))
+    }
+
+    /// Get the probability type for probability forecasts (if applicable)
+    pub fn probability_type(&self) -> Result<Option<ProbabilityType>, GribberishError> {
+        let template_id = self.product_template_id()?;
+
+        match template_id {
+            5 => {
+                // Template 5: probability type is at byte 36
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 36 {
+                    Ok(Some(data[36].into()))
+                } else {
+                    Ok(None)
+                }
+            }
+            9 => {
+                // Template 9: probability type is at byte 47
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 47 {
+                    Ok(Some(data[47].into()))
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Get the lower limit for probability forecasts (if applicable)
+    pub fn probability_lower_limit(&self) -> Result<Option<f64>, GribberishError> {
+        use crate::templates::product::probability_horizontal_template::ProbabilityHorizontalForecastTemplate;
+
+        let template_id = self.product_template_id()?;
+
+        match template_id {
+            5 => {
+                // Template 5: lower limit at bytes 37-41
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                let discipline = self.discipline()?;
+
+                // Create a temporary template to use its parsing methods
+                let temp_template = ProbabilityHorizontalForecastTemplate::new(data.to_vec(), discipline as u8);
+                Ok(temp_template.lower_limit())
+            }
+            9 => {
+                // Template 9: would need similar handling but with different byte offsets
+                // For now, return None as we focus on template 5
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Get the upper limit for probability forecasts (if applicable)
+    pub fn probability_upper_limit(&self) -> Result<Option<f64>, GribberishError> {
+        use crate::templates::product::probability_horizontal_template::ProbabilityHorizontalForecastTemplate;
+
+        let template_id = self.product_template_id()?;
+
+        match template_id {
+            5 => {
+                // Template 5: upper limit at bytes 42-46
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                let discipline = self.discipline()?;
+
+                // Create a temporary template to use its parsing methods
+                let temp_template = ProbabilityHorizontalForecastTemplate::new(data.to_vec(), discipline as u8);
+                Ok(temp_template.upper_limit())
+            }
+            9 => {
+                // Template 9: would need similar handling but with different byte offsets
+                // For now, return None as we focus on template 5
+                Ok(None)
             }
             _ => Ok(None),
         }

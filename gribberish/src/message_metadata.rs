@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 
 use crate::{
     error::GribberishError, message::{Message, MessageIterator}, templates::product::tables::{
-        FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
+        FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit, TypeOfStatisticalProcessing,
     }, utils::iter::projection::LatLngProjection
 };
 
@@ -42,6 +42,11 @@ pub struct MessageMetadata {
     pub is_ensemble: bool,
     pub perturbation_number: Option<u8>,
     pub ensemble_size: Option<u8>,
+    // Probability-specific fields
+    pub is_probability: bool,
+    pub probability_type: Option<ProbabilityType>,
+    pub lower_limit: Option<f64>,
+    pub upper_limit: Option<f64>,
 }
 
 impl MessageMetadata {
@@ -123,6 +128,11 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
         let perturbation_number = message.perturbation_number().ok().flatten();
         let ensemble_size = message.ensemble_size().ok().flatten();
 
+        let is_probability = message.is_probability().unwrap_or(false);
+        let probability_type = message.probability_type().ok().flatten();
+        let lower_limit = message.probability_lower_limit().ok().flatten();
+        let upper_limit = message.probability_upper_limit().ok().flatten();
+
         Ok(MessageMetadata {
             key: message.key()?,
             byte_offset: message.byte_offset(),
@@ -161,6 +171,10 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             is_ensemble,
             perturbation_number,
             ensemble_size,
+            is_probability,
+            probability_type,
+            lower_limit,
+            upper_limit,
         })
     }
 }
