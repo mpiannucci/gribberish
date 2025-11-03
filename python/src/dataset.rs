@@ -545,7 +545,13 @@ pub fn parse_grib_dataset<'py>(
 
     // Add scalar coordinates for single-level vertical coordinates
     // These coordinates have values from all variables that use them
+    // Skip if a dimensional coordinate with the same name already exists
     for (coord_name, (values_vec, surface_type)) in scalar_coord_values.iter() {
+        // Skip if this coordinate already exists as a dimensional coordinate
+        if coords.contains(coord_name).unwrap() {
+            continue;
+        }
+
         let scalar_coord = PyDict::new(py);
         let scalar_metadata = PyDict::new(py);
         scalar_metadata
