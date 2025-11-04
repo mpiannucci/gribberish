@@ -264,9 +264,9 @@ parameters:
         };
 
         let mut config2 = config1.clone();
-        config2.backend.preferred = "eccodes".to_string();
+        config2.backend.backend = "native".to_string();
 
         let merged = ConfigLoader::merge(vec![config1, config2]);
-        assert_eq!(merged.backend.preferred, "eccodes");
+        assert_eq!(merged.backend.backend, "native");
     }
 }

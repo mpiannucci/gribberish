@@ -1,25 +1,21 @@
-//! Simple GRIB2 Reader Example
+//! Simple GRIB Reader Example
 //!
-//! A minimal example showing the basics of reading GRIB2 files.
+//! A minimal example showing the basics of reading GRIB files (both GRIB1 and GRIB2).
 //!
 //! Usage:
 //!   cargo run --example simple_reader
 
 use gribberish::api::read_all_messages;
-use gribberish::backends::BackendType;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Select backend (native Rust or eccodes)
-    let backend = BackendType::Native;
-
-    // 2. Read the GRIB2 file
+    // 1. Read the GRIB file (supports both GRIB1 and GRIB2)
     let file_path = "/Users/maxwellgrover/projects/grib-reading/data/gfs.t18z.pgrb2.0p25.f186-RH.grib2";
     let data = std::fs::read(file_path)?;
 
-    // 3. Parse all messages
-    let messages = read_all_messages(&data, backend)?;
+    // 2. Parse all messages using the native Rust backend
+    let messages = read_all_messages(&data)?;
 
-    // 4. Display results
+    // 3. Display results
     println!("Found {} message(s) in file\n", messages.len());
 
     for (i, msg) in messages.iter().enumerate() {

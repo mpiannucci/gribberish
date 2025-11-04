@@ -201,30 +201,21 @@ pub enum OperationConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BackendConfig {
-    /// Preferred backend ("native", "eccodes", or "auto")
+    /// Backend type (always "native" - pure Rust implementation)
     #[serde(default = "default_backend")]
-    pub preferred: String,
-
-    /// Fallback to native if preferred backend fails
-    #[serde(default = "default_fallback")]
-    pub fallback: bool,
+    pub backend: String,
 }
 
 impl Default for BackendConfig {
     fn default() -> Self {
         BackendConfig {
-            preferred: default_backend(),
-            fallback: default_fallback(),
+            backend: default_backend(),
         }
     }
 }
 
 fn default_backend() -> String {
-    "auto".to_string()
-}
-
-fn default_fallback() -> bool {
-    true
+    "native".to_string()
 }
 
 #[cfg(test)]
@@ -260,13 +251,12 @@ parameters:
     abbreviation: "CTEMP"
     unit: "K"
 backend:
-  preferred: "eccodes"
-  fallback: true
+  backend: "native"
         "#;
 
         let config: GribConfig = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(config.version, "1.0");
         assert_eq!(config.parameters.len(), 1);
-        assert_eq!(config.backend.preferred, "eccodes");
+        assert_eq!(config.backend.backend, "native");
     }
 }

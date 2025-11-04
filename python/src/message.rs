@@ -190,6 +190,24 @@ pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize) -> Bou
     PyArray::from_vec(py, data)
 }
 
+/// Parse multiple GRIB messages from a single buffer
+/// Returns a list of numpy arrays
+#[pyfunction]
+pub fn parse_grib_array_batch<'py>(
+    py: Python<'py>,
+    data: &[u8],
+    offsets: Vec<usize>
+) -> Vec<Bound<'py, PyArray1<f64>>> {
+    offsets
+        .iter()
+        .map(|&offset| {
+            let message = Message::from_data(data, offset).unwrap();
+            let msg_data = message.data().unwrap();
+            PyArray::from_vec(py, msg_data)
+        })
+        .collect()
+}
+
 #[pyfunction]
 pub fn parse_grib_message_metadata(data: &[u8], offset: usize) -> PyResult<GribMessageMetadata> {
     let message = Message::from_data(data, offset).unwrap();

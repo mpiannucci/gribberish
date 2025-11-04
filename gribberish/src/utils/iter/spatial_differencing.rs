@@ -30,7 +30,8 @@ impl <I> Iterator for FirstOrderSpatialDifferencing<I> where I: Iterator<Item = 
             Some(self.d1)
         } else {
             let next_value = self.iter.next()?;
-            let next_value = next_value + self.prev + self.dmin;
+            // Use i64 to avoid overflow during addition
+            let next_value = (next_value as i64 + self.prev as i64 + self.dmin as i64) as i32;
             self.prev = next_value;
             Some(next_value)
         }
@@ -72,14 +73,15 @@ impl <I> Iterator for SecondOrderSpatialDifferencing<I> where I: Iterator<Item =
             0 => {
                 _ = self.iter.next()?;
                 Some(self.d1)
-            }, 
+            },
             1 => {
                 _ = self.iter.next()?;
                 Some(self.d2)
             },
             _ => {
                 let next_value = self.iter.next()?;
-                let next_value = next_value + 2 * self.prev - self.prev2 + self.dmin;
+                // Use i64 to avoid overflow during multiplication and addition
+                let next_value = (next_value as i64 + 2 * self.prev as i64 - self.prev2 as i64 + self.dmin as i64) as i32;
                 self.prev2 = self.prev;
                 self.prev = next_value;
                 Some(next_value)

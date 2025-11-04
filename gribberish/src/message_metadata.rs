@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::{
-    error::GribberishError, message::{Message, MessageIterator}, templates::product::tables::{
+    error::GribberishError, message::Message, templates::product::tables::{
         FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit, TypeOfStatisticalProcessing,
     }, utils::iter::projection::LatLngProjection
 };
@@ -182,13 +182,21 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
 pub fn scan_message_metadata<'a>(
     data: &'a [u8],
 ) -> HashMap<String, (usize, usize, MessageMetadata)> {
-    let message_iter = MessageIterator::from_data(data, 0);
+    use crate::parser;
 
-    message_iter
+    let messages = parser::scan_messages(data);
+
+    messages
+        .into_iter()
         .enumerate()
-        .filter_map(|(index, m)| match MessageMetadata::try_from(&m) {
-            Ok(mm) => Some(((&mm.key).clone(), (index, m.byte_offset(), mm))),
-            Err(_) => None,
+        .filter_map(|(index, (offset, _length))| {
+            // Use metadata-only parsing to avoid decompressing data during scan
+            match parser::parse_message_metadata_only(data, offset) {
+                Ok((metadata, _msg_len)) => {
+                    Some((metadata.key.clone(), (index, offset, metadata)))
+                }
+                Err(_) => None,
+            }
         })
         .collect()
 }

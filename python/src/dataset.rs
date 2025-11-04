@@ -115,8 +115,58 @@ pub fn parse_grib_dataset<'py>(
         ));
     }
 
+    // First pass: Determine which surface types will become dimensions
+    // (i.e., surface types that have multiple vertical levels)
+    // Use the coordinate name string as the key since FixedSurfaceType doesn't implement Hash
+    let mut surface_level_counts: HashMap<String, HashSet<String>> = HashMap::new();
+    for (_k, v) in mapping.iter() {
+        if let Some(vertical_value) = v.2.first_fixed_surface_value {
+            let coord_name = cfgrib_coordinate_name(&v.2.first_fixed_surface_type).to_string();
+            surface_level_counts
+                .entry(coord_name)
+                .or_insert_with(HashSet::new)
+                .insert(format!("{:.5}", vertical_value));
+        }
+    }
+
+    // Surface types with multiple levels will become dimensions
+    let dimensional_surfaces: HashSet<String> = surface_level_counts
+        .iter()
+        .filter_map(|(surf_name, levels)| {
+            if levels.len() > 1 {
+                Some(surf_name.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // First pass: collect surface types per variable to determine which need disambiguation
+    let mut var_surface_types: HashMap<String, HashSet<String>> = HashMap::new();
+    for (_k, v) in mapping.iter() {
+        // Use the same naming logic as the main loop
+        let base_var = if v.2.is_probability {
+            // For probability fields, use the base mapping name
+            format!("{}_probabilities", v.2.name.replace(" ", "_"))
+        } else {
+            cfgrib_variable_name(
+                &v.2.var,
+                &v.2.first_fixed_surface_type,
+                v.2.first_fixed_surface_value,
+                v.2.statistical_process.as_ref(),
+            )
+        };
+        let surf_coord_name = cfgrib_coordinate_name(&v.2.first_fixed_surface_type).to_string();
+        var_surface_types
+            .entry(base_var)
+            .or_insert_with(HashSet::new)
+            .insert(surf_coord_name);
+    }
+
     let mut vars: HashMap<String, HashSet<String>> = HashMap::new();
     let mut hash_mapping: HashMap<String, Vec<String>> = HashMap::new();
+    // Map from hash (for naming) to hash_key (for message lookup)
+    let mut hash_to_key: HashMap<String, String> = HashMap::new();
 
     for (k, v) in mapping.iter() {
         // Generate cfgrib-style variable name
@@ -164,7 +214,9 @@ pub fn parse_grib_dataset<'py>(
 
         // Create a hash for grouping similar variables
         // For probability fields, include threshold information in the hash
-        // For regular fields, use surface type, statistical process, and generating process
+        // For regular fields, create a minimal hash for disambiguation
+        // Strategy: Only include surface type in hash if it won't become a dimension
+        // This produces cleaner names like "t" instead of "t_isobaricInhPa_fcst"
         let hash = if v.2.is_probability {
             // Include probability type and thresholds in hash to separate different thresholds
             let prob_type_ref = v.2.probability_type.as_ref().unwrap_or(&gribberish::templates::product::tables::ProbabilityType::Missing);
@@ -184,29 +236,61 @@ pub fn parse_grib_dataset<'py>(
                 upper = upper,
             )
         } else {
-            format!(
-                "{surf}_{stat}{gen}",
-                surf = cfgrib_coordinate_name(&v.2.first_fixed_surface_type),
-                stat = v.2.statistical_process
-                    .clone()
-                    .map(|s| s.abbv())
-                    .unwrap_or("".to_string()),
-                gen = v.2.generating_process.abbv(),
-            )
+            // Build a minimal hash that only includes truly distinguishing attributes
+            let surf_coord_name = cfgrib_coordinate_name(&v.2.first_fixed_surface_type);
+            let stat_abbv = v.2.statistical_process
+                .clone()
+                .map(|s| s.abbv())
+                .unwrap_or("".to_string());
+
+            // Only include non-empty components in the hash
+            let mut hash_parts = vec![];
+
+            // Only include surface type if:
+            // 1. It's NOT a dimensional coordinate (doesn't have multiple levels)
+            // 2. AND this variable appears with multiple surface types (needs disambiguation)
+            if !surf_coord_name.is_empty()
+                && !dimensional_surfaces.contains(surf_coord_name)
+                && var_surface_types.get(&cfgrib_var).map_or(false, |types| types.len() > 1) {
+                hash_parts.push(surf_coord_name.to_string());
+            }
+
+            // Include statistical process for disambiguation (e.g., avg, min, max)
+            if !stat_abbv.is_empty() {
+                hash_parts.push(stat_abbv);
+            }
+
+            // Note: We intentionally exclude the generating process (fcst/anal/etc.)
+            // from the hash as it's rarely needed for disambiguation and creates
+            // unnecessarily long variable names
+
+            // If no distinguishing features, use a simple marker
+            if hash_parts.is_empty() {
+                "default".to_string()
+            } else {
+                hash_parts.join("_")
+            }
         };
 
-        if hash_mapping.contains_key(&hash) {
-            hash_mapping.get_mut(&hash).unwrap().push(k.clone());
+        // Create a unique key for hash_mapping that includes both variable and hash
+        // This prevents different variables from sharing the same hash bucket
+        let hash_key = format!("{}::{}", cfgrib_var, hash);
+
+        // Store the mapping from hash to hash_key for this variable
+        hash_to_key.insert(format!("{}::{}", cfgrib_var, hash), hash_key.clone());
+
+        if hash_mapping.contains_key(&hash_key) {
+            hash_mapping.get_mut(&hash_key).unwrap().push(k.clone());
         } else {
-            hash_mapping.insert(hash.clone(), vec![k.clone()]);
+            hash_mapping.insert(hash_key.clone(), vec![k.clone()]);
         }
 
         if vars.contains_key(&cfgrib_var) {
-            vars.get_mut(&cfgrib_var).unwrap().insert(hash);
+            vars.get_mut(&cfgrib_var).unwrap().insert(hash.clone());
         } else {
             let mut set = HashSet::new();
             set.insert(hash);
-            vars.insert(cfgrib_var, set);
+            vars.insert(cfgrib_var.clone(), set);
         }
     }
 
@@ -214,23 +298,40 @@ pub fn parse_grib_dataset<'py>(
     let mut var_mapping = HashMap::new();
     for (k, v) in vars.iter_mut() {
         if v.len() == 1 {
-            let var_name = k.to_lowercase();
+            let hash = v.iter().next().unwrap();
+            // If the only hash is "default", use the base name without suffix
+            let var_name = if hash == "default" {
+                k.to_lowercase()
+            } else {
+                format!("{var}_{hash}", var = k.to_lowercase())
+            };
+
             if only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name) {
                 continue;
             } else if drop_variables.contains(&var_name) {
                 continue;
             }
 
-            var_names.push(var_name);
-            var_mapping.insert(
-                k.to_lowercase(),
-                v.iter()
-                    .flat_map(|h| hash_mapping.get(h).unwrap().clone())
-                    .collect::<Vec<String>>(),
-            );
+            var_names.push(var_name.clone());
+            let message_keys: Vec<String> = v.iter()
+                .flat_map(|h| {
+                    let hash_key = hash_to_key.get(&format!("{}::{}", k, h)).unwrap();
+                    hash_mapping.get(hash_key).unwrap().clone()
+                })
+                .collect();
+
+            var_mapping.insert(var_name, message_keys);
         } else {
+            // Multiple hashes for this variable
+            // If one of them is "default", use the base name for it
+            // and append suffixes for the others
             for hash in v.iter() {
-                let var_name = format!("{var}_{hash}", var = k.to_lowercase());
+                let var_name = if hash == "default" {
+                    k.to_lowercase()
+                } else {
+                    format!("{var}_{hash}", var = k.to_lowercase())
+                };
+
                 if only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name)
                 {
                     continue;
@@ -238,11 +339,11 @@ pub fn parse_grib_dataset<'py>(
                     continue;
                 }
 
-                var_names.push(var_name);
-                var_mapping.insert(
-                    format!("{var}_{hash}", var = k.to_lowercase()),
-                    hash_mapping.get(hash).unwrap().clone(),
-                );
+                var_names.push(var_name.clone());
+                let hash_key = hash_to_key.get(&format!("{}::{}", k, hash)).unwrap();
+                let message_keys = hash_mapping.get(hash_key).unwrap().clone();
+
+                var_mapping.insert(var_name, message_keys);
             }
         }
     }
@@ -397,28 +498,35 @@ pub fn parse_grib_dataset<'py>(
                 ).to_string();
             }
             // Collect first fixed surface value
+            // NOTE: We only use first_fixed_surface_value for dimension creation.
+            // The second_fixed_surface_value defines the bottom of a layer, but GRIB messages
+            // contain one data value per layer (not separate values for top and bottom).
+            // Including second_fixed_surface_value would create more dimension levels than
+            // we have data messages, causing reshape errors.
             if let Some(vertical_value) = msg_metadata.first_fixed_surface_value {
-                verticals.insert(format!("{:.5}", vertical_value));
-            }
-            // Also collect second fixed surface value if it's the same type as first
-            // This handles layers defined between two surfaces of the same type
-            if msg_metadata.second_fixed_surface_type == msg_metadata.first_fixed_surface_type {
-                if let Some(second_value) = msg_metadata.second_fixed_surface_value {
-                    verticals.insert(format!("{:.5}", second_value));
-                }
+                // Normalize values that round to zero (handles -0.0, near-zero values, etc.)
+                let formatted = format!("{:.5}", vertical_value);
+                let normalized = if formatted == "-0.00000" || formatted == "0.00000" {
+                    "0.00000".to_string()
+                } else {
+                    formatted
+                };
+                verticals.insert(normalized);
             }
         }
 
         // For single-level coordinates, collect all values to create a coordinate
         if !perserve_dims.contains(&vertical_name.to_lowercase()) && verticals.len() == 1 {
             let value = verticals.iter().next().unwrap().parse::<f64>().unwrap();
+            // Normalize -0.0 to 0.0 to avoid duplicate coordinates
+            let normalized_value = if value == 0.0 { 0.0 } else { value };
             let surface_type = mapping.get(v.first().unwrap()).unwrap().2.first_fixed_surface_type.clone();
 
             scalar_coord_values
                 .entry(vertical_name.clone())
                 .or_insert_with(|| (Vec::new(), surface_type.clone()))
                 .0
-                .push(value);
+                .push(normalized_value);
             continue;
         }
 
@@ -428,7 +536,11 @@ pub fn parse_grib_dataset<'py>(
 
         let mut verticals = verticals
             .into_iter()
-            .map(|f| f.parse::<f64>().unwrap())
+            .map(|f| {
+                let val = f.parse::<f64>().unwrap();
+                // Normalize -0.0 to 0.0 to avoid duplicate dimensions
+                if val == 0.0 { 0.0 } else { val }
+            })
             .collect::<Vec<_>>();
         verticals.sort_by(|a, b| a.partial_cmp(b).unwrap());
 

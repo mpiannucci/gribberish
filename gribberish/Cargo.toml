@@ -12,7 +12,6 @@ categories = ["science", "encoding", "compression"]
 [dependencies]
 gribberish-types = { path = "../types", version = "0.23.0" }
 gribberish-macros = { path = "../macros", version = "0.23.0" }
-gribberish-eccodes = { path = "../eccodes", version = "0.23.0", optional = true }
 chrono = "0.4"
 openjpeg-sys = { version = "1.0.3", optional = true }
 png = { version = "0.17.2", optional = true }
@@ -32,7 +31,6 @@ default = ["png", "jpeg"]
 png = ["dep:png"]
 jpeg = ["dep:openjpeg-sys"]
 libaec = ["dep:libaec-sys"]
-eccodes = ["dep:gribberish-eccodes"]
 
 [dev-dependencies]
 clap = { version = "4.3.19", features = ["derive"] }

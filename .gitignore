@@ -4,3 +4,9 @@
 target/
 temp/
 testdata/
+
+# Ignore grib2io index files (auto-generated)
+*.grib2ioidx
+# Ignore grib2io .idx files with hash suffixes
+*.5b7b6.idx
+*.9093e.idx

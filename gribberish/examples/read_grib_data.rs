@@ -1,37 +1,23 @@
-//! Example: Reading GRIB2 files with the new backend framework
+//! Example: Reading GRIB files with the native Rust backend
 //!
-//! This example demonstrates how to use the revised gribberish framework
-//! to read real GRIB2 files.
+//! This example demonstrates how to read both GRIB1 and GRIB2 files
+//! using the native Rust implementation.
 //!
 //! Usage:
 //!   cargo run --example read_grib_data
-//!   cargo run --example read_grib_data --features gribberish/eccodes
 //!   cargo run --example read_grib_data -- /path/to/file.grib2
 
 use gribberish::api::{
-    build_message_index, read_all_messages, read_message_at_offset, scan_messages_with_backend,
+    build_message_index, read_all_messages, read_message_at_offset, scan_messages,
 };
-use gribberish::backends::BackendType;
 use std::env;
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=================================================");
-    println!("  GRIB2 Reader Example - Revised Framework");
+    println!("  GRIB Reader Example - Native Rust Backend");
+    println!("  Supports both GRIB1 and GRIB2 formats");
     println!("=================================================\n");
-
-    // Determine which backend to use
-    #[cfg(feature = "eccodes")]
-    let backend = {
-        println!("✓ Using eccodes backend\n");
-        BackendType::Eccodes
-    };
-
-    #[cfg(not(feature = "eccodes"))]
-    let backend = {
-        println!("✓ Using native Rust backend\n");
-        BackendType::Native
-    };
 
     // Get file path from command line or use default
     let args: Vec<String> = env::args().collect();
@@ -58,9 +44,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // For large files, just scan first, then selectively parse
     if file_size > 10_000_000 {
         // > 10 MB
-        handle_large_file(&file_path, &backend)?;
+        handle_large_file(&file_path)?;
     } else {
-        handle_small_file(&file_path, &backend)?;
+        handle_small_file(&file_path)?;
     }
 
     println!("\n=================================================");
@@ -71,14 +57,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Handle small files - read everything
-fn handle_small_file(
-    file_path: &Path,
-    backend: &BackendType,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn handle_small_file(file_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     println!("--- Reading All Messages ---\n");
 
     let data = std::fs::read(file_path)?;
-    let messages = read_all_messages(&data, *backend)?;
+    let messages = read_all_messages(&data)?;
 
     println!("Found {} message(s)\n", messages.len());
 
@@ -100,43 +83,11 @@ fn handle_small_file(
             println!("Level value:        {}", level);
         }
 
-        println!("Discipline:         {}", msg.metadata.discipline);
-        println!("Category:           {}", msg.metadata.category);
-        println!("Data compression:   {}", msg.metadata.data_compression);
-        println!("Has bitmap:         {}", msg.metadata.has_bitmap);
-        println!("Projection:         {}", msg.metadata.proj);
-
-        // Show data statistics
+        // Print data statistics
         if !msg.data.is_empty() {
-            let valid_data: Vec<f64> = msg
-                .data
-                .iter()
-                .filter(|v| v.is_finite())
-                .copied()
-                .collect();
-
-            if !valid_data.is_empty() {
-                let min = valid_data.iter().cloned().fold(f64::INFINITY, f64::min);
-                let max = valid_data
-                    .iter()
-                    .cloned()
-                    .fold(f64::NEG_INFINITY, f64::max);
-                let sum: f64 = valid_data.iter().sum();
-                let avg = sum / valid_data.len() as f64;
-
-                println!("\nData Statistics:");
-                println!("  Valid values:     {}/{}", valid_data.len(), msg.data.len());
-                println!("  Min:              {:.4}", min);
-                println!("  Max:              {:.4}", max);
-                println!("  Average:          {:.4}", avg);
-
-                // Show first few values
-                println!("  First 10 values:");
-                for (i, val) in msg.data.iter().take(10).enumerate() {
-                    println!("    [{}] = {:.4}", i, val);
-                }
-            }
+            print_data_stats(&msg.data);
         }
+
         println!();
     }
 
@@ -144,103 +95,67 @@ fn handle_small_file(
 }
 
 /// Handle large files - scan and sample
-fn handle_large_file(
-    file_path: &Path,
-    backend: &BackendType,
-) -> Result<(), Box<dyn std::error::Error>> {
-    println!("--- Large File Detected - Scanning Only ---\n");
+fn handle_large_file(file_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    println!("--- Scanning Large File ---\n");
 
     let data = std::fs::read(file_path)?;
 
-    println!("Step 1: Scanning for message locations...");
-    let scanned = scan_messages_with_backend(&data, *backend);
-    println!("Found {} message(s)\n", scanned.len());
+    // 1. Scan without parsing
+    let offsets = scan_messages(&data);
+    println!("Found {} messages by scanning\n", offsets.len());
 
-    if scanned.is_empty() {
-        println!("No GRIB messages found in file.");
-        return Ok(());
+    // 2. Build an index of variables
+    println!("Building message index...");
+    let index = build_message_index(&data)?;
+    println!("Found {} unique variables:\n", index.len());
+
+    for (var, locations) in &index {
+        println!("  {} : {} message(s)", var, locations.len());
     }
 
-    println!("Message offsets:");
-    for (i, (offset, size)) in scanned.iter().enumerate().take(20) {
-        println!(
-            "  Message {:4}: offset={:10}, size={:8} bytes",
-            i + 1,
-            offset,
-            size
-        );
-    }
-    if scanned.len() > 20 {
-        println!("  ... and {} more messages", scanned.len() - 20);
-    }
-    println!();
+    // 3. Read a few messages as samples
+    println!("\n--- Sample Messages ---\n");
+    let sample_count = 3.min(offsets.len());
 
-    println!("Step 2: Building variable index...");
-    match build_message_index(&data, *backend) {
-        Ok(index) => {
-            println!("Found {} unique variable(s):\n", index.len());
+    for i in 0..sample_count {
+        let (offset, _) = offsets[i];
+        let msg = read_message_at_offset(&data, offset)?;
 
-            for (var, locations) in &index {
-                println!("  {:10} : {} message(s)", var, locations.len());
-            }
-            println!();
+        println!("═══════════════════════════════════════════════");
+        println!("Sample Message {}/{}", i + 1, sample_count);
+        println!("═══════════════════════════════════════════════");
+        println!("Variable:      {}", msg.metadata.var);
+        println!("Name:          {}", msg.metadata.name);
+        println!("Grid:          {} x {}", msg.metadata.grid_shape.0, msg.metadata.grid_shape.1);
+        println!("Date:          {}", msg.metadata.forecast_date);
+
+        if !msg.data.is_empty() {
+            print_data_stats(&msg.data);
         }
-        Err(e) => {
-            println!("⚠️  Unable to build complete index: {}", e);
-            println!("    (Some messages may use unsupported product templates)\n");
-            println!("    💡 Tip: Try using --features gribberish/eccodes for full support\n");
-        }
+
+        println!();
     }
-
-    println!("Step 3: Reading first message as sample...");
-    let first_offset = scanned[0].0;
-    let first_msg = match read_message_at_offset(&data, first_offset, *backend) {
-        Ok(msg) => msg,
-        Err(e) => {
-            println!("⚠️  Unable to parse first message: {}", e);
-            println!("    Scanned {} messages successfully.", scanned.len());
-            return Ok(());
-        }
-    };
-
-    println!("═══════════════════════════════════════════════");
-    println!("First Message Details");
-    println!("═══════════════════════════════════════════════");
-    println!("Variable:           {}", first_msg.metadata.var);
-    println!("Name:               {}", first_msg.metadata.name);
-    println!("Units:              {}", first_msg.metadata.units);
-    println!("Grid shape:         {} x {}", first_msg.metadata.grid_shape.0, first_msg.metadata.grid_shape.1);
-    println!("Total values:       {}", first_msg.data.len());
-    println!("Reference date:     {}", first_msg.metadata.reference_date);
-    println!("Forecast date:      {}", first_msg.metadata.forecast_date);
-
-    if !first_msg.data.is_empty() {
-        let valid_data: Vec<f64> = first_msg
-            .data
-            .iter()
-            .filter(|v| v.is_finite())
-            .copied()
-            .collect();
-
-        if !valid_data.is_empty() {
-            let min = valid_data.iter().cloned().fold(f64::INFINITY, f64::min);
-            let max = valid_data
-                .iter()
-                .cloned()
-                .fold(f64::NEG_INFINITY, f64::max);
-            let sum: f64 = valid_data.iter().sum();
-            let avg = sum / valid_data.len() as f64;
-
-            println!("\nData Statistics:");
-            println!("  Valid values:     {}/{}", valid_data.len(), first_msg.data.len());
-            println!("  Min:              {:.4}", min);
-            println!("  Max:              {:.4}", max);
-            println!("  Average:          {:.4}", avg);
-        }
-    }
-    println!();
-
-    println!("💡 Tip: For large files, use the index to selectively read only the variables you need.");
 
     Ok(())
+}
+
+/// Print statistics about the data values
+fn print_data_stats(data: &[f64]) {
+    let valid: Vec<f64> = data.iter().filter(|v| v.is_finite()).copied().collect();
+
+    if valid.is_empty() {
+        println!("Data:              All values are missing/invalid");
+        return;
+    }
+
+    let min = valid.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max = valid.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let sum: f64 = valid.iter().sum();
+    let mean = sum / valid.len() as f64;
+
+    println!("Valid values:      {}", valid.len());
+    println!("Missing values:    {}", data.len() - valid.len());
+    println!("Min:               {:.2}", min);
+    println!("Max:               {:.2}", max);
+    println!("Mean:              {:.2}", mean);
 }
