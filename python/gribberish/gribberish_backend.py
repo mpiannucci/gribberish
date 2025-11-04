@@ -28,7 +28,8 @@ class GribberishBackend(BackendEntrypoint):
         perserve_dims=None,
         filter_by_attrs=None,
         filter_by_variable_attrs=None,
-        # other backend specific keyword arguments
+        # cfgrib_compat is accepted but currently a no-op
+        cfgrib_compat=False,
     ):
         storage_options = storage_options or {}
 
@@ -55,12 +56,13 @@ class GribberishBackend(BackendEntrypoint):
 
     open_dataset_parameters = [
         "filename_or_obj",
-        "drop_variables", 
-        "only_variables", 
-        "perserve_dims", 
-        "filter_by_attrs", 
-        "filter_by_variable_attrs", 
+        "drop_variables",
+        "only_variables",
+        "perserve_dims",
+        "filter_by_attrs",
+        "filter_by_variable_attrs",
         "storage_options",
+        "cfgrib_compat",
     ]
 
     def guess_can_open(self, filename_or_obj):
