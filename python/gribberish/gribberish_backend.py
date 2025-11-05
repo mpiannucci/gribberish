@@ -29,6 +29,7 @@ class GribberishBackend(BackendEntrypoint):
         filter_by_attrs=None,
         filter_by_variable_attrs=None,
         cfgrib_compat=False,
+        values_dtype=np.dtype("float32"),
     ):
         storage_options = storage_options or {}
 
@@ -49,7 +50,7 @@ class GribberishBackend(BackendEntrypoint):
             if cfgrib_compat:
                 coords = {k: v for k, v in coords.items() if k not in ['x', 'y']}
 
-            data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, storage_options=storage_options, array_metadata=v['values']) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
+            data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, storage_options=storage_options, array_metadata=v['values'], values_dtype=values_dtype) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
             attrs = dataset['attrs']
 
             ds = xr.Dataset(
@@ -74,6 +75,7 @@ class GribberishBackend(BackendEntrypoint):
         "filter_by_variable_attrs",
         "storage_options",
         "cfgrib_compat",
+        "values_dtype",
     ]
 
     def guess_can_open(self, filename_or_obj):
@@ -94,13 +96,14 @@ class GribberishBackendArray(BackendArray):
         filename_or_obj,
         array_metadata,
         storage_options=None,
+        values_dtype=np.dtype("float32"),
         # other backend specific keyword arguments
     ):
         self.filename_or_obj = filename_or_obj
         self.storage_options = storage_options or {}
         self.shape = array_metadata['shape']
         self.offsets = array_metadata['offsets']
-        self.dtype = np.dtype(np.float64)
+        self.dtype = values_dtype
         self.lock = DATA_VAR_LOCK
 
         # For now, we rely on the builtin indexing support but explicitely 
@@ -128,14 +131,18 @@ class GribberishBackendArray(BackendArray):
                     raw_data = f.read(size)
 
                     # Current offset is the beginning of the raw data chunk
-                    # The shape is the shape of the spatial portion of the 
+                    # The shape is the shape of the spatial portion of the
                     # data chunk
                     chunk_data = parse_grib_array(raw_data, 0)
                     arrs.append(chunk_data)
-    
+
         # Concatentate the flattened arrays, the reshape to the target shape
         data = np.concatenate(arrs)
         data = data.reshape(self.shape)
+
+        # Convert to requested dtype if needed
+        if data.dtype != self.dtype:
+            data = data.astype(self.dtype)
 
         # Return the applied index
         return data[key]
