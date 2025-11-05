@@ -28,7 +28,6 @@ class GribberishBackend(BackendEntrypoint):
         perserve_dims=None,
         filter_by_attrs=None,
         filter_by_variable_attrs=None,
-        # cfgrib_compat is accepted but currently a no-op
         cfgrib_compat=False,
     ):
         storage_options = storage_options or {}
@@ -37,14 +36,18 @@ class GribberishBackend(BackendEntrypoint):
             raw_data = f.read()
 
             dataset =  parse_grib_dataset(
-                raw_data, 
-                drop_variables=drop_variables, 
-                only_variables=only_variables, 
-                perserve_dims=perserve_dims, 
-                filter_by_attrs=filter_by_attrs, 
+                raw_data,
+                drop_variables=drop_variables,
+                only_variables=only_variables,
+                perserve_dims=perserve_dims,
+                filter_by_attrs=filter_by_attrs,
                 filter_by_variable_attrs=filter_by_variable_attrs,
             )
             coords = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['coords'].items()}
+
+            if cfgrib_compat:
+                coords = {k: v for k, v in coords.items() if k not in ['x', 'y']}
+
             data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, storage_options=storage_options, array_metadata=v['values']) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
             attrs = dataset['attrs']
 
