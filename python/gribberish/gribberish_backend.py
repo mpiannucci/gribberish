@@ -51,11 +51,18 @@ class GribberishBackend(BackendEntrypoint):
             data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, storage_options=storage_options, array_metadata=v['values']) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
             attrs = dataset['attrs']
 
-            return xr.Dataset(
+            ds = xr.Dataset(
                 data_vars=data_vars,
                 coords=coords,
                 attrs=attrs
             )
+
+            if cfgrib_compat:
+                # Squeeze out dimensions with size 1 (time, level, etc.)
+                # drop=False keeps them as scalar coordinates
+                ds = ds.squeeze(drop=False)
+
+            return ds
 
     open_dataset_parameters = [
         "filename_or_obj",
