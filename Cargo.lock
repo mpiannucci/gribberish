@@ -380,6 +380,7 @@ dependencies = [
 name = "gribberishpy"
 version = "0.23.0"
 dependencies = [
+ "chrono",
  "gribberish",
  "numpy",
  "pyo3",

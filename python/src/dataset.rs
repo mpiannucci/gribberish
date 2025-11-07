@@ -1,12 +1,13 @@
 use std::collections::{HashMap, HashSet};
 
+use chrono::Utc;
 use gribberish::{
     message::Message, message_metadata::scan_message_metadata,
     templates::product::tables::FixedSurfaceType,
 };
 use numpy::{
-    datetime::{units::Seconds, Datetime},
-    ndarray::{Dim, IxDynImpl},
+    datetime::{units::Seconds, Datetime, Timedelta},
+    ndarray::{arr0, Dim, IxDynImpl},
     PyArray, PyArray1, PyArrayMethods,
 };
 use pyo3::{
@@ -35,7 +36,7 @@ pub fn build_grib_array<'py>(
 }
 
 #[pyfunction]
-#[pyo3(signature = (data, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
+#[pyo3(signature = (data, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None, cfgrib_compat=None))]
 pub fn parse_grib_dataset<'py>(
     py: Python<'py>,
     data: &[u8],
@@ -45,6 +46,7 @@ pub fn parse_grib_dataset<'py>(
     filter_by_attrs: Option<&Bound<PyDict>>,
     filter_by_variable_attrs: Option<&Bound<PyDict>>,
     encode_coords: Option<bool>,
+    cfgrib_compat: Option<bool>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let drop_variables = if let Some(drop_variables) = drop_variables {
         drop_variables
@@ -93,6 +95,8 @@ pub fn parse_grib_dataset<'py>(
     } else {
         false
     };
+
+    let cfgrib_compat = cfgrib_compat.unwrap_or(false);
 
     let mapping = scan_message_metadata(data)
         .into_iter()
@@ -195,10 +199,16 @@ pub fn parse_grib_dataset<'py>(
     for (var, v) in var_mapping.iter() {
         let mut times = HashSet::new();
         for k in v.iter() {
-            if let Some(forecast_end_date) = mapping.get(k).unwrap().2.forecast_end_date {
-                times.insert(forecast_end_date);
+            if cfgrib_compat {
+                // use reference_date (i.e. forecast initialization time) for cfgrib compatibility
+                times.insert(mapping.get(k).unwrap().2.reference_date.clone());
             } else {
-                times.insert(mapping.get(k).unwrap().2.forecast_date.clone());
+                // use forecast_date (valid time) for default gribberish behavior
+                if let Some(forecast_end_date) = mapping.get(k).unwrap().2.forecast_end_date {
+                    times.insert(forecast_end_date);
+                } else {
+                    times.insert(mapping.get(k).unwrap().2.forecast_date.clone());
+                }
             }
         }
         let mut times = times.into_iter().collect::<Vec<_>>();
@@ -249,6 +259,48 @@ pub fn parse_grib_dataset<'py>(
         time.set_item("attrs", time_metadata).unwrap();
         time.set_item("dims", vec![name.clone()]).unwrap();
         coords.set_item(name, time).unwrap();
+    }
+
+    // add step and valid_time scalar coordinates for cfgrib compatibility
+    if cfgrib_compat {
+        let first = mapping.values().next().unwrap();
+        let step_seconds = (first.2.forecast_date - first.2.reference_date).num_seconds();
+
+        let step = PyDict::new(py);
+        let step_metadata = PyDict::new(py);
+        step_metadata
+            .set_item("standard_name", "forecast_period")
+            .unwrap();
+        step_metadata
+            .set_item("long_name", "time since forecast_reference_time")
+            .unwrap();
+        step.set_item(
+            "values",
+            PyArray::from_array(py, &arr0(Timedelta::<Seconds>::from(step_seconds))),
+        )
+        .unwrap();
+        step.set_item("attrs", step_metadata).unwrap();
+        step.set_item("dims", Vec::<String>::new()).unwrap();
+        coords.set_item("step", step).unwrap();
+
+        let valid_time = PyDict::new(py);
+        let valid_time_metadata = PyDict::new(py);
+        valid_time_metadata
+            .set_item("standard_name", "time")
+            .unwrap();
+        valid_time_metadata.set_item("long_name", "time").unwrap();
+        valid_time
+            .set_item(
+                "values",
+                PyArray::from_array(
+                    py,
+                    &arr0(Datetime::<Seconds>::from(first.2.forecast_date.timestamp())),
+                ),
+            )
+            .unwrap();
+        valid_time.set_item("attrs", valid_time_metadata).unwrap();
+        valid_time.set_item("dims", Vec::<String>::new()).unwrap();
+        coords.set_item("valid_time", valid_time).unwrap();
     }
 
     // Vertical dims
@@ -563,7 +615,10 @@ pub fn parse_grib_dataset<'py>(
             )
             .unwrap();
         var_metadata
-            .set_item("first_fixed_surface_type_coordinate", first.2.first_fixed_surface_type.coordinate_name())
+            .set_item(
+                "first_fixed_surface_type_coordinate",
+                first.2.first_fixed_surface_type.coordinate_name(),
+            )
             .unwrap();
         var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())
@@ -668,11 +723,46 @@ pub fn parse_grib_dataset<'py>(
         data_vars.set_item(var, data_var).unwrap();
     }
 
-    // Attrs
+    // Attrs - populate with cfgrib-compatible global attributes
     let attrs = PyDict::new(py);
+
+    // Get edition, centre, subcentre from first message
+    let first_message = Message::from_data(data, mapping.values().next().unwrap().1).unwrap();
+    let sections = first_message.sections();
+
+    let mut edition = 2u8;
+    let mut centre = 0u16;
+    let mut subcentre = 0u16;
+
+    for section in sections {
+        match section {
+            gribberish::sections::section::Section::Indicator(ind) => {
+                edition = ind.edition();
+            }
+            gribberish::sections::section::Section::Identification(ident) => {
+                centre = ident.originating_centre();
+                subcentre = ident.originating_subcentre();
+            }
+            _ => {}
+        }
+    }
+
+    attrs.set_item("GRIB_edition", edition).unwrap();
+    attrs.set_item("GRIB_centre", centre).unwrap();
+    attrs.set_item("GRIB_subCentre", subcentre).unwrap();
+    attrs.set_item("Conventions", "CF-1.7").unwrap();
     attrs
-        .set_item("meta", "Generated with gribberishpy")
+        .set_item("institution", format!("GRIB centre {}", centre))
         .unwrap();
+
+    // Add history with timestamp
+    let timestamp = Utc::now().format("%Y-%m-%dT%H:%M").to_string();
+    let history = format!(
+        "{} GRIB to CDM+CF via gribberish-{}",
+        timestamp,
+        env!("CARGO_PKG_VERSION")
+    );
+    attrs.set_item("history", history).unwrap();
 
     // Dataset
     let dataset = PyDict::new(py);

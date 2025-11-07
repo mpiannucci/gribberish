@@ -95,6 +95,22 @@ impl <'a> IdentificationSection<'a> {
     pub fn data_type(&self) -> GribDataType {
         self.data[20].into()
     }
+
+    pub fn originating_centre(&self) -> u16 {
+        read_u16_from_bytes(self.data, 5).unwrap_or(0)
+    }
+
+    pub fn originating_subcentre(&self) -> u16 {
+        read_u16_from_bytes(self.data, 7).unwrap_or(0)
+    }
+
+    pub fn master_tables_version(&self) -> u8 {
+        self.data[9]
+    }
+
+    pub fn local_tables_version(&self) -> u8 {
+        self.data[10]
+    }
 }
 
 impl <'a> GribSection for IdentificationSection<'a> {

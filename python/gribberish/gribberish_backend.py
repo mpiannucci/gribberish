@@ -42,6 +42,7 @@ class GribberishBackend(BackendEntrypoint):
                 perserve_dims=perserve_dims,
                 filter_by_attrs=filter_by_attrs,
                 filter_by_variable_attrs=filter_by_variable_attrs,
+                cfgrib_compat=cfgrib_compat,
             )
             coords = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['coords'].items()}
 
