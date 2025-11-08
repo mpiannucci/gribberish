@@ -28,7 +28,8 @@ class GribberishBackend(BackendEntrypoint):
         perserve_dims=None,
         filter_by_attrs=None,
         filter_by_variable_attrs=None,
-        # other backend specific keyword arguments
+        cfgrib_compat=False,
+        values_dtype=np.dtype("float32"),
     ):
         storage_options = storage_options or {}
 
@@ -36,31 +37,45 @@ class GribberishBackend(BackendEntrypoint):
             raw_data = f.read()
 
             dataset =  parse_grib_dataset(
-                raw_data, 
-                drop_variables=drop_variables, 
-                only_variables=only_variables, 
-                perserve_dims=perserve_dims, 
-                filter_by_attrs=filter_by_attrs, 
+                raw_data,
+                drop_variables=drop_variables,
+                only_variables=only_variables,
+                perserve_dims=perserve_dims,
+                filter_by_attrs=filter_by_attrs,
                 filter_by_variable_attrs=filter_by_variable_attrs,
+                cfgrib_compat=cfgrib_compat,
             )
             coords = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['coords'].items()}
-            data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, storage_options=storage_options, array_metadata=v['values']) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
+
+            if cfgrib_compat:
+                coords = {k: v for k, v in coords.items() if k not in ['x', 'y']}
+
+            data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, storage_options=storage_options, array_metadata=v['values'], values_dtype=values_dtype) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
             attrs = dataset['attrs']
 
-            return xr.Dataset(
+            ds = xr.Dataset(
                 data_vars=data_vars,
                 coords=coords,
                 attrs=attrs
             )
 
+            if cfgrib_compat:
+                # Squeeze out dimensions with size 1 (time, level, etc.)
+                # drop=False keeps them as scalar coordinates
+                ds = ds.squeeze(drop=False)
+
+            return ds
+
     open_dataset_parameters = [
         "filename_or_obj",
-        "drop_variables", 
-        "only_variables", 
-        "perserve_dims", 
-        "filter_by_attrs", 
-        "filter_by_variable_attrs", 
+        "drop_variables",
+        "only_variables",
+        "perserve_dims",
+        "filter_by_attrs",
+        "filter_by_variable_attrs",
         "storage_options",
+        "cfgrib_compat",
+        "values_dtype",
     ]
 
     def guess_can_open(self, filename_or_obj):
@@ -81,13 +96,14 @@ class GribberishBackendArray(BackendArray):
         filename_or_obj,
         array_metadata,
         storage_options=None,
+        values_dtype=np.dtype("float32"),
         # other backend specific keyword arguments
     ):
         self.filename_or_obj = filename_or_obj
         self.storage_options = storage_options or {}
         self.shape = array_metadata['shape']
         self.offsets = array_metadata['offsets']
-        self.dtype = np.dtype(np.float64)
+        self.dtype = values_dtype
         self.lock = DATA_VAR_LOCK
 
         # For now, we rely on the builtin indexing support but explicitely 
@@ -115,14 +131,18 @@ class GribberishBackendArray(BackendArray):
                     raw_data = f.read(size)
 
                     # Current offset is the beginning of the raw data chunk
-                    # The shape is the shape of the spatial portion of the 
+                    # The shape is the shape of the spatial portion of the
                     # data chunk
                     chunk_data = parse_grib_array(raw_data, 0)
                     arrs.append(chunk_data)
-    
+
         # Concatentate the flattened arrays, the reshape to the target shape
         data = np.concatenate(arrs)
         data = data.reshape(self.shape)
+
+        # Convert to requested dtype if needed
+        if data.dtype != self.dtype:
+            data = data.astype(self.dtype)
 
         # Return the applied index
         return data[key]

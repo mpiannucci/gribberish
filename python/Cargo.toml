@@ -12,3 +12,4 @@ crate-type = ["cdylib"]
 pyo3 = "0.26.0"
 gribberish = { path = "../gribberish", version = "0.23.0" }
 numpy = "0.26.0"
+chrono = "0.4"
