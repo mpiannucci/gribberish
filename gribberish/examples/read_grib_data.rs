@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Path::new(&args[1]).to_path_buf()
     } else {
         // Default to the smaller test file
-        Path::new("/Users/maxwellgrover/projects/grib-reading/data/gfs.t18z.pgrb2.0p25.f186-RH.grib2")
+        Path::new("tests/data/gfs.t18z.pgrb2.0p25.f186-RH.grib2")
             .to_path_buf()
     };
 

@@ -9,7 +9,7 @@ use gribberish::api::read_all_messages;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Read the GRIB file (supports both GRIB1 and GRIB2)
-    let file_path = "/Users/maxwellgrover/projects/grib-reading/data/gfs.t18z.pgrb2.0p25.f186-RH.grib2";
+    let file_path = "tests/data/gfs.t18z.pgrb2.0p25.f186-RH.grib2";
     let data = std::fs::read(file_path)?;
 
     // 2. Parse all messages using the native Rust backend

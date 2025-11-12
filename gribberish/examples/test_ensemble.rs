@@ -1,7 +1,7 @@
 use std::fs;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let file_path = "/Users/maxwellgrover/projects/grib-reading/grib-reader-replacement/test-data/saifs-s2s.ens.global.t00z.pgrb2.0p5.D000.grib2";
+    let file_path = "tests/data/geavg.t12z.pgrb2a.0p50.f000";
 
     println!("Reading: {}", file_path);
     let data = fs::read(file_path)?;
