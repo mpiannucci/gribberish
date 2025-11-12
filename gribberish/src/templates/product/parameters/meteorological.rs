@@ -513,6 +513,64 @@ pub enum Electromagnetics {
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum ThermodynamicStabilityProduct {
+    #[description = "parcel lifted index"]
+    #[abbrev = "PLI"]
+    #[unit = "K"]
+    ParcelLiftedIndex = 0,
+    #[description = "best lifted index"]
+    #[abbrev = "BLI"]
+    #[unit = "K"]
+    BestLiftedIndex = 1,
+    #[description = "k index"]
+    #[abbrev = "KX"]
+    #[unit = "K"]
+    KIndex = 2,
+    #[description = "ko index"]
+    #[abbrev = "KOX"]
+    #[unit = "K"]
+    KOIndex = 3,
+    #[description = "total totals index"]
+    #[abbrev = "TOTALX"]
+    #[unit = "K"]
+    TotalTotalsIndex = 4,
+    #[description = "sweat index"]
+    #[abbrev = "SX"]
+    #[unit = "numeric"]
+    SweatIndex = 5,
+    #[description = "convective available potential energy"]
+    #[abbrev = "CAPE"]
+    #[unit = "Jkg-1"]
+    ConvectiveAvailablePotentialEnergy = 6,
+    #[description = "convective inhibition"]
+    #[abbrev = "CIN"]
+    #[unit = "Jkg-1"]
+    ConvectiveInhibition = 7,
+    #[description = "storm relative helicity"]
+    #[abbrev = "HLCY"]
+    #[unit = "m2s-2"]
+    StormRelativeHelicity = 8,
+    #[description = "energy helicity index"]
+    #[abbrev = "EHLX"]
+    #[unit = "numeric"]
+    EnergyHelicityIndex = 9,
+    #[description = "surface lifted index"]
+    #[abbrev = "LFTX"]
+    #[unit = "K"]
+    SurfaceLiftedIndex = 10,
+    #[description = "best (4 layer) lifted index"]
+    #[abbrev = "4LFTX"]
+    #[unit = "K"]
+    Best4LayerLiftedIndex = 11,
+    #[description = "richardson number"]
+    #[abbrev = "RI"]
+    #[unit = "numeric"]
+    RichardsonNumber = 12,
+    Missing = 255,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum PhysicalAtmosphericProperties {
     #[description = "visibility"]
     #[abbrev = "VIS"]
@@ -529,6 +587,7 @@ pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter
         3 => Some(Parameter::from(MassProduct::from(parameter))),
         4 => Some(Parameter::from(ShortWaveRadiationProduct::from(parameter))),
         6 => Some(Parameter::from(CloudProduct::from(parameter))),
+        7 => Some(Parameter::from(ThermodynamicStabilityProduct::from(parameter))),
         15 => Some(Parameter::from(RadarProduct::from(parameter))),
         16 => Some(Parameter::from(ForecastRadarImagery::from(parameter))),
         17 => Some(Parameter::from(Electromagnetics::from(parameter))),
@@ -547,6 +606,7 @@ pub fn meteorological_category(category: u8) -> &'static str {
         3 => "mass",
         4 => "short wave radiation",
         6 => "cloud",
+        7 => "thermodynamic stability",
         15 => "radar",
         16 => "forecast radar imagery",
         17 => "electromagnetics",

@@ -171,3 +171,31 @@ fn read_ccsds_with_libaec_should_work() {
         data.len()
     );
 }
+
+#[test]
+fn read_ensemble_average() {
+    let grib_data = read_grib_messages("tests/data/geavg.t12z.pgrb2a.0p50.f000");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    assert_ne!(messages.len(), 0);
+
+    let mut keys = Vec::new();
+    let mut dups = Vec::new();
+
+    for message in messages {
+        let key = message.key();
+        assert!(key.is_ok());
+        let key = key.unwrap();
+
+        if keys.contains(&key) {
+            dups.push(key);
+        } else {
+            keys.push(key);
+        }
+
+        let data = message.data();
+        assert!(data.is_ok());
+    }
+
+    assert_eq!(dups.len(), 0, "Found {} duplicate keys", dups.len());
+}
