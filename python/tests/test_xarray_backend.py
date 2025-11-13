@@ -13,20 +13,36 @@ def test_xarray_backend_gefs_ensemble():
 
     # Verify dataset was loaded
     assert ds is not None
-    assert len(ds.data_vars) > 0
 
-    # Check that we can access data variables
-    for var_name in ds.data_vars:
-        var = ds[var_name]
-        assert var is not None
-        # Verify we can load the data (tests lazy loading)
-        data = var.values
-        assert data is not None
-        assert data.size > 0
+    # Ensure all expected variables are present
+    assert list(ds.variables) == ['weasd',
+                                  'vgrd_VGRDhag_ens',
+                                  'hgt_HGTisobar_ens',
+                                  'rh_RHhag_ens',
+                                  'rh_RHisobar_ens',
+                                    'pwat',
+                                    'icetk',
+                                    'tmp_TMPisobar_ens',
+                                    'vgrd_VGRDisobar_ens',
+                                    'cin',
+                                    'ugrd_UGRDisobar_ens',
+                                    'tmp_TMPhag_ens',
+                                    'ugrd_UGRDhag_ens',
+                                    'prmsl',
+                                    'cape',
+                                    'tsoil',
+                                    'pres',
+                                    'snod',
+                                    'hgt_HGTsfc_ens',
+                                    'time',
+                                    'isobar_0',
+                                    'isobar_1',
+                                    'isobar_2',
+                                    'latitude',
+                                    'longitude']
+    
+    # Check dimensions of 2D variables
+    assert ds.cape.values.shape == (1, 361, 720)
 
-    # Verify no duplicate keys (each variable should be unique)
-    var_names = list(ds.data_vars.keys())
-    assert len(var_names) == len(set(var_names)), "Found duplicate variable names"
-
-    print(f"Successfully loaded {len(ds.data_vars)} variables from GEFS ensemble file")
-    print(f"Variables: {list(ds.data_vars.keys())[:5]}...")  # Print first 5 variables
+    # Check dimension of 3D variables
+    assert ds.tmp_TMPisobar_ens.values.shape == (1, 10, 361, 720)
