@@ -1,0 +1,36 @@
+/* Custom colors to match your project */
+:root {
+    --pst-color-primary: #2c5282;  /* Customize your primary color */
+    --pst-color-secondary: #3182ce;
+    --pst-color-accent: #ed8936;
+}
+
+/* Make code blocks stand out more */
+div.highlight {
+    background: var(--pst-color-background);
+    border: 1px solid var(--pst-color-border);
+    border-radius: 0.25rem;
+}
+
+/* Improve card appearance */
+.sd-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sd-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Better spacing for the landing page */
+.bd-main .bd-content article.bd-article h1:first-child {
+    margin-bottom: 2rem;
+}
+
+/* Style the hero description */
+.bd-main .bd-content article.bd-article > p:first-of-type {
+    font-size: 1.2rem;
+    font-weight: 300;
+    color: var(--pst-color-text-muted);
+    margin-bottom: 2rem;
+}
