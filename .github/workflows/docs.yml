@@ -68,7 +68,7 @@ jobs:
       # Build Sphinx documentation
       - name: Install documentation dependencies
         run: |
-          pip install -r docs/requirements.txt
+          pip install -r doc/requirements.txt
       
       - name: Build Sphinx docs
         run: |
