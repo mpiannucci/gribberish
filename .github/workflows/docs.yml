@@ -1,0 +1,93 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Setup Python and Rust
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      # Build Rust documentation
+      - name: Build Rust docs
+        run: |
+          cargo doc --no-deps --workspace
+          # Copy to a location Sphinx can reference
+          mkdir -p doc/build/rust
+          cp -r target/doc/* doc/build/rust/
+      
+      # Install Python package for autodoc
+      - name: Install maturin
+        run: pip install maturin
+      
+      - name: Build and install gribberish
+        run: |
+          cd python
+          maturin develop --release
+          cd ..
+      
+      # Build Sphinx documentation
+      - name: Install documentation dependencies
+        run: |
+          pip install -r docs/requirements.txt
+      
+      - name: Build Sphinx docs
+        run: |
+            cd doc
+            sphinx-build -b html source _build/html
+            
+            # Ensure the directory exists
+            echo "Creating Rust documentation directory..."
+            mkdir -p _build/html/api/rust
+            
+            # Copy Rust docs
+            echo "Copying Rust documentation..."
+            if [ -d "../target/doc" ]; then
+                cp -r ../target/doc/* _build/html/api/rust/
+                echo "Rust docs copied successfully"
+            else
+                echo "ERROR: Rust documentation not found"
+                exit 1
+            fi
+            
+            cd ..
+            
+            - name: Upload artifact
+                uses: actions/upload-pages-artifact@v3
+                with:
+                path: doc/_build/html
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-docs
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
