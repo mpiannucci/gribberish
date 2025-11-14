@@ -1,0 +1,19 @@
+# Core Sphinx
+sphinx>=7.0
+pydata-sphinx-theme>=0.15
+
+# Markdown support
+myst-parser>=2.0
+linkify-it-py  # For automatic URL linking
+myst-nb  # Optional: Jupyter notebook support
+
+# API documentation
+sphinx-autodoc-typehints
+sphinx-copybutton  # Adds copy button to code blocks
+sphinx-design  # For cards, tabs, grids, buttons
+
+# Your package dependencies (needed for autodoc)
+numpy
+xarray
+zarr
+kerchunk  # If you're documenting kerchunk integration
