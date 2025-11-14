@@ -91,10 +91,10 @@ jobs:
             
             cd ..
             
-            - name: Upload artifact
-                uses: actions/upload-pages-artifact@v3
-                with:
-                path: doc/_build/html
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: doc/_build/html
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
