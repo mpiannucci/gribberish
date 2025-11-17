@@ -8,6 +8,7 @@ license = "MIT"
 repository = "https://github.com/mpiannucci/gribberish"
 keywords = ["grib", "weather", "meteorology", "climate", "oceanography"]
 categories = ["science", "encoding", "compression"]
+exclude = ["tests"]
 
 [dependencies]
 gribberish-types = { path = "../types", version = "0.24.0" }
