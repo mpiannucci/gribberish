@@ -6,7 +6,7 @@ import xarray as xr
 from xarray.backends.common import BackendEntrypoint, BackendArray
 from xarray.core import indexing
 
-from gribberish import parse_grib_dataset, parse_grib_array
+from gribberish import parse_grib_dataset, parse_grib_array, parse_grib_array_batch
 
 
 DATA_VAR_LOCK = xr.backends.locks.SerializableLock()
@@ -30,21 +30,46 @@ class GribberishBackend(BackendEntrypoint):
         filter_by_variable_attrs=None,
         # other backend specific keyword arguments
     ):
+        '''
+        Open a GRIB2 file as an xarray Dataset with lazy loading.
+
+        This implementation reads the file once to scan GRIB message metadata,
+        then reads actual data from disk on demand when variables are accessed.
+        This provides better performance and lower variance than caching.
+
+        Parameters
+        ----------
+        filename_or_obj : str
+            Path to the GRIB2 file
+        '''
         storage_options = storage_options or {}
 
         with fsspec.open(filename_or_obj, 'rb', **storage_options) as f:
             raw_data = f.read()
 
             dataset =  parse_grib_dataset(
-                raw_data, 
-                drop_variables=drop_variables, 
-                only_variables=only_variables, 
-                perserve_dims=perserve_dims, 
-                filter_by_attrs=filter_by_attrs, 
+                raw_data,
+                drop_variables=drop_variables,
+                only_variables=only_variables,
+                perserve_dims=perserve_dims,
+                filter_by_attrs=filter_by_attrs,
                 filter_by_variable_attrs=filter_by_variable_attrs,
             )
             coords = {k: (v['dims'], v['values'], v['attrs']) for (k, v) in dataset['coords'].items()}
-            data_vars = {k: (v['dims'], GribberishBackendArray(filename_or_obj, storage_options=storage_options, array_metadata=v['values']) , v['attrs']) for (k, v) in dataset['data_vars'].items()}
+
+            # Create lazy backend arrays that read from disk on demand
+            data_vars = {
+                k: (
+                    v['dims'],
+                    GribberishBackendArray(
+                        filename_or_obj,
+                        storage_options=storage_options,
+                        array_metadata=v['values']
+                    ),
+                    v['attrs']
+                )
+                for (k, v) in dataset['data_vars'].items()
+            }
             attrs = dataset['attrs']
 
             return xr.Dataset(
@@ -55,11 +80,11 @@ class GribberishBackend(BackendEntrypoint):
 
     open_dataset_parameters = [
         "filename_or_obj",
-        "drop_variables", 
-        "only_variables", 
-        "perserve_dims", 
-        "filter_by_attrs", 
-        "filter_by_variable_attrs", 
+        "drop_variables",
+        "only_variables",
+        "perserve_dims",
+        "filter_by_attrs",
+        "filter_by_variable_attrs",
         "storage_options",
     ]
 
@@ -73,7 +98,10 @@ class GribberishBackend(BackendEntrypoint):
 
 class GribberishBackendArray(BackendArray):
     '''
-    Custom backend array to support lazy loading of gribberish datasets
+    Custom backend array to support lazy loading of gribberish datasets.
+
+    Data is read from disk on demand, providing consistent performance
+    and lower memory footprint.
     '''
 
     def __init__(
@@ -90,7 +118,7 @@ class GribberishBackendArray(BackendArray):
         self.dtype = np.dtype(np.float64)
         self.lock = DATA_VAR_LOCK
 
-        # For now, we rely on the builtin indexing support but explicitely 
+        # For now, we rely on the builtin indexing support but explicitely
         # set the indexers to be the array itself to utilize the same __getitem__ method
         self.oindex = self
         self.vindex = self
@@ -106,21 +134,51 @@ class GribberishBackendArray(BackendArray):
         )
 
     def _raw_indexing_method(self, key: tuple) -> np.typing.ArrayLike:
-        # thread safe method that access to data on disk
+        # Thread-safe method that reads data from disk on demand
         arrs = []
         with self.lock:
             with fsspec.open(self.filename_or_obj, 'rb', **self.storage_options) as f:
-                for offset, size in self.offsets:
-                    f.seek(offset, 0)
-                    raw_data = f.read(size)
+                # Optimization: Check if messages are contiguous
+                # If so, read all data at once and parse in batch
+                if len(self.offsets) > 1:
+                    # Check if contiguous (each message starts where previous ends)
+                    is_contiguous = all(
+                        self.offsets[i][0] + self.offsets[i][1] == self.offsets[i+1][0]
+                        for i in range(len(self.offsets) - 1)
+                    )
 
-                    # Current offset is the beginning of the raw data chunk
-                    # The shape is the shape of the spatial portion of the 
-                    # data chunk
-                    chunk_data = parse_grib_array(raw_data, 0)
-                    arrs.append(chunk_data)
-    
-        # Concatentate the flattened arrays, the reshape to the target shape
+                    if is_contiguous:
+                        # Read all messages in one shot
+                        first_offset = self.offsets[0][0]
+                        total_size = sum(size for _, size in self.offsets)
+                        f.seek(first_offset, 0)
+                        all_raw_data = f.read(total_size)
+
+                        # Use batch parsing for better performance
+                        # Calculate relative offsets from the start of the buffer
+                        relative_offsets = []
+                        current_pos = 0
+                        for _, size in self.offsets:
+                            relative_offsets.append(current_pos)
+                            current_pos += size
+
+                        arrs = parse_grib_array_batch(all_raw_data, relative_offsets)
+                    else:
+                        # Non-contiguous: fall back to individual reads
+                        for offset, size in self.offsets:
+                            f.seek(offset, 0)
+                            raw_data = f.read(size)
+                            chunk_data = parse_grib_array(raw_data, 0)
+                            arrs.append(chunk_data)
+                else:
+                    # Single message: simple case
+                    for offset, size in self.offsets:
+                        f.seek(offset, 0)
+                        raw_data = f.read(size)
+                        chunk_data = parse_grib_array(raw_data, 0)
+                        arrs.append(chunk_data)
+
+        # Concatentate the flattened arrays, then reshape to the target shape
         data = np.concatenate(arrs)
         data = data.reshape(self.shape)
 

@@ -3,7 +3,7 @@ use crate::sections::{indicator::Discipline, section::Section, section::SectionI
 use crate::templates::grid_definition::GridDefinitionTemplate;
 use crate::templates::product::product_template::ProductTemplate;
 use crate::templates::product::tables::{
-    DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
+    DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit, TypeOfStatisticalProcessing,
 };
 use crate::utils::iter::projection::LatLngProjection;
 use bitvec::view::BitView;
@@ -147,8 +147,19 @@ impl<'a> Message<'a> {
             )
         };
 
+        // Include ensemble information in the key if this is an ensemble message
+        let ensemble_suffix = if self.is_ensemble().unwrap_or(false) {
+            if let Some(pert) = self.perturbation_number().ok().flatten() {
+                format!(":ens{}", pert)
+            } else {
+                "".to_string()
+            }
+        } else {
+            "".to_string()
+        };
+
         Ok(format!(
-            "{var}{time}{first_level}{second_level}:{statistical_process}{generating_process}{derived_forecast_type}"
+            "{var}{time}{first_level}{second_level}:{statistical_process}{generating_process}{derived_forecast_type}{ensemble_suffix}"
         ))
     }
 
@@ -268,7 +279,10 @@ impl<'a> Message<'a> {
         let product_template = unwrap_or_return!(
             product_definition.product_definition_template(discipline),
             GribberishError::MessageError(
-                "Only HorizontalAnalysisForecast templates are supported at this time".into()
+                format!(
+                    "Product template {} is not supported. Supported templates: 0, 1, 2, 8, 11, 12",
+                    product_definition.product_definition_template_number()
+                )
             )
         );
 
@@ -452,6 +466,286 @@ impl<'a> Message<'a> {
     pub fn latlng_projector(&self) -> Result<LatLngProjection, GribberishError> {
         let grid_template = self.grid_template()?;
         Ok(grid_template.projector())
+    }
+
+    /// Check if this message is an ensemble forecast
+    pub fn is_ensemble(&self) -> Result<bool, GribberishError> {
+        let template_id = self.product_template_id()?;
+        // Template 1 = ensemble forecast, 2 = derived ensemble, 11 = ensemble forecast time interval
+        // 12 = derived ensemble forecast time interval
+        Ok(matches!(template_id, 1 | 2 | 11 | 12))
+    }
+
+    /// Get the perturbation number for ensemble forecasts (if applicable)
+    pub fn perturbation_number(&self) -> Result<Option<u8>, GribberishError> {
+        let template_id = self.product_template_id()?;
+
+        match template_id {
+            1 => {
+                // Template 1: perturbation number is at byte 35
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                // Get the raw data from product definition section
+                let data = product_definition.data();
+                if data.len() > 35 {
+                    Ok(Some(data[35]))
+                } else {
+                    Ok(None)
+                }
+            }
+            2 => {
+                // Template 2: perturbation number at byte 34
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 34 {
+                    Ok(Some(data[34]))
+                } else {
+                    Ok(None)
+                }
+            }
+            11 => {
+                // Template 11: perturbation number is at byte 35 (same as template 1)
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 35 {
+                    Ok(Some(data[35]))
+                } else {
+                    Ok(None)
+                }
+            }
+            12 => {
+                // Template 12: perturbation number at byte 52
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 52 {
+                    Ok(Some(data[52]))
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Get the number of forecasts in ensemble (if applicable)
+    pub fn ensemble_size(&self) -> Result<Option<u8>, GribberishError> {
+        let template_id = self.product_template_id()?;
+
+        match template_id {
+            1 => {
+                // Template 1: ensemble size is at byte 36
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 36 {
+                    Ok(Some(data[36]))
+                } else {
+                    Ok(None)
+                }
+            }
+            2 => {
+                // Template 2: ensemble size at byte 35
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 35 {
+                    Ok(Some(data[35]))
+                } else {
+                    Ok(None)
+                }
+            }
+            11 => {
+                // Template 11: ensemble size is at byte 36 (same as template 1)
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 36 {
+                    Ok(Some(data[36]))
+                } else {
+                    Ok(None)
+                }
+            }
+            12 => {
+                // Template 12: ensemble size at byte 53
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 53 {
+                    Ok(Some(data[53]))
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Check if this message is a probability forecast
+    pub fn is_probability(&self) -> Result<bool, GribberishError> {
+        let template_id = self.product_template_id()?;
+        // Template 5 = probability forecast at horizontal level
+        // Template 9 = probability forecast time interval
+        Ok(matches!(template_id, 5 | 9))
+    }
+
+    /// Get the probability type for probability forecasts (if applicable)
+    pub fn probability_type(&self) -> Result<Option<ProbabilityType>, GribberishError> {
+        let template_id = self.product_template_id()?;
+
+        match template_id {
+            5 => {
+                // Template 5: probability type is at byte 36
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 36 {
+                    Ok(Some(data[36].into()))
+                } else {
+                    Ok(None)
+                }
+            }
+            9 => {
+                // Template 9: probability type is at byte 47
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                if data.len() > 47 {
+                    Ok(Some(data[47].into()))
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Get the lower limit for probability forecasts (if applicable)
+    pub fn probability_lower_limit(&self) -> Result<Option<f64>, GribberishError> {
+        use crate::templates::product::probability_horizontal_template::ProbabilityHorizontalForecastTemplate;
+
+        let template_id = self.product_template_id()?;
+
+        match template_id {
+            5 => {
+                // Template 5: lower limit at bytes 37-41
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                let discipline = self.discipline()?;
+
+                // Create a temporary template to use its parsing methods
+                let temp_template = ProbabilityHorizontalForecastTemplate::new(data.to_vec(), discipline as u8);
+                Ok(temp_template.lower_limit())
+            }
+            9 => {
+                // Template 9: would need similar handling but with different byte offsets
+                // For now, return None as we focus on template 5
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Get the upper limit for probability forecasts (if applicable)
+    pub fn probability_upper_limit(&self) -> Result<Option<f64>, GribberishError> {
+        use crate::templates::product::probability_horizontal_template::ProbabilityHorizontalForecastTemplate;
+
+        let template_id = self.product_template_id()?;
+
+        match template_id {
+            5 => {
+                // Template 5: upper limit at bytes 42-46
+                let product_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::ProductDefinition(pd) => Some(pd),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError("Product definition not found".into())
+                );
+
+                let data = product_definition.data();
+                let discipline = self.discipline()?;
+
+                // Create a temporary template to use its parsing methods
+                let temp_template = ProbabilityHorizontalForecastTemplate::new(data.to_vec(), discipline as u8);
+                Ok(temp_template.upper_limit())
+            }
+            9 => {
+                // Template 9: would need similar handling but with different byte offsets
+                // For now, return None as we focus on template 5
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
     }
 
     pub fn data_template_number(&self) -> Result<u16, GribberishError> {

@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::{
-    error::GribberishError, message::{Message, MessageIterator}, templates::product::tables::{
-        FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
+    error::GribberishError, message::Message, templates::product::tables::{
+        FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit, TypeOfStatisticalProcessing,
     }, utils::iter::projection::LatLngProjection
 };
 
@@ -38,6 +38,15 @@ pub struct MessageMetadata {
     pub is_regular_grid: bool,
     pub grid_shape: (usize, usize),
     pub projector: LatLngProjection,
+    // Ensemble-specific fields
+    pub is_ensemble: bool,
+    pub perturbation_number: Option<u8>,
+    pub ensemble_size: Option<u8>,
+    // Probability-specific fields
+    pub is_probability: bool,
+    pub probability_type: Option<ProbabilityType>,
+    pub lower_limit: Option<f64>,
+    pub upper_limit: Option<f64>,
 }
 
 impl MessageMetadata {
@@ -115,6 +124,15 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
         let (second_fixed_surface_type, second_fixed_surface_value) =
             message.second_fixed_surface()?;
 
+        let is_ensemble = message.is_ensemble().unwrap_or(false);
+        let perturbation_number = message.perturbation_number().ok().flatten();
+        let ensemble_size = message.ensemble_size().ok().flatten();
+
+        let is_probability = message.is_probability().unwrap_or(false);
+        let probability_type = message.probability_type().ok().flatten();
+        let lower_limit = message.probability_lower_limit().ok().flatten();
+        let upper_limit = message.probability_upper_limit().ok().flatten();
+
         Ok(MessageMetadata {
             key: message.key()?,
             byte_offset: message.byte_offset(),
@@ -150,6 +168,13 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             is_regular_grid: message.is_regular_grid()?,
             grid_shape: message.grid_dimensions()?,
             projector: message.latlng_projector()?,
+            is_ensemble,
+            perturbation_number,
+            ensemble_size,
+            is_probability,
+            probability_type,
+            lower_limit,
+            upper_limit,
         })
     }
 }
@@ -157,13 +182,21 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
 pub fn scan_message_metadata<'a>(
     data: &'a [u8],
 ) -> HashMap<String, (usize, usize, MessageMetadata)> {
-    let message_iter = MessageIterator::from_data(data, 0);
+    use crate::parser;
 
-    message_iter
+    let messages = parser::scan_messages(data);
+
+    messages
+        .into_iter()
         .enumerate()
-        .filter_map(|(index, m)| match MessageMetadata::try_from(&m) {
-            Ok(mm) => Some(((&mm.key).clone(), (index, m.byte_offset(), mm))),
-            Err(_) => None,
+        .filter_map(|(index, (offset, _length))| {
+            // Use metadata-only parsing to avoid decompressing data during scan
+            match parser::parse_message_metadata_only(data, offset) {
+                Ok((metadata, _msg_len)) => {
+                    Some((metadata.key.clone(), (index, offset, metadata)))
+                }
+                Err(_) => None,
+            }
         })
         .collect()
 }

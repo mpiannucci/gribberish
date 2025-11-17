@@ -1,0 +1,121 @@
+# Gribberish Configuration Example
+#
+# This file demonstrates how to extend gribberish with custom parameters,
+# templates, and transformations without modifying the source code.
+
+version: "1.0"
+
+# Custom parameter definitions
+# Add your own parameter codes that aren't in the standard WMO tables
+parameters:
+  # Example: Custom temperature parameter in local use range
+  - discipline: 0           # Meteorological products
+    category: 192          # Local/custom category (192-254 are reserved for local use)
+    number: 1
+    name: "Custom Temperature"
+    abbreviation: "CTEMP"
+    unit: "K"
+    description: "Organization-specific temperature parameter"
+
+  # Example: Custom ocean wave parameter
+  - discipline: 10          # Oceanographic products
+    category: 4            # Waves
+    number: 200            # Local parameter number
+    name: "Custom Wave Direction"
+    abbreviation: "WDIRC"
+    unit: "degrees"
+    description: "Custom wave direction measurement"
+
+  # Example: Custom radar parameter
+  - discipline: 3           # Space products
+    category: 192          # Local use
+    number: 10
+    name: "Custom Reflectivity"
+    abbreviation: "CREFL"
+    unit: "dBZ"
+    description: "Custom radar reflectivity product"
+
+# Custom template definitions (advanced usage)
+# Define templates for proprietary GRIB2 format extensions
+templates:
+  product:
+    # Example: Custom product template for ensemble forecasts
+    - number: 1000
+      name: "CustomEnsembleTemplate"
+      description: "Custom ensemble forecast template"
+      fields:
+        - name: "parameter_category"
+          offset: 9
+          length: 1
+          fieldType: "u8"
+        - name: "parameter_number"
+          offset: 10
+          length: 1
+          fieldType: "u8"
+        - name: "ensemble_member"
+          offset: 34
+          length: 1
+          fieldType: "u8"
+          description: "Ensemble member number"
+
+  gridDefinition:
+    # Example: Custom grid definition
+    - number: 1000
+      name: "CustomProjection"
+      description: "Organization-specific map projection"
+      projection: "+proj=custom +ellps=WGS84"
+      fields:
+        - name: "nx"
+          offset: 30
+          length: 4
+          fieldType: "u32"
+        - name: "ny"
+          offset: 34
+          length: 4
+          fieldType: "u32"
+
+# Field transformations
+# Apply custom transformations to data after reading
+transformations:
+  # Example: Convert temperature from Kelvin to Fahrenheit
+  - variable: "TMP"
+    operations:
+      - type: "scale"
+        factor: 1.8
+        offset: -459.67
+
+  # Example: Convert wind speed from m/s to knots
+  - variable: "UGRD"
+    operations:
+      - type: "scale"
+        factor: 1.94384
+
+  - variable: "VGRD"
+    operations:
+      - type: "scale"
+        factor: 1.94384
+
+  # Example: Clip precipitation values
+  - variable: "APCP"
+    operations:
+      - type: "clip"
+        min: 0.0
+        max: 500.0
+
+  # Example: Custom unit conversion
+  - variable: "CTEMP"
+    operations:
+      - type: "unitConversion"
+        from: "K"
+        to: "C"
+
+# Backend configuration
+backend:
+  # Preferred backend: "native", "eccodes", or "auto"
+  # - "native": Use pure Rust implementation (default, no external dependencies)
+  # - "eccodes": Use ECMWF eccodes library (requires eccodes feature enabled)
+  # - "auto": Automatically select best available backend
+  preferred: "auto"
+
+  # Whether to fall back to native backend if preferred backend fails
+  fallback: true
