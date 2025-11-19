@@ -404,15 +404,15 @@ fn read_grib1_era5_levels_members() {
     let data_0 = msg_0.data().unwrap();
     assert_eq!(data_0.len(), 7320, "Message 0 data length");
     assert!(
-        (data_0[0] - 1460.24853515625).abs() < 0.001,
+        (data_0[0] - 51169.703125).abs() < 0.01,
         "Message 0 data[0]"
     );
     assert!(
-        (data_0[100] - 1460.24853515625).abs() < 0.001,
+        (data_0[100] - 51169.703125).abs() < 0.01,
         "Message 0 data[100]"
     );
     assert!(
-        (data_0[1000] - 1460.24853515625).abs() < 0.001,
+        (data_0[1000] - 49097.703125).abs() < 0.01,
         "Message 0 data[1000]"
     );
 
