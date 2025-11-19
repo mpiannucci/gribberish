@@ -358,3 +358,76 @@ fn read_ensemble_average() {
 
     assert_eq!(dups.len(), 0, "Found {} duplicate keys", dups.len());
 }
+
+#[test]
+fn read_grib1_era5_levels_members() {
+    let grib_data = read_grib_messages("tests/data/era5-levels-members.grib");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    // Verify we have the expected number of messages
+    assert_eq!(
+        messages.len(),
+        1,
+        "Expected 1 message in ERA5 GRIB1 file"
+    );
+
+    // Test first message (Geopotential)
+    let msg_0 = &messages[0];
+
+    // Validate metadata
+    assert_eq!(
+        msg_0.variable_abbrev().unwrap(),
+        "z",
+        "Message 0 variable abbrev"
+    );
+    assert_eq!(
+        msg_0.variable_name().unwrap(),
+        "Geopotential",
+        "Message 0 variable name"
+    );
+    assert_eq!(msg_0.unit().unwrap(), "m2 s-2", "Message 0 unit");
+    assert_eq!(
+        msg_0.grid_dimensions().unwrap(),
+        (61, 120),
+        "Message 0 grid dimensions"
+    );
+
+    // Validate key format
+    let key = msg_0.key().unwrap();
+    assert_eq!(
+        key,
+        "z:201701010000:500 in mb:forecast",
+        "Message 0 key"
+    );
+
+    // Validate data at multiple points
+    let data_0 = msg_0.data().unwrap();
+    assert_eq!(data_0.len(), 7320, "Message 0 data length");
+    assert!(
+        (data_0[0] - 1460.24853515625).abs() < 0.001,
+        "Message 0 data[0]"
+    );
+    assert!(
+        (data_0[100] - 1460.24853515625).abs() < 0.001,
+        "Message 0 data[100]"
+    );
+    assert!(
+        (data_0[1000] - 1460.24853515625).abs() < 0.001,
+        "Message 0 data[1000]"
+    );
+
+    // Verify all messages have unique keys (no duplicates)
+    let mut keys = Vec::new();
+    let mut dups = Vec::new();
+
+    for message in &messages {
+        let key = message.key().unwrap();
+        if keys.contains(&key) {
+            dups.push(key);
+        } else {
+            keys.push(key);
+        }
+    }
+
+    assert_eq!(dups.len(), 0, "Found {} duplicate keys", dups.len());
+}

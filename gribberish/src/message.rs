@@ -1,4 +1,5 @@
 use crate::error::GribberishError;
+use crate::grib1::Grib1Message;
 use crate::sections::{indicator::Discipline, section::Section, section::SectionIterator};
 use crate::templates::grid_definition::GridDefinitionTemplate;
 use crate::templates::product::product_template::ProductTemplate;
@@ -65,36 +66,82 @@ impl<'a> Iterator for MessageIterator<'a> {
     }
 }
 
-pub struct Message<'a> {
-    data: &'a [u8],
-    offset: usize,
+pub enum Message<'a> {
+    Grib1 {
+        data: &'a [u8],
+        offset: usize,
+        message: Grib1Message,
+    },
+    Grib2 {
+        data: &'a [u8],
+        offset: usize,
+    },
 }
 
 impl<'a> Message<'a> {
     pub fn from_data(data: &'a [u8], offset: usize) -> Option<Message<'a>> {
-        let mut sections = SectionIterator { data: data, offset };
+        // Check if there's enough data for GRIB header
+        if offset + 8 > data.len() {
+            return None;
+        }
 
-        match sections.next() {
-            Some(Section::Indicator(_)) => Some(Message {
-                data: &data,
-                offset: offset,
-            }),
+        // Check for GRIB magic
+        if &data[offset..offset + 4] != b"GRIB" {
+            return None;
+        }
+
+        // Edition is at byte 7 (0-indexed)
+        let edition = data[offset + 7];
+
+        match edition {
+            1 => {
+                // Parse as GRIB1
+                match Grib1Message::from_data(data, offset) {
+                    Ok(message) => Some(Message::Grib1 {
+                        data,
+                        offset,
+                        message,
+                    }),
+                    Err(_) => None,
+                }
+            }
+            2 => {
+                // Parse as GRIB2 (existing logic)
+                let mut sections = SectionIterator { data, offset };
+
+                match sections.next() {
+                    Some(Section::Indicator(_)) => Some(Message::Grib2 { data, offset }),
+                    _ => None,
+                }
+            }
             _ => None,
         }
     }
 
     pub fn byte_data(&self) -> &'a [u8] {
-        self.data
+        match self {
+            Message::Grib1 { data, .. } => data,
+            Message::Grib2 { data, .. } => data,
+        }
     }
 
     pub fn byte_offset(&self) -> usize {
-        self.offset
+        match self {
+            Message::Grib1 { offset, .. } => *offset,
+            Message::Grib2 { offset, .. } => *offset,
+        }
     }
 
     pub fn sections(&self) -> SectionIterator<'_> {
-        SectionIterator {
-            data: self.data,
-            offset: self.offset,
+        match self {
+            Message::Grib1 { data, offset, .. } => SectionIterator {
+                data,
+                offset: *offset,
+            },
+            Message::Grib2 { data, offset } => SectionIterator {
+                data,
+                offset: *offset,
+            },
         }
     }
 
@@ -205,10 +252,13 @@ impl<'a> Message<'a> {
     }
 
     pub fn len(&self) -> usize {
-        match self.sections().next() {
-            Some(Section::Indicator(i)) => i.total_length() as usize,
-            Some(_) => 0,
-            None => 0,
+        match self {
+            Message::Grib1 { message, .. } => message.length(),
+            Message::Grib2 { .. } => match self.sections().next() {
+                Some(Section::Indicator(i)) => i.total_length() as usize,
+                Some(_) => 0,
+                None => 0,
+            },
         }
     }
 
@@ -217,13 +267,18 @@ impl<'a> Message<'a> {
     }
 
     pub fn discipline(&self) -> Result<Discipline, GribberishError> {
-        match self.sections().next().unwrap() {
-            Section::Indicator(indicator) => Ok(indicator.discipline()),
-            _ => Err(GribberishError::MessageError(
-                "Indicator section not found when reading discipline".into(),
-            )),
+        match self {
+            Message::Grib1 { .. } => Ok(Discipline::Meteorological),
+            Message::Grib2 { .. } => {
+                match self.sections().next().unwrap() {
+                    Section::Indicator(indicator) => Ok(indicator.discipline()),
+                    _ => Err(GribberishError::MessageError(
+                        "Indicator section not found when reading discipline".into(),
+                    )),
+                }
+                .clone()
+            }
         }
-        .clone()
     }
 
     pub fn product_template_id(&self) -> Result<u16, GribberishError> {
@@ -276,20 +331,38 @@ impl<'a> Message<'a> {
     }
 
     pub fn grid_template(&self) -> Result<Box<dyn GridDefinitionTemplate>, GribberishError> {
-        let grid_definition = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::GridDefinition(grid_definition) => Some(grid_definition),
-                _ => None,
-            }),
-            GribberishError::MessageError("Grid definition section not found when reading variable data".into())
-        );
+        match self {
+            Message::Grib1 { message, .. } => {
+                // For GRIB1, get the grid from the message
+                let grid = message.grid().ok_or_else(|| {
+                    GribberishError::MessageError(
+                        "GRIB1 message missing grid description section".to_string(),
+                    )
+                })?;
+                Ok(Box::new(grid.clone()) as Box<dyn GridDefinitionTemplate>)
+            }
+            Message::Grib2 { .. } => {
+                // For GRIB2, use the existing section-based approach
+                let grid_definition = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::GridDefinition(grid_definition) => Some(grid_definition),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError(
+                        "Grid definition section not found when reading variable data".into()
+                    )
+                );
 
-        let grid_template = unwrap_or_return!(
-            grid_definition.grid_definition_template(),
-            GribberishError::MessageError("Only latitude longitude templates supported at this time".into())
-        );
+                let grid_template = unwrap_or_return!(
+                    grid_definition.grid_definition_template(),
+                    GribberishError::MessageError(
+                        "Only latitude longitude templates supported at this time".into()
+                    )
+                );
 
-        Ok(grid_template)
+                Ok(grid_template)
+            }
+        }
     }
 
     pub fn parameter_index(&self) -> Result<String, GribberishError> {
@@ -320,99 +393,228 @@ impl<'a> Message<'a> {
     }
 
     pub fn category(&self) -> Result<String, GribberishError> {
-        let product_template = self.product_template()?;
-        Ok(product_template.category().to_owned())
+        match self {
+            Message::Grib1 { .. } => Ok("unknown".to_string()),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.category().to_owned())
+            }
+        }
     }
 
     pub fn variable_name(&self) -> Result<String, GribberishError> {
-        let parameter = self.parameter()?;
-        Ok(parameter.name)
+        match self {
+            Message::Grib1 { message, .. } => {
+                let (_, name, _) = message.parameter().ok_or_else(|| {
+                    GribberishError::MessageError("Parameter not found".to_string())
+                })?;
+                Ok(name)
+            }
+            Message::Grib2 { .. } => {
+                let parameter = self.parameter()?;
+                Ok(parameter.name)
+            }
+        }
     }
 
     pub fn variable_abbrev(&self) -> Result<String, GribberishError> {
-        let parameter = self.parameter()?;
-        Ok(parameter.abbrev)
+        match self {
+            Message::Grib1 { message, .. } => {
+                let (abbrev, _, _) = message.parameter().ok_or_else(|| {
+                    GribberishError::MessageError("Parameter not found".to_string())
+                })?;
+                Ok(abbrev)
+            }
+            Message::Grib2 { .. } => {
+                let parameter = self.parameter()?;
+                Ok(parameter.abbrev)
+            }
+        }
     }
 
     pub fn unit(&self) -> Result<String, GribberishError> {
-        let parameter = self.parameter()?;
-        Ok(parameter.unit)
+        match self {
+            Message::Grib1 { message, .. } => {
+                let (_, _, unit) = message.parameter().ok_or_else(|| {
+                    GribberishError::MessageError("Parameter not found".to_string())
+                })?;
+                Ok(unit)
+            }
+            Message::Grib2 { .. } => {
+                let parameter = self.parameter()?;
+                Ok(parameter.unit)
+            }
+        }
     }
 
     pub fn reference_date(&self) -> Result<DateTime<Utc>, GribberishError> {
-        let reference_date = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::Identification(identification) => Some(identification.reference_date()),
-                _ => None,
-            }),
-            GribberishError::MessageError(
-                "Identification section not found when reading reference date".into()
-            )
-        );
-        Ok(reference_date)
+        match self {
+            Message::Grib1 { message, .. } => message
+                .reference_datetime()
+                .map_err(|e| GribberishError::MessageError(e)),
+            Message::Grib2 { .. } => {
+                let reference_date = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::Identification(identification) => Some(identification.reference_date()),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError(
+                        "Identification section not found when reading reference date".into()
+                    )
+                );
+                Ok(reference_date)
+            }
+        }
     }
 
     pub fn generating_process(&self) -> Result<GeneratingProcess, GribberishError> {
-        let product_template = self.product_template()?;
-        Ok(product_template.generating_process())
+        match self {
+            Message::Grib1 { .. } => Ok(GeneratingProcess::Forecast),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.generating_process())
+            }
+        }
     }
 
     pub fn derived_forecast_type(&self) -> Result<Option<DerivedForecastType>, GribberishError> {
-        let product_template = self.product_template()?;
-        Ok(product_template.derived_forecast_type())
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.derived_forecast_type())
+            }
+        }
     }
 
     pub fn statistical_process_type(
         &self,
     ) -> Result<Option<TypeOfStatisticalProcessing>, GribberishError> {
-        let product_template = self.product_template()?;
-        Ok(product_template.statistical_process_type())
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.statistical_process_type())
+            }
+        }
     }
 
     pub fn forecast_date(&self) -> Result<DateTime<Utc>, GribberishError> {
-        let product_template = self.product_template()?;
-        let reference_date = self.reference_date()?;
-        Ok(product_template.forecast_datetime(reference_date))
+        match self {
+            Message::Grib1 { message, .. } => message
+                .forecast_datetime()
+                .map_err(|e| GribberishError::MessageError(e)),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                let reference_date = self.reference_date()?;
+                Ok(product_template.forecast_datetime(reference_date))
+            }
+        }
     }
 
     pub fn forecast_end_date(&self) -> Result<Option<DateTime<Utc>>, GribberishError> {
-        let product_template = self.product_template()?;
-        let reference_date = self.reference_date()?;
-        Ok(product_template.forecast_end_datetime(reference_date))
+        match self {
+            Message::Grib1 { .. } => {
+                // GRIB1 messages don't have a separate forecast end date
+                // They only have a single forecast time
+                Ok(None)
+            }
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                let reference_date = self.reference_date()?;
+                Ok(product_template.forecast_end_datetime(reference_date))
+            }
+        }
     }
 
     pub fn time_unit(&self) -> Result<TimeUnit, GribberishError> {
-        let product_template = self.product_template()?;
-        Ok(product_template.time_unit())
+        match self {
+            Message::Grib1 { .. } => Ok(TimeUnit::Hour),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.time_unit())
+            }
+        }
     }
 
     pub fn time_increment_unit(&self) -> Result<Option<TimeUnit>, GribberishError> {
-        let product_template = self.product_template()?;
-        Ok(product_template.time_increment_unit())
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.time_increment_unit())
+            }
+        }
     }
 
     pub fn time_interval(&self) -> Result<u32, GribberishError> {
-        let product_template = self.product_template()?;
-        Ok(product_template.time_interval())
+        match self {
+            Message::Grib1 { .. } => Ok(0),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.time_interval())
+            }
+        }
     }
 
     pub fn time_increment_interval(&self) -> Result<Option<u32>, GribberishError> {
-        let product_template = self.product_template()?;
-        Ok(product_template.time_increment_interval())
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.time_increment_interval())
+            }
+        }
     }
 
     pub fn first_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), GribberishError> {
-        let product_template = self.product_template()?;
-        let surface_type = product_template.first_fixed_surface_type();
-        let surface_value = product_template.first_fixed_surface_value();
-        Ok((surface_type, surface_value))
+        match self {
+            Message::Grib1 { message, .. } => {
+                let (level_type_name, level_value, _) = message.level_info();
+
+                // Map GRIB1 level types to GRIB2 FixedSurfaceType
+                let fixed_surface_type = match level_type_name.as_str() {
+                    "surface" => FixedSurfaceType::GroundOrWater,
+                    "isobaric" => FixedSurfaceType::IsobaricSurface,
+                    "fixed_height" => FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel,
+                    "fixed_height_above_ground" => FixedSurfaceType::SpecifiedHeightLevelAboveGround,
+                    "mean_sea_level" => FixedSurfaceType::MeanSeaLevel,
+                    "sigma" => FixedSurfaceType::SigmaLevel,
+                    "hybrid" => FixedSurfaceType::HybridLevel,
+                    "isotherm_zero" => FixedSurfaceType::ZeroDegreeIsotherm,
+                    "cloud_base" => FixedSurfaceType::CloudBase,
+                    "cloud_top" => FixedSurfaceType::CloudTop,
+                    "entire_atmosphere" => FixedSurfaceType::EntireAtmosphere,
+                    _ => FixedSurfaceType::Missing,
+                };
+
+                let first_fixed_surface_value = if level_value > 0.0 {
+                    Some(level_value)
+                } else {
+                    None
+                };
+
+                Ok((fixed_surface_type, first_fixed_surface_value))
+            }
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                let surface_type = product_template.first_fixed_surface_type();
+                let surface_value = product_template.first_fixed_surface_value();
+                Ok((surface_type, surface_value))
+            }
+        }
     }
 
     pub fn second_fixed_surface(&self) -> Result<(FixedSurfaceType, Option<f64>), GribberishError> {
-        let product_template = self.product_template()?;
-        let surface_type = product_template.second_fixed_surface_type();
-        let surface_value = product_template.second_fixed_surface_value();
-        Ok((surface_type, surface_value))
+        match self {
+            Message::Grib1 { .. } => Ok((FixedSurfaceType::Missing, None)),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                let surface_type = product_template.second_fixed_surface_type();
+                let surface_value = product_template.second_fixed_surface_value();
+                Ok((surface_type, surface_value))
+            }
+        }
     }
 
     pub fn proj_string(&self) -> Result<String, GribberishError> {
@@ -445,8 +647,16 @@ impl<'a> Message<'a> {
     }
 
     pub fn grid_dimensions(&self) -> Result<(usize, usize), GribberishError> {
-        let grid_template = self.grid_template()?;
-        Ok((grid_template.y_count(), grid_template.x_count()))
+        match self {
+            Message::Grib1 { message, .. } => {
+                let (ni, nj) = message.grid_shape();
+                Ok((nj, ni)) // Note: GRIB1 returns (ni, nj) but we need (y, x)
+            }
+            Message::Grib2 { .. } => {
+                let grid_template = self.grid_template()?;
+                Ok((grid_template.y_count(), grid_template.x_count()))
+            }
+        }
     }
 
     pub fn latlng_projector(&self) -> Result<LatLngProjection, GribberishError> {
@@ -516,58 +726,65 @@ impl<'a> Message<'a> {
     }
 
     pub fn data(&self) -> Result<Vec<f64>, GribberishError> {
-        let data_section = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::Data(data_section) => Some(data_section),
-                _ => None,
-            }),
-            GribberishError::MessageError(
-                "Data section not found when reading message data".into()
-            )
-        );
+        match self {
+            Message::Grib1 { message, .. } => message
+                .data()
+                .map_err(|e| GribberishError::MessageError(e)),
+            Message::Grib2 { .. } => {
+                let data_section = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::Data(data_section) => Some(data_section),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError(
+                        "Data section not found when reading message data".into()
+                    )
+                );
 
-        let raw_packed_data = data_section.raw_data_array().view_bits();
+                let raw_packed_data = data_section.raw_data_array().view_bits();
 
-        let data_representation_section = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::DataRepresentation(data_representation_section) =>
-                    Some(data_representation_section),
-                _ => None,
-            }),
-            GribberishError::MessageError(
-                "Data representation section not found when reading message data".into()
-            )
-        );
+                let data_representation_section = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::DataRepresentation(data_representation_section) =>
+                            Some(data_representation_section),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError(
+                        "Data representation section not found when reading message data".into()
+                    )
+                );
 
-        let data_representation_template = unwrap_or_return!(
-            data_representation_section.data_representation_template(),
-            GribberishError::MessageError(
-                "Failed to unpack the data representation template".into()
-            )
-        );
+                let data_representation_template = unwrap_or_return!(
+                    data_representation_section.data_representation_template(),
+                    GribberishError::MessageError(
+                        "Failed to unpack the data representation template".into()
+                    )
+                );
 
-        let scaled_unpacked_data = data_representation_template.unpack(raw_packed_data)?;
+                let scaled_unpacked_data = data_representation_template.unpack(raw_packed_data)?;
 
-        let bitmap_section = unwrap_or_return!(
-            self.sections().find_map(|s| match s {
-                Section::Bitmap(bitmap_section) => Some(bitmap_section),
-                _ => None,
-            }),
-            GribberishError::MessageError(
-                "Bitmap section not found when reading message data".into()
-            )
-        );
+                let bitmap_section = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::Bitmap(bitmap_section) => Some(bitmap_section),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError(
+                        "Bitmap section not found when reading message data".into()
+                    )
+                );
 
-        let mut data = if bitmap_section.has_bitmap() {
-            let mapped_scaled_data = bitmap_section.map_data(scaled_unpacked_data);
-            mapped_scaled_data
-        } else {
-            scaled_unpacked_data
-        };
+                let mut data = if bitmap_section.has_bitmap() {
+                    let mapped_scaled_data = bitmap_section.map_data(scaled_unpacked_data);
+                    mapped_scaled_data
+                } else {
+                    scaled_unpacked_data
+                };
 
-        let shape = self.grid_dimensions()?;
-        let count = shape.0 * shape.1;
-        data.resize(count, 0.0);
-        Ok(data)
+                let shape = self.grid_dimensions()?;
+                let count = shape.0 * shape.1;
+                data.resize(count, 0.0);
+                Ok(data)
+            }
+        }
     }
 }
