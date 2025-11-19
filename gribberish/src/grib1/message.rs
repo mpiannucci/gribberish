@@ -200,7 +200,20 @@ impl Grib1Message {
             None
         };
 
-        self.bds.unpack_data(num_points, bitmap_vec.as_deref())
+        let mut values = self.bds.unpack_data(num_points, bitmap_vec.as_deref())?;
+
+        // Apply decimal scale factor: Y_final = Y_unpacked / 10^D
+        let decimal_scale = self.pds.decimal_scale_factor();
+        if decimal_scale != 0 {
+            let scale_divisor = 10_f64.powi(decimal_scale as i32);
+            for value in values.iter_mut() {
+                if !value.is_nan() {
+                    *value /= scale_divisor;
+                }
+            }
+        }
+
+        Ok(values)
     }
 
     /// Get center ID

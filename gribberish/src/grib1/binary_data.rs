@@ -3,7 +3,7 @@
 /// The BDS contains the actual packed data values.
 /// This implementation handles simple packing (most common).
 
-use crate::utils::convert::{read_f32_from_bytes, read_u24_from_bytes};
+use crate::utils::convert::{read_ibm_f32_from_bytes, read_u24_from_bytes};
 
 #[derive(Debug, Clone)]
 pub struct Grib1BinaryDataSection {
@@ -53,12 +53,25 @@ impl Grib1BinaryDataSection {
 
     /// Get binary scale factor (E)
     pub fn binary_scale_factor(&self) -> i16 {
-        i16::from_be_bytes([self.data[4], self.data[5]])
+        // When flag 0x08 is set, ECMWF uses a different encoding for the scale factor
+        // Byte 4 bit 7 is the sign, bytes 4-5 (excluding bit 7) contain the magnitude
+        if (self.flags() & 0x08) != 0 {
+            let sign = (self.data[4] & 0x80) != 0;
+            let magnitude = (((self.data[4] & 0x7F) as i16) << 8) | (self.data[5] as i16);
+            if sign {
+                -magnitude
+            } else {
+                magnitude
+            }
+        } else {
+            // Standard GRIB1: signed 16-bit integer
+            i16::from_be_bytes([self.data[4], self.data[5]])
+        }
     }
 
-    /// Get reference value (R)
+    /// Get reference value (R) - stored in IBM floating point format in GRIB1
     pub fn reference_value(&self) -> f32 {
-        read_f32_from_bytes(&self.data, 6).unwrap_or(0.0)
+        read_ibm_f32_from_bytes(&self.data, 6).unwrap_or(0.0)
     }
 
     /// Get number of bits per value
@@ -188,13 +201,35 @@ mod tests {
         assert_eq!(read_bits(&data, 5, 3), 0b011);
     }
 
+    /// Helper function to convert IEEE float to IBM float bytes for testing
+    fn ieee_to_ibm_bytes(value: f32) -> [u8; 4] {
+        if value == 0.0 {
+            return [0x00, 0x00, 0x00, 0x00];
+        }
+
+        let sign = if value < 0.0 { 0x80 } else { 0x00 };
+        let abs_value = value.abs() as f64;
+
+        // IBM: (-1)^sign * mantissa * 16^(exponent - 64)
+        // Find exponent and mantissa
+        let exponent = ((abs_value.log2() / 4.0).ceil() as i32 + 64) as u8;
+        let mantissa = (abs_value / 16_f64.powi(exponent as i32 - 64) * (2_f64.powi(24))) as u32;
+
+        [
+            sign | (exponent & 0x7F),
+            ((mantissa >> 16) & 0xFF) as u8,
+            ((mantissa >> 8) & 0xFF) as u8,
+            (mantissa & 0xFF) as u8,
+        ]
+    }
+
     #[test]
     fn test_bds_parsing() {
         let mut data = vec![0u8; 20];
         data[0..3].copy_from_slice(&[0x00, 0x00, 0x14]); // Length = 20
         data[3] = 0x00; // Flags (simple packing)
         data[4..6].copy_from_slice(&[0x00, 0x00]); // Binary scale = 0
-        data[6..10].copy_from_slice(&100.0f32.to_be_bytes()); // Reference = 100.0
+        data[6..10].copy_from_slice(&ieee_to_ibm_bytes(100.0)); // Reference = 100.0 (IBM format)
         data[10] = 8; // 8 bits per value
 
         let bds = Grib1BinaryDataSection::from_data(&data).unwrap();
@@ -211,7 +246,7 @@ mod tests {
         data[0..3].copy_from_slice(&[0x00, 0x00, 0x0E]); // Length
         data[3] = 0x00; // Simple packing
         data[4..6].copy_from_slice(&[0x00, 0x00]); // Binary scale = 0
-        data[6..10].copy_from_slice(&0.0f32.to_be_bytes()); // Reference = 0
+        data[6..10].copy_from_slice(&ieee_to_ibm_bytes(0.0)); // Reference = 0 (IBM format)
         data[10] = 8; // 8 bits per value
         // Packed data: 1, 2, 3
         data[11] = 1;
