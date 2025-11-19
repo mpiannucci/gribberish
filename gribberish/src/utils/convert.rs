@@ -6,6 +6,17 @@ pub fn read_u16_from_bytes(data: &[u8], offset: usize) -> Option<u16> {
     }
 }
 
+pub fn read_u24_from_bytes(data: &[u8], offset: usize) -> Option<u32> {
+    if offset + 3 > data.len() {
+        return None;
+    }
+    Some(
+        ((data[offset] as u32) << 16)
+            | ((data[offset + 1] as u32) << 8)
+            | (data[offset + 2] as u32),
+    )
+}
+
 pub fn read_u32_from_bytes(data: &[u8], offset: usize) -> Option<u32> {
     match data[offset..offset + 4].try_into() {
         Ok(b) => Some(u32::from_be_bytes(b)),
@@ -25,4 +36,40 @@ pub fn read_f32_from_bytes(data: &[u8], offset: usize) -> Option<f32> {
         Ok(b) => Some(f32::from_be_bytes(b)),
         Err(_) => None,
     }
+}
+
+/// Read an IBM floating point value (used in GRIB1)
+/// IBM float format: (-1)^sign * 0.mantissa * 16^(exponent - 64)
+pub fn read_ibm_f32_from_bytes(data: &[u8], offset: usize) -> Option<f32> {
+    if offset + 4 > data.len() {
+        return None;
+    }
+
+    let bytes = &data[offset..offset + 4];
+
+    // Extract sign bit (bit 0)
+    let sign = (bytes[0] & 0x80) != 0;
+
+    // Extract exponent (bits 1-7)
+    let exponent = (bytes[0] & 0x7F) as i32;
+
+    // Extract mantissa (bits 8-31)
+    let mantissa = ((bytes[1] as u32) << 16) | ((bytes[2] as u32) << 8) | (bytes[3] as u32);
+
+    // Handle zero
+    if mantissa == 0 {
+        return Some(0.0);
+    }
+
+    // Convert to IEEE float
+    // IBM: value = mantissa * 16^(exponent - 64) / 2^24
+    // Simplify: 16^(exponent - 64) = 2^(4 * (exponent - 64))
+    let power = 4 * (exponent - 64);
+    let mut value = (mantissa as f64) * 2_f64.powi(power - 24);
+
+    if sign {
+        value = -value;
+    }
+
+    Some(value as f32)
 }
