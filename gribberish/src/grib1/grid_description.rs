@@ -150,13 +150,14 @@ impl Grib1Grid {
     }
 
     /// Check if grid scans in -j direction
+    /// According to GRIB1 Table 8: bit 6 = 0 means -j direction, bit 6 = 1 means +j direction
     pub fn scans_negatively_j(&self) -> bool {
         let mode = match self {
             Grib1Grid::LatLon(g) => g.scanning_mode,
             Grib1Grid::Gaussian(g) => g.scanning_mode,
             _ => 0,
         };
-        (mode & 0x40) != 0
+        (mode & 0x40) == 0  // Bit 6 = 0 means scanning in -j direction
     }
 
     /// Generate latitude values for the grid
@@ -231,21 +232,27 @@ impl Grib1Grid {
 }
 
 /// Read a signed 24-bit integer from 3 bytes (big-endian)
+///
+/// In GRIB1, coordinates use bit 23 to indicate negative values:
+/// - If bit 23 is set: the value is negative (west longitude or south latitude)
+/// - The magnitude is stored in the lower 23 bits
+/// - To get the final value: clear bit 23, then negate if it was set
 fn read_signed_24(data: &[u8], offset: usize) -> i32 {
     if offset + 3 > data.len() {
         return 0;
     }
 
-    let unsigned = ((data[offset] as u32) << 16)
+    let value = ((data[offset] as u32) << 16)
         | ((data[offset + 1] as u32) << 8)
         | (data[offset + 2] as u32);
 
-    // Convert to signed: if bit 23 is set, it's negative
-    if unsigned & 0x800000 != 0 {
-        // Sign-extend to 32 bits
-        (unsigned | 0xFF000000) as i32
+    // Check if bit 23 is set (indicates negative/west/south)
+    if value & 0x800000 != 0 {
+        // Clear bit 23 and negate to get the actual negative value
+        let magnitude = (value & 0x7FFFFF) as i32;
+        -magnitude
     } else {
-        unsigned as i32
+        value as i32
     }
 }
 
@@ -417,13 +424,25 @@ mod tests {
 
     #[test]
     fn test_read_signed_24() {
-        // Positive value
+        // Positive value (bit 23 not set)
         let data = [0x00, 0x01, 0x00]; // 256
         assert_eq!(read_signed_24(&data, 0), 256);
 
-        // Negative value
-        let data = [0xFF, 0xFF, 0xFF]; // -1
+        // Negative value: bit 23 set, magnitude = 1
+        let data = [0x80, 0x00, 0x01]; // -1
         assert_eq!(read_signed_24(&data, 0), -1);
+
+        // Negative value: -90000 (common for latitude -90 degrees)
+        let data = [0x81, 0x5F, 0x90]; // bit 23 set, magnitude = 0x015F90 = 90000
+        assert_eq!(read_signed_24(&data, 0), -90000);
+
+        // Negative value: -180000 (common for longitude -180 degrees)
+        let data = [0x82, 0xBF, 0x20]; // bit 23 set, magnitude = 0x02BF20 = 180000
+        assert_eq!(read_signed_24(&data, 0), -180000);
+
+        // Maximum negative value
+        let data = [0xFF, 0xFF, 0xFF]; // bit 23 set, magnitude = 0x7FFFFF = 8388607
+        assert_eq!(read_signed_24(&data, 0), -8388607);
     }
 
     #[test]
