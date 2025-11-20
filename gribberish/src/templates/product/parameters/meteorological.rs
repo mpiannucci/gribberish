@@ -164,6 +164,18 @@ pub enum MomentumProduct {
     #[abbrev = "RELV"]
     #[unit = "s-1"]
     ShortWaveRadiation = 4,
+    #[description = "vertical velocity (pressure)"]
+    #[abbrev = "VVEL"]
+    #[unit = "Pas-1"]
+    VerticalVelocityPressure = 8,
+    #[description = "vertical velocity (geometric)"]
+    #[abbrev = "DZDT"]
+    #[unit = "ms-1"]
+    VerticalVelocityGeometric = 9,
+    #[description = "absolute vorticity"]
+    #[abbrev = "ABSV"]
+    #[unit = "s-1"]
+    AbsoluteVorticity = 10,
     #[abbrev = "SWRD"]
     #[unit = "Wm-2"]
     RelativeVorticity = 12,
@@ -579,6 +591,54 @@ pub enum PhysicalAtmosphericProperties {
     Missing = 255,
 }
 
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum LongWaveRadiationProduct {
+    #[description = "net long-wave radiation flux"]
+    #[abbrev = "NLWRS"]
+    #[unit = "Wm-2"]
+    NetLongWaveRadiationFlux = 0,
+    #[description = "downward long-wave radiation flux"]
+    #[abbrev = "DLWRF"]
+    #[unit = "Wm-2"]
+    DownwardLongWaveRadiationFlux = 3,
+    #[description = "upward long-wave radiation flux"]
+    #[abbrev = "ULWRF"]
+    #[unit = "Wm-2"]
+    UpwardLongWaveRadiationFlux = 4,
+    Missing = 255,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum TraceGasesProduct {
+    #[description = "total ozone"]
+    #[abbrev = "TOZNE"]
+    #[unit = "DU"]
+    TotalOzone = 0,
+    #[description = "ozone mixing ratio"]
+    #[abbrev = "O3MR"]
+    #[unit = "kgkg-1"]
+    OzoneMixingRatio = 1,
+    #[description = "total column integrated ozone"]
+    #[abbrev = "TCIOZ"]
+    #[unit = "DU"]
+    TotalColumnIntegratedOzone = 2,
+    #[description = "ozone mixing ratio"]
+    #[abbrev = "O3MR"]
+    #[unit = "kgkg-1"]
+    OzoneMixingRatio192 = 192,
+    #[description = "ozone concentration"]
+    #[abbrev = "OZCON"]
+    #[unit = "ppb"]
+    OzoneConcentration = 193,
+    #[description = "categorical ozone concentration"]
+    #[abbrev = "OZCAT"]
+    #[unit = "nondim"]
+    CategoricalOzoneConcentration = 194,
+    Missing = 255,
+}
+
 pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter> {
     match category {
         0 => Some(Parameter::from(TemperatureProduct::from(parameter))),
@@ -586,8 +646,10 @@ pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter
         2 => Some(Parameter::from(MomentumProduct::from(parameter))),
         3 => Some(Parameter::from(MassProduct::from(parameter))),
         4 => Some(Parameter::from(ShortWaveRadiationProduct::from(parameter))),
+        5 => Some(Parameter::from(LongWaveRadiationProduct::from(parameter))),
         6 => Some(Parameter::from(CloudProduct::from(parameter))),
         7 => Some(Parameter::from(ThermodynamicStabilityProduct::from(parameter))),
+        14 => Some(Parameter::from(TraceGasesProduct::from(parameter))),
         15 => Some(Parameter::from(RadarProduct::from(parameter))),
         16 => Some(Parameter::from(ForecastRadarImagery::from(parameter))),
         17 => Some(Parameter::from(Electromagnetics::from(parameter))),
@@ -605,8 +667,10 @@ pub fn meteorological_category(category: u8) -> &'static str {
         2 => "momentum",
         3 => "mass",
         4 => "short wave radiation",
+        5 => "long wave radiation",
         6 => "cloud",
         7 => "thermodynamic stability",
+        14 => "trace gases",
         15 => "radar",
         16 => "forecast radar imagery",
         17 => "electromagnetics",

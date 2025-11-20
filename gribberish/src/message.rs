@@ -402,6 +402,31 @@ impl<'a> Message<'a> {
         }
     }
 
+    pub fn discipline_value(&self) -> Result<u8, GribberishError> {
+        let discipline = self.discipline()?;
+        Ok(discipline as u8)
+    }
+
+    pub fn category_value(&self) -> Result<u8, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(255),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.category_value())
+            }
+        }
+    }
+
+    pub fn parameter_value(&self) -> Result<u8, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(255),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.parameter_value())
+            }
+        }
+    }
+
     pub fn variable_name(&self) -> Result<String, GribberishError> {
         match self {
             Message::Grib1 { message, .. } => {
