@@ -527,6 +527,15 @@ pub fn parse_grib_dataset<'py>(
             .set_item("long_name", first.2.name.clone())
             .unwrap();
         var_metadata
+            .set_item("discipline", first.2.discipline_value as i32)
+            .unwrap();
+        var_metadata
+            .set_item("parameterCategory", first.2.category_value as i32)
+            .unwrap();
+        var_metadata
+            .set_item("parameterNumber", first.2.parameter_value as i32)
+            .unwrap();
+        var_metadata
             .set_item("unit", first.2.units.clone())
             .unwrap();
         var_metadata

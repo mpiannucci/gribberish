@@ -303,6 +303,9 @@ fn grib1_to_metadata(message: &Grib1Message) -> Result<MessageMetadata, Gribberi
         second_fixed_surface_value: None,
         discipline: "meteorological".to_string(),
         category: "unknown".to_string(),
+        discipline_value: 0, // GRIB1 defaults to meteorological
+        category_value: 255, // GRIB1 doesn't have category
+        parameter_value: 255, // GRIB1 uses different parameter encoding
         data_compression: "simple_packing".to_string(),
         has_bitmap: false, // Could check if message has bitmap
         reference_date,
