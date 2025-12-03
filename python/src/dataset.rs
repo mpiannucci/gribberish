@@ -114,8 +114,28 @@ pub fn parse_grib_dataset<'py>(
 
     for (k, v) in mapping.iter() {
         let var = v.2.var.clone();
+        // For statistical processes like accumulation, include the accumulation period
+        // to differentiate between different accumulation lengths (e.g., 1-hour vs 6-hour precip)
+        let accum_period = if v.2.statistical_process.is_some() {
+            if let Some(end_date) = v.2.forecast_end_date {
+                let duration = end_date.signed_duration_since(v.2.forecast_date);
+                let hours = duration.num_hours();
+                if hours > 0 {
+                    format!("_{hours}h")
+                } else {
+                    "".to_string()
+                }
+            } else {
+                "".to_string()
+            }
+        } else {
+            "".to_string()
+        };
+        // The hash identifies a unique grouping based on surface type, statistical process,
+        // and generating process. This is used for naming variables when they have multiple
+        // level types (e.g., tmp_sfc_fcst vs tmp_isobar_fcst).
         let hash = format!(
-            "{var}{surf}_{stat}{gen}",
+            "{surf}_{stat}{gen}{accum_period}",
             surf = v.2.first_fixed_surface_type.coordinate_name(),
             stat =
                 v.2.statistical_process
@@ -126,10 +146,14 @@ pub fn parse_grib_dataset<'py>(
             gen = v.2.generating_process.abbv(),
         );
 
-        if hash_mapping.contains_key(&hash) {
-            hash_mapping.get_mut(&hash).unwrap().push(k.clone());
+        // The hash_key must include the variable name to prevent different variables
+        // at the same level from being grouped together (e.g., TMP and VGRD both at hag_fcst)
+        let hash_key = format!("{var}_{hash}");
+
+        if hash_mapping.contains_key(&hash_key) {
+            hash_mapping.get_mut(&hash_key).unwrap().push(k.clone());
         } else {
-            hash_mapping.insert(hash.clone(), vec![k.clone()]);
+            hash_mapping.insert(hash_key, vec![k.clone()]);
         }
 
         if vars.contains_key(&var) {
@@ -156,7 +180,11 @@ pub fn parse_grib_dataset<'py>(
             var_mapping.insert(
                 k.to_lowercase(),
                 v.iter()
-                    .flat_map(|h| hash_mapping.get(h).unwrap().clone())
+                    .flat_map(|h| {
+                        // Look up using var_hash key (includes variable name)
+                        let hash_key = format!("{k}_{h}");
+                        hash_mapping.get(&hash_key).unwrap().clone()
+                    })
                     .collect::<Vec<String>>(),
             );
         } else {
@@ -169,10 +197,12 @@ pub fn parse_grib_dataset<'py>(
                     continue;
                 }
 
+                // Look up using var_hash key (includes variable name)
+                let hash_key = format!("{k}_{hash}");
                 var_names.push(var_name);
                 var_mapping.insert(
                     format!("{var}_{hash}", var = k.to_lowercase()),
-                    hash_mapping.get(hash).unwrap().clone(),
+                    hash_mapping.get(&hash_key).unwrap().clone(),
                 );
             }
         }
