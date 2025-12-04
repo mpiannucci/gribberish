@@ -14,38 +14,25 @@ def test_xarray_backend_gefs_ensemble():
     # Verify dataset was loaded
     assert ds is not None
 
-    # Ensure all expected variables are present
-    assert list(ds.variables) == ['weasd',
-                                  'vgrd_VGRDhag_ens',
-                                  'hgt_HGTisobar_ens',
-                                  'rh_RHhag_ens',
-                                  'rh_RHisobar_ens',
-                                    'pwat',
-                                    'icetk',
-                                    'tmp_TMPisobar_ens',
-                                    'vgrd_VGRDisobar_ens',
-                                    'cin',
-                                    'ugrd_UGRDisobar_ens',
-                                    'tmp_TMPhag_ens',
-                                    'ugrd_UGRDhag_ens',
-                                    'prmsl',
-                                    'cape',
-                                    'tsoil',
-                                    'pres',
-                                    'snod',
-                                    'hgt_HGTsfc_ens',
-                                    'time',
-                                    'isobar_0',
-                                    'isobar_1',
-                                    'isobar_2',
-                                    'latitude',
-                                    'longitude']
-    
+    # Ensure expected data variables are present (variable names no longer have redundant prefix)
+    expected_data_vars = {
+        'cape', 'cin', 'hgt_isobar_ens', 'hgt_sfc_ens', 'icetk', 'pres',
+        'prmsl', 'pwat', 'rh_hag_ens', 'rh_isobar_ens', 'snod', 'tmp_hag_ens',
+        'tmp_isobar_ens', 'tsoil', 'ugrd_hag_ens', 'ugrd_isobar_ens',
+        'vgrd_hag_ens', 'vgrd_isobar_ens', 'vvel', 'weasd'
+    }
+    assert set(ds.data_vars.keys()) == expected_data_vars
+
+    # Verify coordinates are present
+    assert 'time' in ds.coords
+    assert 'latitude' in ds.coords
+    assert 'longitude' in ds.coords
+
     # Check dimensions of 2D variables
     assert ds.cape.values.shape == (1, 361, 720)
 
     # Check dimension of 3D variables
-    assert ds.tmp_TMPisobar_ens.values.shape == (1, 10, 361, 720)
+    assert ds.tmp_isobar_ens.values.shape == (1, 10, 361, 720)
 
 
 def test_xarray_backend_era5_grib1():
@@ -85,3 +72,73 @@ def test_xarray_backend_era5_grib1():
     import numpy as np
     assert not np.all(data == 0), "Data should not be all zeros"
     assert not np.all(np.isnan(data)), "Data should not be all NaNs"
+
+
+def test_variables_at_same_level_are_separate():
+    """Test that multiple variables at the same level type are correctly separated.
+
+    This verifies the fix for variable grouping - variables like TMP, UGRD, VGRD
+    at the same level type (e.g., 'hag' or 'isobar') should remain as separate
+    data variables with distinct data, not be incorrectly merged together.
+    """
+    ds = xr.open_dataset(
+        "./../gribberish/tests/data/geavg.t12z.pgrb2a.0p50.f000",
+        engine="gribberish"
+    )
+
+    # Multiple variables should exist at the 'hag' (height above ground) level
+    hag_vars = ['tmp_hag_ens', 'ugrd_hag_ens', 'vgrd_hag_ens', 'rh_hag_ens']
+    for var in hag_vars:
+        assert var in ds.data_vars, f"Expected variable {var} to exist"
+
+    # Multiple variables should exist at the 'isobar' level
+    isobar_vars = ['tmp_isobar_ens', 'ugrd_isobar_ens', 'vgrd_isobar_ens',
+                   'rh_isobar_ens', 'hgt_isobar_ens']
+    for var in isobar_vars:
+        assert var in ds.data_vars, f"Expected variable {var} to exist"
+
+    # Verify these are genuinely different variables with different data
+    # Temperature and wind components should have different values
+    import numpy as np
+    tmp_data = ds.tmp_hag_ens.values
+    ugrd_data = ds.ugrd_hag_ens.values
+    vgrd_data = ds.vgrd_hag_ens.values
+
+    # The data arrays should NOT be identical (they're different physical quantities)
+    assert not np.allclose(tmp_data, ugrd_data, equal_nan=True), \
+        "TMP and UGRD should have different data"
+    assert not np.allclose(tmp_data, vgrd_data, equal_nan=True), \
+        "TMP and VGRD should have different data"
+    assert not np.allclose(ugrd_data, vgrd_data, equal_nan=True), \
+        "UGRD and VGRD should have different data"
+
+    # Each variable should have proper attributes identifying its parameter
+    assert 'tmp' in ds.tmp_hag_ens.attrs.get('standard_name', '').lower() or \
+           'temperature' in ds.tmp_hag_ens.attrs.get('standard_name', '').lower()
+    assert 'wind' in ds.ugrd_hag_ens.attrs.get('standard_name', '').lower() or \
+           'u-component' in ds.ugrd_hag_ens.attrs.get('standard_name', '').lower()
+
+
+def test_variable_naming_without_redundant_prefix():
+    """Test that variable names don't have redundant variable prefixes.
+
+    Previously, variables were named like 'tmp_TMPisobar_ens' (variable name
+    appeared twice). Now they should be named like 'tmp_isobar_ens'.
+    """
+    ds = xr.open_dataset(
+        "./../gribberish/tests/data/geavg.t12z.pgrb2a.0p50.f000",
+        engine="gribberish"
+    )
+
+    # Check that no variable names have doubled prefixes like 'TMP' in 'tmp_TMPisobar'
+    for var_name in ds.data_vars.keys():
+        # Variable names should be lowercase
+        assert var_name == var_name.lower(), \
+            f"Variable name '{var_name}' should be lowercase"
+
+        # Variable names shouldn't have patterns like 'tmp_TMP' or 'ugrd_UGRD'
+        parts = var_name.split('_')
+        if len(parts) >= 2:
+            # Check the second part isn't just an uppercase version of the first
+            assert parts[1].lower() != parts[0], \
+                f"Variable name '{var_name}' has redundant prefix"
