@@ -52,17 +52,25 @@ impl<'a> Iterator for MessageIterator<'a> {
     type Item = Message<'a>;
 
     fn next(&mut self) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
-        if self.offset >= self.data.len() {
-            return None;
-        }
-
-        match Message::from_data(&self.data, self.offset) {
-            Some(m) => {
-                self.offset += m.len();
-                Some(m)
+        // Scan forward to find the next GRIB magic header
+        while self.offset + 4 <= self.data.len() {
+            if &self.data[self.offset..self.offset + 4] == b"GRIB" {
+                // Found a potential GRIB message
+                match Message::from_data(&self.data, self.offset) {
+                    Some(m) => {
+                        self.offset += m.len();
+                        return Some(m);
+                    }
+                    None => {
+                        // Failed to parse, skip past this "GRIB" and keep scanning
+                        self.offset += 1;
+                    }
+                }
+            } else {
+                self.offset += 1;
             }
-            None => None,
         }
+        None
     }
 }
 
