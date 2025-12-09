@@ -41,6 +41,8 @@ pub struct MessageMetadata {
     pub is_regular_grid: bool,
     pub grid_shape: (usize, usize),
     pub projector: LatLngProjection,
+    pub perturbation_number: Option<u8>,
+    pub number_of_ensemble_members: Option<u8>,
 }
 
 impl MessageMetadata {
@@ -156,6 +158,8 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             is_regular_grid: message.is_regular_grid()?,
             grid_shape: message.grid_dimensions()?,
             projector: message.latlng_projector()?,
+            perturbation_number: message.perturbation_number()?,
+            number_of_ensemble_members: message.number_of_ensemble_members()?,
         })
     }
 }

@@ -202,8 +202,14 @@ impl<'a> Message<'a> {
             )
         };
 
+        // Include perturbation number for ensemble members
+        let perturbation = self
+            .perturbation_number()
+            .unwrap_or(None)
+            .map_or("".to_string(), |p| format!(":ens{p}"));
+
         Ok(format!(
-            "{var}{time}{first_level}{second_level}:{statistical_process}{generating_process}{derived_forecast_type}"
+            "{var}{time}{first_level}{second_level}{perturbation}:{statistical_process}{generating_process}{derived_forecast_type}"
         ))
     }
 
@@ -516,6 +522,26 @@ impl<'a> Message<'a> {
             Message::Grib2 { .. } => {
                 let product_template = self.product_template()?;
                 Ok(product_template.derived_forecast_type())
+            }
+        }
+    }
+
+    pub fn perturbation_number(&self) -> Result<Option<u8>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.perturbation_number())
+            }
+        }
+    }
+
+    pub fn number_of_ensemble_members(&self) -> Result<Option<u8>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.number_of_ensemble_members())
             }
         }
     }

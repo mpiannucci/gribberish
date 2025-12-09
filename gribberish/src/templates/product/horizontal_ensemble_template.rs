@@ -177,4 +177,12 @@ impl ProductTemplate for HorizontalEnsembleForecastTemplate {
     fn statistical_process_type(&self) -> Option<super::tables::TypeOfStatisticalProcessing> {
         None
     }
+
+    fn perturbation_number(&self) -> Option<u8> {
+        Some(self.perturbation_number())
+    }
+
+    fn number_of_ensemble_members(&self) -> Option<u8> {
+        Some(self.number_of_forecasts_in_ensemble())
+    }
 }
