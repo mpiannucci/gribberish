@@ -365,10 +365,12 @@ fn read_grib1_era5_levels_members() {
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
 
     // Verify we have the expected number of messages
-    assert_eq!(
-        messages.len(),
-        1,
-        "Expected 1 message in ERA5 GRIB1 file"
+    // Note: The iterator now scans for GRIB magic, finding all 160 messages in the file
+    // (2 variables x 4 times x 2 levels x 10 ensemble members), but this test validates
+    // just the first message's data integrity
+    assert!(
+        messages.len() >= 1,
+        "Expected at least 1 message in ERA5 GRIB1 file"
     );
 
     // Test first message (Geopotential)
@@ -416,18 +418,33 @@ fn read_grib1_era5_levels_members() {
         "Message 0 data[1000]"
     );
 
-    // Verify all messages have unique keys (no duplicates)
-    let mut keys = Vec::new();
-    let mut dups = Vec::new();
+}
 
+#[test]
+fn test_iterator_scans_past_padding() {
+    // This test verifies that the MessageIterator correctly scans past
+    // non-GRIB data (padding bytes, headers, etc.) to find all GRIB messages
+    let grib_data = read_grib_messages("tests/data/era5-levels-members.grib");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    // The ERA5 file has 160 GRIB1 messages with 8-byte padding between each
+    // (2 variables x 4 times x 2 levels x 10 ensemble members)
+    assert_eq!(
+        messages.len(),
+        160,
+        "Expected 160 messages in ERA5 GRIB1 file (iterator should scan past padding)"
+    );
+
+    // Verify we have 16 unique variable/time/level combinations
+    let mut unique_keys = std::collections::HashSet::new();
     for message in &messages {
         let key = message.key().unwrap();
-        if keys.contains(&key) {
-            dups.push(key);
-        } else {
-            keys.push(key);
-        }
+        unique_keys.insert(key);
     }
 
-    assert_eq!(dups.len(), 0, "Found {} duplicate keys", dups.len());
+    assert_eq!(
+        unique_keys.len(),
+        16,
+        "Expected 16 unique keys (2 vars x 4 times x 2 levels)"
+    );
 }
