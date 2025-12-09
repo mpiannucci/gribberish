@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "gribberishjs"
-version = "0.25.2"
+version = "0.25.3"
 
 [lib]
 crate-type = ["cdylib"]
@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
 napi = { version = "2.5.0", default-features = false, features = ["chrono_date"] }
 napi-derive = "2.5.0"
-gribberish = { path = "../gribberish", version = "0.25.2" }
+gribberish = { path = "../gribberish", version = "0.25.3" }
 chrono = "0.4"
 
 [build-dependencies]
