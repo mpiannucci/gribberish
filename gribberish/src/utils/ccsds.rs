@@ -289,7 +289,10 @@ impl InternalState {
                     let mask = if (data & med) == 0 { 0 } else { xmax };
 
                     if half_d <= (mask ^ data) {
-                        data += (d >> 1) ^ (!((d & 1) - 1));
+                        // Use wrapping_sub for intentional bit manipulation:
+                        // When d & 1 == 0: creates mask 0xFFFFFFFF
+                        // When d & 1 == 1: creates mask 0x00000000
+                        data = data.wrapping_add((d >> 1) ^ (!(d & 1).wrapping_sub(1)));
                     } else {
                         data = mask ^ d;
                     };
@@ -305,13 +308,15 @@ impl InternalState {
                     let half_d = (d >> 1) + (d & 1);
                     if (data as i32) < 0 {
                         if half_d <= xmax + data + 1 {
-                            data += (d >> 1) ^ (!((d & 1) - 1))
+                            // Use wrapping operations for intentional bit manipulation
+                            data = data.wrapping_add((d >> 1) ^ (!(d & 1).wrapping_sub(1)))
                         } else {
                             data = d - xmax - 1;
                         }
                     } else {
                         if half_d <= xmax - data {
-                            data += (d >> 1) ^ (!((d & 1) - 1))
+                            // Use wrapping operations for intentional bit manipulation
+                            data = data.wrapping_add((d >> 1) ^ (!(d & 1).wrapping_sub(1)))
                         } else {
                             data = xmax - d;
                         }
@@ -725,7 +730,8 @@ impl InternalState {
             self.rsi_buffer[self.rsip + self.sample_counter as usize] = self.fs << k;
             self.fs_drop();
             self.sample_counter += 1;
-            if self.sample_counter < self.encoded_block_size {
+            // Break when we've processed all samples in the block
+            if self.sample_counter >= self.encoded_block_size {
                 break;
             }
         }
@@ -753,7 +759,8 @@ impl InternalState {
             self.avail_out -= self.bytes_per_sample;
             self.bits_drop(k as usize);
             self.sample_counter += 1;
-            if self.sample_counter < self.encoded_block_size {
+            // Break when we've processed all samples in the block
+            if self.sample_counter >= self.encoded_block_size {
                 break;
             }
         }
@@ -808,15 +815,20 @@ fn read_u32_from_bytes(bytes: &[u8], bytes_per_sample: usize) -> Vec<f32> {
     match bytes_per_sample {
         1 => bytes.iter().map(|&b| b as f32).collect(),
         2 => bytes
-            .chunks(2)
+            .chunks_exact(2)
             .map(|chunk| u16::from_le_bytes(chunk.try_into().unwrap()) as f32)
             .collect(),
         3 => bytes
-            .chunks(3)
-            .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()) as f32)
+            .chunks_exact(3)
+            .map(|chunk| {
+                // Pad the 3-byte chunk to 4 bytes for u32 conversion
+                let mut buf = [0u8; 4];
+                buf[..3].copy_from_slice(chunk);
+                u32::from_le_bytes(buf) as f32
+            })
             .collect(),
         4 => bytes
-            .chunks(4)
+            .chunks_exact(4)
             .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
             .collect(),
         _ => Vec::new(),

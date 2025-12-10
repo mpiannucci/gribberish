@@ -148,8 +148,7 @@ fn read_complex_zerod() {
 
 #[cfg(not(feature = "libaec"))]
 #[test]
-#[should_panic]
-fn read_ccsds_without_libaec_should_panic() {
+fn read_ccsds_without_libaec_should_work() {
     let read_data = read_grib_messages("tests/data/meteofrance.mfwam.arome-SWELL.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
     assert_eq!(messages.len(), 1);
@@ -158,9 +157,16 @@ fn read_ccsds_without_libaec_should_panic() {
     assert!(message.is_some());
     let message = message.unwrap();
 
-    // NOTE: Some files from [MeteoFrance](https://portail-api.meteofrance.fr/web/en/api/PaquetWAVESMODELS)
-    // may cause a panic when loading data.
-    let _data = message.data();
+    let start = Instant::now();
+    let data = message.data();
+    let end = Instant::now();
+    assert!(data.is_ok());
+    let data = data.unwrap();
+    println!(
+        "pure rust ccsds unpacking data() took {:?} for {} data points",
+        end.duration_since(start),
+        data.len()
+    );
 }
 
 #[cfg(feature = "libaec")]

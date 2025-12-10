@@ -27,6 +27,18 @@ pub trait ProductTemplate {
     fn derived_forecast_type(&self) -> Option<DerivedForecastType>;
     fn statistical_process_type(&self) -> Option<TypeOfStatisticalProcessing>;
 
+    /// Returns the ensemble perturbation number for ensemble forecast templates.
+    /// Returns None for non-ensemble templates.
+    fn perturbation_number(&self) -> Option<u8> {
+        None
+    }
+
+    /// Returns the total number of ensemble members for ensemble forecast templates.
+    /// Returns None for non-ensemble templates.
+    fn number_of_ensemble_members(&self) -> Option<u8> {
+        None
+    }
+
     fn category(&self) -> &'static str {
         category(self.discipline(), self.category_value())
     }

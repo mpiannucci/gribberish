@@ -316,6 +316,8 @@ fn grib1_to_metadata(message: &Grib1Message) -> Result<MessageMetadata, Gribberi
         is_regular_grid,
         grid_shape,
         projector,
+        perturbation_number: None, // GRIB1 ensemble support not implemented
+        number_of_ensemble_members: None,
     })
 }
 
