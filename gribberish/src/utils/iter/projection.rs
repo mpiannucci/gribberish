@@ -36,10 +36,24 @@ impl LatLngProjection {
 
     pub fn lat_lng(&self) -> (Vec<f64>, Vec<f64>) {
         match self {
-            LatLngProjection::PlateCaree(projection) => (
-                projection.latitudes.clone().collect(),
-                projection.longitudes.clone().collect(),
-            ),
+            LatLngProjection::PlateCaree(projection) => {
+                let lats: Vec<f64> = projection.latitudes.clone().collect();
+                let lon_start = projection.longitudes.start;
+                let lngs: Vec<f64> = projection.longitudes.clone()
+                    .map(|lon| {
+                        // Normalize to 0..360 range for grids that wrap around the globe
+                        // (consistent with GRIB1 handling in grid_description.rs)
+                        if lon >= 360.0 {
+                            lon - 360.0
+                        } else if lon < 0.0 && lon_start >= 0.0 {
+                            lon + 360.0
+                        } else {
+                            lon
+                        }
+                    })
+                    .collect();
+                (lats, lngs)
+            }
             LatLngProjection::LambertConformal(projection) => projection
                 .y
                 .clone()
@@ -62,7 +76,21 @@ impl LatLngProjection {
 
     pub fn x(&self) -> Vec<f64> {
         match self {
-            LatLngProjection::PlateCaree(projection) => projection.longitudes.clone().collect(),
+            LatLngProjection::PlateCaree(projection) => {
+                let lon_start = projection.longitudes.start;
+                projection.longitudes.clone()
+                    .map(|lon| {
+                        // Normalize to 0..360 range for grids that wrap around the globe
+                        if lon >= 360.0 {
+                            lon - 360.0
+                        } else if lon < 0.0 && lon_start >= 0.0 {
+                            lon + 360.0
+                        } else {
+                            lon
+                        }
+                    })
+                    .collect()
+            }
             LatLngProjection::LambertConformal(projection) => projection.x.clone().collect(),
         }
     }
@@ -96,14 +124,8 @@ impl LatLngProjection {
 
     pub fn bbox(&self) -> (f64, f64, f64, f64) {
         match self {
-            LatLngProjection::PlateCaree(projection) => {
-                let minmax_lat = projection.latitudes.clone().minmax();
-                let (min_lat, max_lat) = minmax_lat.into_option().unwrap();
-                let minmax_lng = projection.longitudes.clone().minmax();
-                let (min_lng, max_lng) = minmax_lng.into_option().unwrap();
-                (min_lng, min_lat, max_lng, max_lat)
-            }
-            LatLngProjection::LambertConformal(_) => {
+            LatLngProjection::PlateCaree(_) | LatLngProjection::LambertConformal(_) => {
+                // Use lat_lng() to get normalized coordinates
                 let (lat, lng) = self.lat_lng();
                 let (min_lat, max_lat) = lat.into_iter().minmax().into_option().unwrap();
                 let (min_lng, max_lng) = lng.into_iter().minmax().into_option().unwrap();
@@ -215,12 +237,44 @@ mod tests {
 
     #[test]
     fn test_start_end_regular_grid() {
-        let start = 0.0; 
-        let step = 0.25; 
+        let start = 0.0;
+        let step = 0.25;
         let end = 359.75;
-        let count = 1440; 
+        let count = 1440;
 
         let iter = super::RegularCoordinateIterator::new(start, step, count);
         assert!((iter.end - end).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_wrapped_longitude_grid() {
+        // Test ECMWF-style grid that starts at 180° and wraps around the globe
+        // Grid: 180°, 180.25°, ..., 359.75°, 0°, 0.25°, ..., 179.75°
+        let latitudes = super::RegularCoordinateIterator::new(90.0, -0.25, 721);
+        let longitudes = super::RegularCoordinateIterator::new(180.0, 0.25, 1440);
+        let projection = super::LatLngProjection::PlateCaree(crate::utils::iter::projection::PlateCareeProjection {
+            latitudes,
+            longitudes,
+            projection_name: "latlon".into(),
+            projection_params: HashMap::from([("a".into(), 6367470.), ("b".into(), 6367470.)]),
+        });
+
+        let (lats, lngs) = projection.lat_lng();
+
+        // Check latitudes are correct
+        assert_eq!(lats.len(), 721);
+        assert!((lats[0] - 90.0).abs() < f64::EPSILON);
+        assert!((lats[720] - (-90.0)).abs() < f64::EPSILON);
+
+        // Check longitudes are normalized
+        assert_eq!(lngs.len(), 1440);
+        assert!((lngs[0] - 180.0).abs() < f64::EPSILON);  // Starts at 180
+        assert!((lngs[720] - 0.0).abs() < f64::EPSILON);   // Wraps to 0 at index 720
+        assert!((lngs[1439] - 179.75).abs() < f64::EPSILON); // Ends at 179.75
+
+        // All longitudes should be in [0, 360) range
+        for lng in &lngs {
+            assert!(*lng >= 0.0 && *lng < 360.0, "Longitude {} out of range", lng);
+        }
     }
 }

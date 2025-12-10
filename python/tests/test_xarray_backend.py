@@ -142,3 +142,85 @@ def test_variable_naming_without_redundant_prefix():
             # Check the second part isn't just an uppercase version of the first
             assert parts[1].lower() != parts[0], \
                 f"Variable name '{var_name}' has redundant prefix"
+
+
+def test_longitude_normalization_grib2():
+    """Test that longitude values are correctly normalized for global GRIB2 grids.
+
+    This validates the fix for longitude wrapping - all longitude values should
+    be in a valid range [0, 360) for global grids.
+    """
+    import numpy as np
+
+    ds = xr.open_dataset(
+        "./../gribberish/tests/data/geavg.t12z.pgrb2a.0p50.f000",
+        engine="gribberish"
+    )
+
+    # Get longitude coordinate
+    lons = ds.longitude.values
+
+    # Verify longitude dimensions (720 points at 0.5° resolution)
+    assert len(lons) == 720, f"Expected 720 longitude points, got {len(lons)}"
+
+    # Verify longitude range (0 to 359.5 at 0.5° steps)
+    assert np.abs(lons[0] - 0.0) < 0.001, f"First longitude should be 0°, got {lons[0]}"
+    assert np.abs(lons[-1] - 359.5) < 0.001, f"Last longitude should be 359.5°, got {lons[-1]}"
+
+    # All longitudes should be in valid range [0, 360)
+    assert np.all(lons >= 0.0), "All longitudes should be >= 0"
+    assert np.all(lons < 360.0), "All longitudes should be < 360"
+
+    # Verify monotonic increase (for grids starting at 0°)
+    assert np.all(np.diff(lons) > 0), "Longitudes should be monotonically increasing"
+
+
+def test_longitude_normalization_grib1():
+    """Test that longitude values are correctly normalized for GRIB1 grids.
+
+    This validates the fix for longitude wrapping on GRIB1 files (ERA5).
+    """
+    import numpy as np
+
+    ds = xr.open_dataset(
+        "./../gribberish/tests/data/era5-levels-members.grib",
+        engine="gribberish"
+    )
+
+    # Get longitude coordinate
+    lons = ds.longitude.values
+
+    # Verify longitude dimensions (120 points at 3° resolution)
+    assert len(lons) == 120, f"Expected 120 longitude points, got {len(lons)}"
+
+    # Verify longitude range (0 to 357 at 3° steps)
+    assert np.abs(lons[0] - 0.0) < 0.001, f"First longitude should be 0°, got {lons[0]}"
+    assert np.abs(lons[-1] - 357.0) < 0.001, f"Last longitude should be 357°, got {lons[-1]}"
+
+    # All longitudes should be in valid range [0, 360)
+    assert np.all(lons >= 0.0), "All longitudes should be >= 0"
+    assert np.all(lons < 360.0), "All longitudes should be < 360"
+
+
+def test_latitude_values():
+    """Test that latitude values are correct for global grids."""
+    import numpy as np
+
+    ds = xr.open_dataset(
+        "./../gribberish/tests/data/geavg.t12z.pgrb2a.0p50.f000",
+        engine="gribberish"
+    )
+
+    # Get latitude coordinate
+    lats = ds.latitude.values
+
+    # Verify latitude dimensions (361 points at 0.5° resolution from 90 to -90)
+    assert len(lats) == 361, f"Expected 361 latitude points, got {len(lats)}"
+
+    # Verify latitude range (90 to -90)
+    assert np.abs(lats[0] - 90.0) < 0.001, f"First latitude should be 90°, got {lats[0]}"
+    assert np.abs(lats[-1] - (-90.0)) < 0.001, f"Last latitude should be -90°, got {lats[-1]}"
+
+    # All latitudes should be in valid range [-90, 90]
+    assert np.all(lats >= -90.0), "All latitudes should be >= -90"
+    assert np.all(lats <= 90.0), "All latitudes should be <= 90"
