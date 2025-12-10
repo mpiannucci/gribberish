@@ -425,6 +425,66 @@ pub fn parse_grib_dataset<'py>(
         }
     }
 
+    // Ensemble member dims
+    let mut member_map = HashMap::new();
+    let mut member_dim_map: HashMap<String, Vec<String>> = HashMap::new();
+    for (var, v) in var_mapping.iter() {
+        let mut members = HashSet::new();
+        for k in v.iter() {
+            if let Some(perturbation_number) = mapping.get(k).unwrap().2.perturbation_number {
+                members.insert(perturbation_number);
+            }
+        }
+
+        if members.is_empty() {
+            continue;
+        }
+
+        let mut members = members.into_iter().collect::<Vec<_>>();
+        members.sort();
+
+        let member_key: String = members
+            .iter()
+            .map(|m| m.to_string())
+            .collect::<Vec<_>>()
+            .join("_");
+
+        if member_dim_map.contains_key(&member_key) {
+            member_dim_map.get_mut(&member_key).unwrap().push(var.clone());
+        } else {
+            member_dim_map.insert(member_key.clone(), vec![var.clone()]);
+        }
+        member_map.insert(member_key, members);
+    }
+
+    let mut member_index = 0;
+    for (member_key, members) in member_map.iter() {
+        let name = if member_map.len() == 1 || member_index == 0 {
+            "number".to_string()
+        } else {
+            format!("number_{member_index}")
+        };
+        member_index += 1;
+
+        let members_i64 = members.iter().map(|m| *m as i64).collect::<Vec<_>>();
+        let members_array = PyArray1::from_vec(py, members_i64);
+
+        member_dim_map[member_key].iter().for_each(|v: &String| {
+            var_dims.get_mut(v).unwrap().push(name.clone());
+            var_shape.get_mut(v).unwrap().push(members.len());
+        });
+
+        let member = PyDict::new(py);
+        let member_metadata = PyDict::new(py);
+        member_metadata.set_item("standard_name", "realization").unwrap();
+        member_metadata.set_item("long_name", "ensemble member").unwrap();
+        member_metadata.set_item("axis", "E").unwrap();
+        member.set_item("values", members_array).unwrap();
+        member.set_item("attrs", member_metadata).unwrap();
+        member.set_item("dims", vec![name.clone()]).unwrap();
+        coords.set_item(name, member).unwrap();
+    }
+
     // Lastly the spatial coords
     let latitude = PyDict::new(py);
     let latitude_metadata = PyDict::new(py);
@@ -681,10 +741,12 @@ pub fn parse_grib_dataset<'py>(
             (
                 a.2.forecast_date,
                 a.2.first_fixed_surface_value.unwrap_or(0.0),
+                a.2.perturbation_number.unwrap_or(0),
             )
                 .partial_cmp(&(
                     b.2.forecast_date,
                     b.2.first_fixed_surface_value.unwrap_or(0.0),
+                    b.2.perturbation_number.unwrap_or(0),
                 ))
                 .unwrap()
         });

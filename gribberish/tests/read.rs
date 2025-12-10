@@ -454,3 +454,81 @@ fn test_iterator_scans_past_padding() {
         "Expected 16 unique keys (2 vars x 4 times x 2 levels)"
     );
 }
+
+#[test]
+fn test_longitude_normalization() {
+    // Test that longitude values are correctly computed and normalized for global grids
+    // This validates the fix for longitude wrapping in the projection code
+
+    // Test with geavg (GRIB2) - 0.5° global grid starting at 0°
+    let grib_data = read_grib_messages("tests/data/geavg.t12z.pgrb2a.0p50.f000");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    assert!(!messages.is_empty(), "Expected at least one message");
+
+    let msg = &messages[0];
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+    let (lats, lngs) = projector.lat_lng();
+
+    // Verify grid dimensions
+    assert_eq!(lats.len(), 361, "Expected 361 latitude points");
+    assert_eq!(lngs.len(), 720, "Expected 720 longitude points");
+
+    // Verify latitude range (90 to -90)
+    assert!((lats[0] - 90.0).abs() < 0.001, "First latitude should be 90°");
+    assert!((lats[360] - (-90.0)).abs() < 0.001, "Last latitude should be -90°");
+
+    // Verify longitude range (0 to 359.5)
+    assert!((lngs[0] - 0.0).abs() < 0.001, "First longitude should be 0°");
+    assert!((lngs[719] - 359.5).abs() < 0.001, "Last longitude should be 359.5°");
+
+    // All longitudes should be in valid range [0, 360)
+    for (i, lng) in lngs.iter().enumerate() {
+        assert!(
+            *lng >= 0.0 && *lng < 360.0,
+            "Longitude[{}] = {} is out of valid range [0, 360)",
+            i, lng
+        );
+    }
+
+    // Verify monotonic increase in longitude (no wrapping issues for this grid)
+    for i in 1..lngs.len() {
+        assert!(
+            lngs[i] > lngs[i-1],
+            "Longitudes should be monotonically increasing: lng[{}]={} > lng[{}]={}",
+            i, lngs[i], i-1, lngs[i-1]
+        );
+    }
+}
+
+#[test]
+fn test_longitude_normalization_era5_grib1() {
+    // Test longitude normalization for GRIB1 ERA5 file
+    let grib_data = read_grib_messages("tests/data/era5-levels-members.grib");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    assert!(!messages.is_empty(), "Expected at least one message");
+
+    let msg = &messages[0];
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+    let (lats, lngs) = projector.lat_lng();
+
+    // Verify grid dimensions (61 lat x 120 lon at 3° resolution)
+    assert_eq!(lats.len(), 61, "Expected 61 latitude points");
+    assert_eq!(lngs.len(), 120, "Expected 120 longitude points");
+
+    // Verify latitude range (90 to -90)
+    assert!((lats[0] - 90.0).abs() < 0.001, "First latitude should be 90°");
+    assert!((lats[60] - (-90.0)).abs() < 0.001, "Last latitude should be -90°");
+
+    // Verify longitude range (0 to 357 at 3° steps)
+    assert!((lngs[0] - 0.0).abs() < 0.001, "First longitude should be 0°");
+    assert!((lngs[119] - 357.0).abs() < 0.001, "Last longitude should be 357°");
+
+    // All longitudes should be in valid range [0, 360)
+    for (i, lng) in lngs.iter().enumerate() {
+        assert!(
+            *lng >= 0.0 && *lng < 360.0,
+            "Longitude[{}] = {} is out of valid range [0, 360)",
+            i, lng
+        );
+    }
+}
