@@ -11,17 +11,24 @@ pub struct Grib1Parameter {
     pub units: &'static str,
 }
 
-/// Get parameter information for a given center and parameter number
-pub fn get_parameter(center_id: u8, parameter: u8) -> Option<Grib1Parameter> {
+/// Get parameter information for a given center, table version, and parameter number
+pub fn get_parameter(center_id: u8, table_version: u8, parameter: u8) -> Option<Grib1Parameter> {
     match center_id {
-        98 => get_ecmwf_parameter(parameter),  // ECMWF
-        7 => get_ncep_parameter(parameter),     // NCEP
+        98 => {
+            // ECMWF - different parameter tables based on version
+            match table_version {
+                128 => get_ecmwf_table_128_parameter(parameter),
+                228 => get_ecmwf_table_228_parameter(parameter),
+                _ => get_ecmwf_table_128_parameter(parameter), // Default to table 128
+            }
+        }
+        7 => get_ncep_parameter(parameter), // NCEP
         _ => get_wmo_standard_parameter(parameter), // WMO standard
     }
 }
 
-/// ECMWF parameter table (center 98)
-fn get_ecmwf_parameter(parameter: u8) -> Option<Grib1Parameter> {
+/// ECMWF parameter table 128 (center 98, table version 128)
+fn get_ecmwf_table_128_parameter(parameter: u8) -> Option<Grib1Parameter> {
     let param = match parameter {
         1 => Grib1Parameter {
             number: 1,
@@ -167,6 +174,18 @@ fn get_ecmwf_parameter(parameter: u8) -> Option<Grib1Parameter> {
             name: "Snow depth",
             units: "m of water equivalent",
         },
+        142 => Grib1Parameter {
+            number: 142,
+            abbreviation: "lsp",
+            name: "Large-scale precipitation",
+            units: "m",
+        },
+        143 => Grib1Parameter {
+            number: 143,
+            abbreviation: "cp",
+            name: "Convective precipitation",
+            units: "m",
+        },
         151 => Grib1Parameter {
             number: 151,
             abbreviation: "prmsl",
@@ -202,6 +221,39 @@ fn get_ecmwf_parameter(parameter: u8) -> Option<Grib1Parameter> {
             abbreviation: "d2m",
             name: "2 metre dewpoint temperature",
             units: "K",
+        },
+        176 => Grib1Parameter {
+            number: 176,
+            abbreviation: "ssr",
+            name: "Surface net short-wave (solar) radiation",
+            units: "J m**-2",
+        },
+        _ => return None,
+    };
+
+    Some(param)
+}
+
+/// ECMWF parameter table 228 (center 98, table version 228)
+fn get_ecmwf_table_228_parameter(parameter: u8) -> Option<Grib1Parameter> {
+    let param = match parameter {
+        131 => Grib1Parameter {
+            number: 131,
+            abbreviation: "u10n",
+            name: "10 metre u-component of neutral wind",
+            units: "m s**-1",
+        },
+        246 => Grib1Parameter {
+            number: 246,
+            abbreviation: "100u",
+            name: "100 metre U wind component",
+            units: "m s**-1",
+        },
+        247 => Grib1Parameter {
+            number: 247,
+            abbreviation: "100v",
+            name: "100 metre V wind component",
+            units: "m s**-1",
         },
         _ => return None,
     };
@@ -314,12 +366,21 @@ mod tests {
 
     #[test]
     fn test_ecmwf_parameters() {
-        let param = get_parameter(98, 11).unwrap();
+        // Test table 128 parameters
+        let param = get_parameter(98, 128, 11).unwrap();
         assert_eq!(param.abbreviation, "t");
         assert_eq!(param.name, "Temperature");
 
-        let param = get_parameter(98, 131).unwrap();
+        let param = get_parameter(98, 128, 131).unwrap();
         assert_eq!(param.abbreviation, "u");
+
+        // Test table 228 parameters
+        let param = get_parameter(98, 228, 246).unwrap();
+        assert_eq!(param.abbreviation, "100u");
+        assert_eq!(param.name, "100 metre U wind component");
+
+        let param = get_parameter(98, 228, 247).unwrap();
+        assert_eq!(param.abbreviation, "100v");
     }
 
     #[test]
