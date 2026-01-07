@@ -20,10 +20,20 @@ pub struct LambertConformalConicProjection {
     pub projection_params: HashMap<String, f64>,
 }
 
+/// Projection for Gaussian grids (irregular latitudes, regular longitudes)
+#[derive(Clone, Debug)]
+pub struct GaussianProjection {
+    pub latitudes: IrregularCoordinateIterator,
+    pub longitudes: RegularCoordinateIterator,
+    pub projection_name: String,
+    pub projection_params: HashMap<String, f64>,
+}
+
 #[derive(Clone, Debug)]
 pub enum LatLngProjection {
     PlateCaree(PlateCareeProjection),
     LambertConformal(LambertConformalConicProjection),
+    Gaussian(GaussianProjection),
 }
 
 impl LatLngProjection {
@@ -31,6 +41,7 @@ impl LatLngProjection {
         match self {
             LatLngProjection::PlateCaree(_) => true,
             LatLngProjection::LambertConformal(_) => false,
+            LatLngProjection::Gaussian(_) => false,
         }
     }
 
@@ -71,6 +82,10 @@ impl LatLngProjection {
                         .collect::<Vec<(f64, f64)>>()
                 })
                 .unzip(),
+            LatLngProjection::Gaussian(projection) => (
+                projection.latitudes.clone().collect(),
+                projection.longitudes.clone().collect(),
+            ),
         }
     }
 
@@ -92,6 +107,7 @@ impl LatLngProjection {
                     .collect()
             }
             LatLngProjection::LambertConformal(projection) => projection.x.clone().collect(),
+            LatLngProjection::Gaussian(projection) => projection.longitudes.clone().collect(),
         }
     }
 
@@ -99,6 +115,7 @@ impl LatLngProjection {
         match self {
             LatLngProjection::PlateCaree(projection) => projection.latitudes.clone().collect(),
             LatLngProjection::LambertConformal(projection) => projection.y.clone().collect(),
+            LatLngProjection::Gaussian(projection) => projection.latitudes.clone().collect(),
         }
     }
 
@@ -109,6 +126,7 @@ impl LatLngProjection {
                 let projected = projection.projection.project(x, y).unwrap();
                 (projected.1, projected.0)
             }
+            LatLngProjection::Gaussian(_) => (x, y),
         }
     }
 
@@ -119,6 +137,7 @@ impl LatLngProjection {
                 let projected = projection.projection.inverse_project(lng, lat).unwrap();
                 (projected.1, projected.0)
             }
+            LatLngProjection::Gaussian(_) => (lng, lat),
         }
     }
 
@@ -131,6 +150,13 @@ impl LatLngProjection {
                 let (min_lng, max_lng) = lng.into_iter().minmax().into_option().unwrap();
                 (min_lng, min_lat, max_lng, max_lat)
             }
+            LatLngProjection::Gaussian(projection) => {
+                let minmax_lat = projection.latitudes.clone().minmax();
+                let (min_lat, max_lat) = minmax_lat.into_option().unwrap();
+                let minmax_lng = projection.longitudes.clone().minmax();
+                let (min_lng, max_lng) = minmax_lng.into_option().unwrap();
+                (min_lng, min_lat, max_lng, max_lat)
+            }
         }
     }
 
@@ -139,6 +165,10 @@ impl LatLngProjection {
             LatLngProjection::PlateCaree(projection) => (projection.latitudes.start, projection.longitudes.start),
             LatLngProjection::LambertConformal(projection) => {
                 self.project_xy(projection.x.start, projection.y.start)
+            },
+            LatLngProjection::Gaussian(projection) => {
+                let first_lat = projection.latitudes.values().first().copied().unwrap_or(0.0);
+                (first_lat, projection.longitudes.start)
             },
         }
     }
@@ -149,6 +179,10 @@ impl LatLngProjection {
             LatLngProjection::LambertConformal(projection) => {
                 self.project_xy(projection.x.end, projection.y.end)
             },
+            LatLngProjection::Gaussian(projection) => {
+                let last_lat = projection.latitudes.values().last().copied().unwrap_or(0.0);
+                (last_lat, projection.longitudes.end)
+            },
         }
     }
 
@@ -156,6 +190,7 @@ impl LatLngProjection {
         match self {
             LatLngProjection::PlateCaree(projection) => projection.projection_name.clone(),
             LatLngProjection::LambertConformal(projection) => projection.projection_name.clone(),
+            LatLngProjection::Gaussian(projection) => projection.projection_name.clone(),
         }
     }
 
@@ -163,17 +198,18 @@ impl LatLngProjection {
         match self {
             LatLngProjection::PlateCaree(projection) => projection.projection_params.clone(),
             LatLngProjection::LambertConformal(projection) => projection.projection_params.clone(),
+            LatLngProjection::Gaussian(projection) => projection.projection_params.clone(),
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct RegularCoordinateIterator {
-    start: f64,
-    step: f64,
-    end: f64,
-    current_index: usize,
-    count: usize,
+    pub start: f64,
+    pub step: f64,
+    pub end: f64,
+    pub current_index: usize,
+    pub count: usize,
 }
 
 impl RegularCoordinateIterator {
@@ -204,6 +240,47 @@ impl Iterator for RegularCoordinateIterator {
         self.current_index += 1;
 
         Some(coordinate)
+    }
+}
+
+/// Iterator for irregularly-spaced coordinates (e.g., Gaussian latitudes)
+#[derive(Clone, Debug)]
+pub struct IrregularCoordinateIterator {
+    values: Vec<f64>,
+    current_index: usize,
+}
+
+impl IrregularCoordinateIterator {
+    pub fn new(values: Vec<f64>) -> Self {
+        Self {
+            values,
+            current_index: 0,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    pub fn values(&self) -> &[f64] {
+        &self.values
+    }
+}
+
+impl Iterator for IrregularCoordinateIterator {
+    type Item = f64;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_index >= self.values.len() {
+            return None;
+        }
+
+        let value = self.values[self.current_index];
+        self.current_index += 1;
+        Some(value)
     }
 }
 
