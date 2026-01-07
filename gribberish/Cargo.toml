@@ -1,6 +1,6 @@
 [package]
 name = "gribberish"
-version = "0.26.0"
+version = "0.27.1"
 authors = ["Matthew Iannucci <mpiannucci@gmail.com>"]
 description = "Parse grib 2 files with Rust"
 edition = "2021"
@@ -11,8 +11,8 @@ categories = ["science", "encoding", "compression"]
 exclude = ["tests"]
 
 [dependencies]
-gribberish-types = { path = "../types", version = "0.26.0" }
-gribberish-macros = { path = "../macros", version = "0.26.0" }
+gribberish-types = { path = "../types", version = "0.27.1" }
+gribberish-macros = { path = "../macros", version = "0.27.1" }
 chrono = "0.4"
 openjpeg-sys = { version = "1.0.3", optional = true }
 png = { version = "0.17.2", optional = true }

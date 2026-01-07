@@ -145,7 +145,17 @@ impl LatLngTemplate {
         let longitude_start = self.start_longitude();
         let longitude_step = self.i_direction_increment();
         (0..self.x_count())
-            .map(|i| longitude_start + i as f64 * longitude_step)
+            .map(|i| {
+                let mut lon = longitude_start + i as f64 * longitude_step;
+                // Normalize to 0..360 range for grids that wrap around the globe
+                // (consistent with GRIB1 handling in grid_description.rs)
+                if lon >= 360.0 {
+                    lon -= 360.0;
+                } else if lon < 0.0 && longitude_start >= 0.0 {
+                    lon += 360.0;
+                }
+                lon
+            })
             .collect()
     }
 

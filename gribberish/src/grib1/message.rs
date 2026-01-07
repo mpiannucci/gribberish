@@ -117,9 +117,10 @@ impl Grib1Message {
     /// Get parameter information
     pub fn parameter(&self) -> Option<(String, String, String)> {
         let center = self.pds.center_id();
+        let table_version = self.pds.parameter_table_version();
         let param_num = self.pds.parameter();
 
-        get_parameter(center, param_num).map(|p| {
+        get_parameter(center, table_version, param_num).map(|p| {
             (
                 p.abbreviation.to_string(),
                 p.name.to_string(),
