@@ -1,6 +1,6 @@
 [package]
 name = "gribberish-macros"
-version = "0.27.1"
+version = "0.27.2"
 authors = ["Matthew Iannucci <mpiannucci@gmail.com>"]
 description = "Procedural macros for the gribberish crate"
 edition = "2021"
@@ -10,7 +10,7 @@ repository = "https://github.com/mpiannucci/gribberish"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gribberish-types = { path = "./../types", version = "0.27.1" }
+gribberish-types = { path = "./../types", version = "0.27.2" }
 syn = { version = "1.0", features = ["full"] }
 quote = "1.0"
 
