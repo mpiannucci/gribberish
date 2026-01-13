@@ -47,8 +47,8 @@ class GribberishCodec(ArrayBytesCodec):
         else:
             data: NDArrayLike = parse_grib_array(chunk_bytes, 0)
 
-        if chunk_spec.dtype != data.dtype:
-            data = data.astype(chunk_spec.dtype)
+        if (native_dtype := chunk_spec.dtype.to_native_dtype()) != data.dtype:
+            data = data.astype(native_dtype)
         if data.shape != chunk_spec.shape:
             data = data.reshape(chunk_spec.shape)
 

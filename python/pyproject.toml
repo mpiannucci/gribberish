@@ -17,11 +17,11 @@ dependencies = ["numpy >= 2"]
 [project.optional-dependencies]
 xarray = ["xarray", "fsspec"]
 kerchunk = ["kerchunk", "zarr", "numcodecs", "fsspec"]
-zarr = ["zarr>3.0.0"]
+zarr = ["zarr>=3.1.1"]
 dev = [
     "matplotlib",
     "cf_xarray",
-    "zarr",
+    "zarr>=3.1.1",
     "numcodecs",
     "fsspec",
     "ujson",
