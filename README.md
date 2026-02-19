@@ -1,6 +1,6 @@
 # gribberish
 
-Read [GRIB 2](https://en.wikipedia.org/wiki/GRIB) files with Rust.
+Read [GRIB1 and GRIB2](https://en.wikipedia.org/wiki/GRIB) files with Rust.
 
 See [`gribberish`](gribberish/README.md) for the core library
 
