@@ -1,3 +1,6 @@
+use crate::utils::convert::{
+    read_grib1_sign_magnitude_i16_from_bytes, read_u16_from_bytes, read_u24_from_bytes,
+};
 /// GRIB1 Product Definition Section (Section 1)
 ///
 /// The PDS contains metadata about the data field:
@@ -5,9 +8,7 @@
 /// - Level information
 /// - Time information
 /// - Center and process IDs
-
 use chrono::{DateTime, Duration, TimeZone, Utc};
-use crate::utils::convert::{read_u16_from_bytes, read_u24_from_bytes};
 
 #[derive(Debug, Clone)]
 pub struct Grib1ProductDefinitionSection {
@@ -133,7 +134,12 @@ impl Grib1ProductDefinitionSection {
 
         Utc.with_ymd_and_hms(year, month, day, hour, minute, 0)
             .single()
-            .ok_or_else(|| format!("Invalid date/time: {}-{:02}-{:02} {:02}:{:02}", year, month, day, hour, minute))
+            .ok_or_else(|| {
+                format!(
+                    "Invalid date/time: {}-{:02}-{:02} {:02}:{:02}",
+                    year, month, day, hour, minute
+                )
+            })
     }
 
     /// Get forecast time unit indicator
@@ -203,9 +209,7 @@ impl Grib1ProductDefinitionSection {
     /// Get decimal scale factor
     pub fn decimal_scale_factor(&self) -> i16 {
         if self.length() >= 28 {
-            read_u16_from_bytes(&self.data, 26)
-                .map(|v| v as i16)
-                .unwrap_or(0)
+            read_grib1_sign_magnitude_i16_from_bytes(&self.data, 26).unwrap_or(0)
         } else {
             0
         }
@@ -221,19 +225,19 @@ mod tests {
         // Create a minimal PDS (28 bytes)
         let mut data = vec![0u8; 28];
         data[0..3].copy_from_slice(&[0x00, 0x00, 0x1c]); // Length = 28
-        data[3] = 3;    // Table version
-        data[4] = 98;   // Center (ECMWF)
-        data[8] = 11;   // Parameter (temperature)
-        data[9] = 100;  // Level type (isobaric)
-        data[10] = 2;   // Level high byte
+        data[3] = 3; // Table version
+        data[4] = 98; // Center (ECMWF)
+        data[8] = 11; // Parameter (temperature)
+        data[9] = 100; // Level type (isobaric)
+        data[10] = 2; // Level high byte
         data[11] = 0x32; // Level low byte (500 hPa)
-        data[12] = 23;  // Year 2023
-        data[13] = 11;  // November
-        data[14] = 4;   // 4th
-        data[15] = 12;  // 12:00
-        data[16] = 0;   // :00
-        data[17] = 1;   // Hours
-        data[18] = 6;   // P1 = 6 hours
+        data[12] = 23; // Year 2023
+        data[13] = 11; // November
+        data[14] = 4; // 4th
+        data[15] = 12; // 12:00
+        data[16] = 0; // :00
+        data[17] = 1; // Hours
+        data[18] = 6; // P1 = 6 hours
 
         let pds = Grib1ProductDefinitionSection::from_data(&data).unwrap();
 

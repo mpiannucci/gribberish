@@ -68,7 +68,7 @@ class GribberishBackend(BackendEntrypoint):
             _, ext = os.path.splitext(filename_or_obj)
         except TypeError:
             return False
-        return ext in [".grib", ".grib2"]
+        return ext.lower() in [".grib", ".grib1", ".grib2"]
 
 
 class GribberishBackendArray(BackendArray):

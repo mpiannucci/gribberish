@@ -1,9 +1,17 @@
-
 pub fn read_u16_from_bytes(data: &[u8], offset: usize) -> Option<u16> {
     match data[offset..offset + 2].try_into() {
         Ok(b) => Some(u16::from_be_bytes(b)),
         Err(_) => None,
     }
+}
+
+/// Read a GRIB1 signed 16-bit value encoded as sign-magnitude.
+/// Bit 1 is sign and bits 2-16 are magnitude (WMO GRIB1 convention).
+pub fn read_grib1_sign_magnitude_i16_from_bytes(data: &[u8], offset: usize) -> Option<i16> {
+    let raw = read_u16_from_bytes(data, offset)?;
+    let sign = (raw & 0x8000) != 0;
+    let magnitude = (raw & 0x7FFF) as i16;
+    Some(if sign { -magnitude } else { magnitude })
 }
 
 pub fn read_u24_from_bytes(data: &[u8], offset: usize) -> Option<u32> {

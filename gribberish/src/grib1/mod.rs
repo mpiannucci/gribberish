@@ -1,3 +1,7 @@
+pub mod binary_data;
+pub mod bitmap;
+pub mod ecmwf_table_128;
+pub mod grid_description;
 /// GRIB1 format support
 ///
 /// This module provides native Rust parsing for GRIB Edition 1 files.
@@ -10,13 +14,9 @@
 /// - Section 3: Bitmap Section (BMS) - optional
 /// - Section 4: Binary Data Section (BDS)
 /// - Section 5: End Section ('7777')
-
 pub mod indicator;
-pub mod product_definition;
-pub mod grid_description;
-pub mod bitmap;
-pub mod binary_data;
 pub mod message;
 pub mod parameters;
+pub mod product_definition;
 
 pub use message::Grib1Message;

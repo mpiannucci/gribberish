@@ -1,7 +1,6 @@
 /// GRIB1 Message
 ///
 /// Represents a complete GRIB1 message with all sections.
-
 use super::{
     binary_data::Grib1BinaryDataSection,
     bitmap::Grib1BitmapSection,
@@ -18,7 +17,7 @@ pub struct Grib1Message {
     grid: Option<Grib1Grid>,
     bitmap: Option<Grib1BitmapSection>,
     bds: Grib1BinaryDataSection,
-    _data_offset: usize, // Offset in original file (reserved for future use)
+    _data_offset: usize,   // Offset in original file (reserved for future use)
     message_length: usize, // Store message length directly
 }
 
@@ -139,6 +138,14 @@ impl Grib1Message {
                 // Isobaric - value is in hPa
                 self.pds.level_value() as f64
             }
+            111 => {
+                // Depth below surface: first level byte is the level value.
+                self.pds.level_1() as f64
+            }
+            112 => {
+                // Layer between depths: use top-of-layer for primary value.
+                self.pds.level_1() as f64
+            }
             103 | 105 => {
                 // Fixed height above ground - value is in meters
                 self.pds.level_value() as f64
@@ -158,10 +165,7 @@ impl Grib1Message {
 
     /// Get grid dimensions
     pub fn grid_shape(&self) -> (usize, usize) {
-        self.grid
-            .as_ref()
-            .map(|g| g.dimensions())
-            .unwrap_or((0, 0))
+        self.grid.as_ref().map(|g| g.dimensions()).unwrap_or((0, 0))
     }
 
     /// Get a reference to the grid description

@@ -283,15 +283,13 @@ impl<'a> Message<'a> {
     pub fn discipline(&self) -> Result<Discipline, GribberishError> {
         match self {
             Message::Grib1 { .. } => Ok(Discipline::Meteorological),
-            Message::Grib2 { .. } => {
-                match self.sections().next().unwrap() {
-                    Section::Indicator(indicator) => Ok(indicator.discipline()),
-                    _ => Err(GribberishError::MessageError(
-                        "Indicator section not found when reading discipline".into(),
-                    )),
-                }
-                .clone()
+            Message::Grib2 { .. } => match self.sections().next().unwrap() {
+                Section::Indicator(indicator) => Ok(indicator.discipline()),
+                _ => Err(GribberishError::MessageError(
+                    "Indicator section not found when reading discipline".into(),
+                )),
             }
+            .clone(),
         }
     }
 
@@ -494,7 +492,8 @@ impl<'a> Message<'a> {
             Message::Grib2 { .. } => {
                 let reference_date = unwrap_or_return!(
                     self.sections().find_map(|s| match s {
-                        Section::Identification(identification) => Some(identification.reference_date()),
+                        Section::Identification(identification) =>
+                            Some(identification.reference_date()),
                         _ => None,
                     }),
                     GribberishError::MessageError(
@@ -636,10 +635,14 @@ impl<'a> Message<'a> {
                     "surface" => FixedSurfaceType::GroundOrWater,
                     "isobaric" => FixedSurfaceType::IsobaricSurface,
                     "fixed_height" => FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel,
-                    "fixed_height_above_ground" => FixedSurfaceType::SpecifiedHeightLevelAboveGround,
+                    "fixed_height_above_ground" => {
+                        FixedSurfaceType::SpecifiedHeightLevelAboveGround
+                    }
                     "mean_sea_level" => FixedSurfaceType::MeanSeaLevel,
                     "sigma" => FixedSurfaceType::SigmaLevel,
                     "hybrid" => FixedSurfaceType::HybridLevel,
+                    "depth_below_surface" => FixedSurfaceType::DepthBelowLandSurface,
+                    "layer_between_depths" => FixedSurfaceType::DepthBelowLandSurface,
                     "isotherm_zero" => FixedSurfaceType::ZeroDegreeIsotherm,
                     "cloud_base" => FixedSurfaceType::CloudBase,
                     "cloud_top" => FixedSurfaceType::CloudTop,
@@ -786,9 +789,9 @@ impl<'a> Message<'a> {
 
     pub fn data(&self) -> Result<Vec<f64>, GribberishError> {
         match self {
-            Message::Grib1 { message, .. } => message
-                .data()
-                .map_err(|e| GribberishError::MessageError(e)),
+            Message::Grib1 { message, .. } => {
+                message.data().map_err(|e| GribberishError::MessageError(e))
+            }
             Message::Grib2 { .. } => {
                 let data_section = unwrap_or_return!(
                     self.sections().find_map(|s| match s {
