@@ -2,8 +2,9 @@
 ///
 /// The BDS contains the actual packed data values.
 /// This implementation handles simple packing (most common).
-
-use crate::utils::convert::{read_ibm_f32_from_bytes, read_u24_from_bytes};
+use crate::utils::convert::{
+    read_grib1_sign_magnitude_i16_from_bytes, read_ibm_f32_from_bytes, read_u24_from_bytes,
+};
 
 #[derive(Debug, Clone)]
 pub struct Grib1BinaryDataSection {
@@ -53,20 +54,8 @@ impl Grib1BinaryDataSection {
 
     /// Get binary scale factor (E)
     pub fn binary_scale_factor(&self) -> i16 {
-        // When flag 0x08 is set, ECMWF uses a different encoding for the scale factor
-        // Byte 4 bit 7 is the sign, bytes 4-5 (excluding bit 7) contain the magnitude
-        if (self.flags() & 0x08) != 0 {
-            let sign = (self.data[4] & 0x80) != 0;
-            let magnitude = (((self.data[4] & 0x7F) as i16) << 8) | (self.data[5] as i16);
-            if sign {
-                -magnitude
-            } else {
-                magnitude
-            }
-        } else {
-            // Standard GRIB1: signed 16-bit integer
-            i16::from_be_bytes([self.data[4], self.data[5]])
-        }
+        // GRIB1 uses sign-magnitude encoding for signed scale factors.
+        read_grib1_sign_magnitude_i16_from_bytes(&self.data, 4).unwrap_or(0)
     }
 
     /// Get reference value (R) - stored in IBM floating point format in GRIB1
@@ -80,7 +69,11 @@ impl Grib1BinaryDataSection {
     }
 
     /// Unpack data values
-    pub fn unpack_data(&self, num_values: usize, bitmap: Option<&[bool]>) -> Result<Vec<f64>, String> {
+    pub fn unpack_data(
+        &self,
+        num_values: usize,
+        bitmap: Option<&[bool]>,
+    ) -> Result<Vec<f64>, String> {
         if self.is_spherical_harmonics() || self.is_complex_packing() {
             return Err("Complex/spherical packing not yet supported".to_string());
         }
@@ -241,6 +234,18 @@ mod tests {
     }
 
     #[test]
+    fn test_binary_scale_sign_magnitude_negative() {
+        let mut data = vec![0u8; 20];
+        data[0..3].copy_from_slice(&[0x00, 0x00, 0x14]); // Length = 20
+        data[3] = 0x00; // Flags (simple packing)
+        data[4..6].copy_from_slice(&[0x80, 0x05]); // Binary scale = -5 (sign-magnitude)
+        data[6..10].copy_from_slice(&ieee_to_ibm_bytes(0.0));
+        data[10] = 8;
+        let bds = Grib1BinaryDataSection::from_data(&data).unwrap();
+        assert_eq!(bds.binary_scale_factor(), -5);
+    }
+
+    #[test]
     fn test_simple_unpacking() {
         let mut data = vec![0u8; 14];
         data[0..3].copy_from_slice(&[0x00, 0x00, 0x0E]); // Length
@@ -248,7 +253,7 @@ mod tests {
         data[4..6].copy_from_slice(&[0x00, 0x00]); // Binary scale = 0
         data[6..10].copy_from_slice(&ieee_to_ibm_bytes(0.0)); // Reference = 0 (IBM format)
         data[10] = 8; // 8 bits per value
-        // Packed data: 1, 2, 3
+                      // Packed data: 1, 2, 3
         data[11] = 1;
         data[12] = 2;
         data[13] = 3;

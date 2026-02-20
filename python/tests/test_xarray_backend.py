@@ -1,6 +1,9 @@
 import pytest
+from pathlib import Path
 
 xr = pytest.importorskip("xarray")
+
+from gribberish.gribberish_backend import GribberishBackend
 
 
 def test_xarray_backend_gefs_ensemble():
@@ -72,6 +75,28 @@ def test_xarray_backend_era5_grib1():
     import numpy as np
     assert not np.all(data == 0), "Data should not be all zeros"
     assert not np.all(np.isnan(data)), "Data should not be all NaNs"
+
+
+def test_xarray_backend_can_open_grib1_extensions():
+    backend = GribberishBackend()
+    assert backend.guess_can_open("example.grib1")
+    assert backend.guess_can_open("example.GRIB1")
+    assert backend.guess_can_open("example.grib")
+    assert backend.guess_can_open("example.grib2")
+
+
+def test_xarray_backend_ecmwf_soil_tiny_fixture():
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "ecmwf_soil_8vars_tiny.grib1"
+    ds = xr.open_dataset(
+        str(fixture),
+        engine="gribberish",
+    )
+
+    expected = {"swvl1", "swvl2", "swvl3", "swvl4", "stl1", "stl2", "stl3", "stl4"}
+    assert expected.issubset(set(ds.data_vars.keys()))
+    for var in expected:
+        assert ds[var].values.shape[-2:] == (4, 4)
 
 
 def test_variables_at_same_level_are_separate():

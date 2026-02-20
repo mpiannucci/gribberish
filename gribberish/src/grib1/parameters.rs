@@ -2,6 +2,7 @@
 ///
 /// Maps parameter numbers to variable names and units for different centers.
 /// Starting with ECMWF (center 98) parameters.
+use super::ecmwf_table_128::ECMWF_TABLE_128;
 
 #[derive(Debug, Clone)]
 pub struct Grib1Parameter {
@@ -12,23 +13,45 @@ pub struct Grib1Parameter {
 }
 
 /// Get parameter information for a given center, table version, and parameter number
-pub fn get_parameter(center_id: u8, table_version: u8, parameter: u8) -> Option<Grib1Parameter> {
+pub fn get_parameter(center_id: u8, table2_version: u8, parameter: u8) -> Option<Grib1Parameter> {
     match center_id {
-        98 => {
-            // ECMWF - different parameter tables based on version
-            match table_version {
-                128 => get_ecmwf_table_128_parameter(parameter),
-                228 => get_ecmwf_table_228_parameter(parameter),
-                _ => get_ecmwf_table_128_parameter(parameter), // Default to table 128
-            }
-        }
-        7 => get_ncep_parameter(parameter), // NCEP
-        _ => get_wmo_standard_parameter(parameter), // WMO standard
+        98 => get_ecmwf_parameter(table2_version, parameter), // ECMWF
+        7 => get_ncep_parameter(parameter),                   // NCEP
+        _ => get_wmo_standard_parameter(parameter),           // WMO standard
     }
 }
 
-/// ECMWF parameter table 128 (center 98, table version 128)
-fn get_ecmwf_table_128_parameter(parameter: u8) -> Option<Grib1Parameter> {
+/// ECMWF parameter table dispatch (center 98)
+fn get_ecmwf_parameter(table2_version: u8, parameter: u8) -> Option<Grib1Parameter> {
+    match table2_version {
+        128 => lookup_table_parameter(ECMWF_TABLE_128, parameter)
+            .or_else(|| get_ecmwf_legacy_parameter(parameter)),
+        228 => get_ecmwf_table_228_parameter(parameter)
+            .or_else(|| get_ecmwf_legacy_parameter(parameter))
+            .or_else(|| get_wmo_standard_parameter(parameter)),
+        _ => {
+            get_ecmwf_legacy_parameter(parameter).or_else(|| get_wmo_standard_parameter(parameter))
+        }
+    }
+}
+
+fn lookup_table_parameter(
+    table: &'static [(u8, &'static str, &'static str, &'static str)],
+    parameter: u8,
+) -> Option<Grib1Parameter> {
+    table
+        .iter()
+        .find(|(number, _, _, _)| *number == parameter)
+        .map(|(number, abbreviation, name, units)| Grib1Parameter {
+            number: *number,
+            abbreviation,
+            name,
+            units,
+        })
+}
+
+/// Legacy ECMWF mapping kept for non-128 tables and fallback behavior.
+fn get_ecmwf_legacy_parameter(parameter: u8) -> Option<Grib1Parameter> {
     let param = match parameter {
         1 => Grib1Parameter {
             number: 1,
@@ -257,7 +280,6 @@ fn get_ecmwf_table_228_parameter(parameter: u8) -> Option<Grib1Parameter> {
         },
         _ => return None,
     };
-
     Some(param)
 }
 
@@ -366,8 +388,7 @@ mod tests {
 
     #[test]
     fn test_ecmwf_parameters() {
-        // Test table 128 parameters
-        let param = get_parameter(98, 128, 11).unwrap();
+        let param = get_parameter(98, 128, 130).unwrap();
         assert_eq!(param.abbreviation, "t");
         assert_eq!(param.name, "Temperature");
 
@@ -381,6 +402,25 @@ mod tests {
 
         let param = get_parameter(98, 228, 247).unwrap();
         assert_eq!(param.abbreviation, "100v");
+    }
+
+    #[test]
+    fn test_ecmwf_table_128_soil_parameters() {
+        let stl1 = get_parameter(98, 128, 139).unwrap();
+        assert_eq!(stl1.abbreviation, "stl1");
+        let swvl1 = get_parameter(98, 128, 39).unwrap();
+        assert_eq!(swvl1.abbreviation, "swvl1");
+    }
+
+    #[test]
+    fn test_ecmwf_non_128_legacy_mappings_preserved() {
+        let param = get_parameter(98, 129, 165).unwrap();
+        assert_eq!(param.abbreviation, "u10");
+    }
+
+    #[test]
+    fn test_ecmwf_table_128_entry_count() {
+        assert_eq!(ECMWF_TABLE_128.len(), 209);
     }
 
     #[test]

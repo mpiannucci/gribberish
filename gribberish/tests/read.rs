@@ -402,19 +402,12 @@ fn read_grib1_era5_levels_members() {
 
     // Validate key format
     let key = msg_0.key().unwrap();
-    assert_eq!(
-        key,
-        "z:201701010000:500 in mb:forecast",
-        "Message 0 key"
-    );
+    assert_eq!(key, "z:201701010000:500 in mb:forecast", "Message 0 key");
 
     // Validate data at multiple points
     let data_0 = msg_0.data().unwrap();
     assert_eq!(data_0.len(), 7320, "Message 0 data length");
-    assert!(
-        (data_0[0] - 51169.703125).abs() < 0.01,
-        "Message 0 data[0]"
-    );
+    assert!((data_0[0] - 51169.703125).abs() < 0.01, "Message 0 data[0]");
     assert!(
         (data_0[100] - 51169.703125).abs() < 0.01,
         "Message 0 data[100]"
@@ -423,7 +416,41 @@ fn read_grib1_era5_levels_members() {
         (data_0[1000] - 49097.703125).abs() < 0.01,
         "Message 0 data[1000]"
     );
+}
 
+#[test]
+fn read_grib1_ecmwf_table_128_soil_tiny_fixture() {
+    let grib_data = read_grib_messages("../test-data/ecmwf_soil_8vars_tiny.grib1");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    assert_eq!(
+        messages.len(),
+        8,
+        "Expected 8 messages in tiny ECMWF soil fixture"
+    );
+
+    let mut vars = std::collections::HashSet::new();
+    for message in &messages {
+        vars.insert(message.variable_abbrev().unwrap());
+        assert_eq!(
+            message.grid_dimensions().unwrap(),
+            (4, 4),
+            "Expected 4x4 tiny grid"
+        );
+        assert_eq!(
+            message.data().unwrap().len(),
+            16,
+            "Expected 16 data points per message"
+        );
+    }
+
+    let expected: std::collections::HashSet<String> = [
+        "swvl1", "swvl2", "swvl3", "swvl4", "stl1", "stl2", "stl3", "stl4",
+    ]
+    .iter()
+    .map(|v| (*v).to_string())
+    .collect();
+    assert_eq!(vars, expected, "Unexpected GRIB1 soil variable set");
 }
 
 #[test]
