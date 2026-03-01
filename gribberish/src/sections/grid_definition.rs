@@ -1,4 +1,4 @@
-use crate::{utils::{read_u16_from_bytes, read_u32_from_bytes}, templates::grid_definition::{GridDefinitionTemplate, LatLngTemplate, LambertConformalTemplate}};
+use crate::{utils::{read_u16_from_bytes, read_u32_from_bytes}, templates::grid_definition::{GridDefinitionTemplate, LatLngTemplate, LambertConformalTemplate, GaussianTemplate}};
 use gribberish_macros::{DisplayDescription, FromValue};
 use super::grib_section::GribSection;
 
@@ -59,11 +59,12 @@ impl <'a> GridDefinitionSection<'a> {
 
     pub fn grid_definition_template(&self) -> Option<Box<dyn GridDefinitionTemplate>> {
         let template_number = self.grid_definition_template_number();
-       		match template_number {
-			0 => Some(Box::new(LatLngTemplate::new(self.data.to_vec()))),
+        match template_number {
+            0 => Some(Box::new(LatLngTemplate::new(self.data.to_vec()))),
             30 => Some(Box::new(LambertConformalTemplate::new(self.data.to_vec()))),
-			_ => None,
-		}
+            40 => Some(Box::new(GaussianTemplate::new(self.data.to_vec()))),
+            _ => None,
+        }
     }
 }
 
