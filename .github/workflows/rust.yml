@@ -6,7 +6,19 @@ on:
       - main
     tags:
       - '*'
+    paths:
+      - 'gribberish/**'
+      - 'types/**'
+      - 'macros/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
   pull_request:
+    paths:
+      - 'gribberish/**'
+      - 'types/**'
+      - 'macros/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
   workflow_dispatch:
 
 permissions:

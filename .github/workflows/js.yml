@@ -12,13 +12,21 @@ on:
       - main
     tags:
       - '*'
-    paths-ignore:
-      - '**/*.md'
-      - LICENSE
-      - '**/*.gitignore'
-      - .editorconfig
-      - docs/**
+    paths:
+      - 'js/**'
+      - 'gribberish/**'
+      - 'types/**'
+      - 'macros/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
   pull_request:
+    paths:
+      - 'js/**'
+      - 'gribberish/**'
+      - 'types/**'
+      - 'macros/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
   workflow_dispatch:
 
 concurrency:
