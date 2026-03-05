@@ -1,6 +1,6 @@
 {
   "name": "@mattnucc/gribberish",
-  "version": "0.28.0",
+  "version": "0.28.1",
   "description": "Template project for writing node package with napi-rs",
   "main": "index.js",
   "repository": {
