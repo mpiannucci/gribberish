@@ -113,27 +113,24 @@ impl FixedSurfaceType {
     }
 
     pub fn is_sequence_level(&self) -> bool {
-        match self {
-            FixedSurfaceType::OrderedSequence => true,
-            _ => false,
-        }
+        matches!(self, FixedSurfaceType::OrderedSequence)
     }
 
     pub fn is_vertical_level(&self) -> bool {
-        match self {
-            FixedSurfaceType::SigmaLevel => true,
-            FixedSurfaceType::HybridLevel => true,
-            FixedSurfaceType::EtaLevel => true,
-            FixedSurfaceType::SnowLevel => true,
-            FixedSurfaceType::SigmaHeightLevel => true,
-            FixedSurfaceType::GeneralizedVerticalHeightCoordinate => true,
-            FixedSurfaceType::DepthBelowSeaLevel => true,
-            FixedSurfaceType::DepthBelowWaterSurface => true,
-            FixedSurfaceType::MixingLayer => true,
-            FixedSurfaceType::IsobaricSurface => true,
-            FixedSurfaceType::LevelAtSpecifiedPressureDifferenceFromGroundToLevel => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            FixedSurfaceType::SigmaLevel
+                | FixedSurfaceType::HybridLevel
+                | FixedSurfaceType::EtaLevel
+                | FixedSurfaceType::SnowLevel
+                | FixedSurfaceType::SigmaHeightLevel
+                | FixedSurfaceType::GeneralizedVerticalHeightCoordinate
+                | FixedSurfaceType::DepthBelowSeaLevel
+                | FixedSurfaceType::DepthBelowWaterSurface
+                | FixedSurfaceType::MixingLayer
+                | FixedSurfaceType::IsobaricSurface
+                | FixedSurfaceType::LevelAtSpecifiedPressureDifferenceFromGroundToLevel
+        )
     }
 
     pub fn coordinate_name(&self) -> &'static str {

@@ -342,7 +342,7 @@ impl InternalState {
     }
 
     fn bits_get(&mut self, n: usize) -> u32 {
-        ((self.acc >> (self.bitp - n)) & (std::u64::MAX >> (64 - n))) as u32
+        ((self.acc >> (self.bitp - n)) & (u64::MAX >> (64 - n))) as u32
     }
 
     fn bits_ask(&mut self, n: usize) -> bool {
@@ -380,10 +380,9 @@ impl InternalState {
             return false;
         }
         while (self.acc & (1u64 << (self.bitp - 1))) == 0 {
-            if self.bitp == 1
-                && !self.ask() {
-                    return false;
-                }
+            if self.bitp == 1 && !self.ask() {
+                return false;
+            }
             self.fs += 1;
             self.bitp -= 1;
         }
@@ -419,7 +418,7 @@ impl InternalState {
     fn direct_get_fs(&mut self) -> u32 {
         let mut fs: u32 = 0;
         if self.bitp > 0 {
-            self.acc &= std::u64::MAX >> (64 - self.bitp);
+            self.acc &= u64::MAX >> (64 - self.bitp);
         } else {
             self.acc = 0;
         }
@@ -462,11 +461,11 @@ impl InternalState {
         }
         self.bitp -= n;
 
-        ((self.acc >> self.bitp) & (std::u64::MAX >> (64 - n as u64))) as u32
+        ((self.acc >> self.bitp) & (u64::MAX >> (64 - n as u64))) as u32
     }
 
     fn run_id(&mut self) -> DecodeStatus {
-        if self.avail_in >= self.in_blklen.try_into().unwrap() {
+        if self.avail_in >= self.in_blklen {
             self.id = self.direct_get(self.id_len);
         } else {
             if !self.bits_ask(self.id_len) {

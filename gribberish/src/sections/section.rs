@@ -67,6 +67,10 @@ impl<'a> Section<'a> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn number(&self) -> u8 {
         match self {
             Section::Indicator(indicator) => indicator.number(),

@@ -12,7 +12,6 @@ pub fn display_description(input: TokenStream) -> TokenStream {
 
     if let Item::Enum(e) = item {
         // Build the output, possibly using quasi-quotation
-        
 
         // Hand the output tokens back to the compiler
         generate_display_impl(&e)
@@ -63,7 +62,6 @@ pub fn from_value(input: TokenStream) -> TokenStream {
 
     if let Item::Enum(e) = item {
         // Build the output, possibly using quasi-quotation
-        
 
         // Hand the output tokens back to the compiler
         generate_from_value_impl(&e)
@@ -112,7 +110,6 @@ pub fn parameter_attributes(input: TokenStream) -> TokenStream {
 
     if let Item::Enum(e) = item {
         // Build the output, possibly using quasi-quotation
-        
 
         // Hand the output tokens back to the compiler
         generate_parameter_attributes(&e)

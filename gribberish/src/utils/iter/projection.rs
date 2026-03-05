@@ -199,9 +199,7 @@ impl RegularCoordinateIterator {
 impl Iterator for RegularCoordinateIterator {
     type Item = f64;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.count == 0 {
-            return None;
-        } else if self.current_index == self.count {
+        if self.count == 0 || self.current_index == self.count {
             return None;
         }
 

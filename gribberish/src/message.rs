@@ -261,6 +261,10 @@ impl<'a> Message<'a> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn section_count(&self) -> usize {
         self.sections().count()
     }
@@ -376,13 +380,11 @@ impl<'a> Message<'a> {
 
         let parameter = unwrap_or_return!(
             product_template.parameter(),
-            GribberishError::MessageError(
-                format!(
-                    "This Product and Parameter is currently not supported: ({}, {})",
-                    product_template.category_value(),
-                    product_template.parameter_value()
-                )
-            )
+            GribberishError::MessageError(format!(
+                "This Product and Parameter is currently not supported: ({}, {})",
+                product_template.category_value(),
+                product_template.parameter_value()
+            ))
         );
 
         Ok(parameter)
@@ -773,9 +775,7 @@ impl<'a> Message<'a> {
 
     pub fn data(&self) -> Result<Vec<f64>, GribberishError> {
         match self {
-            Message::Grib1 { message, .. } => {
-                message.data().map_err(GribberishError::MessageError)
-            }
+            Message::Grib1 { message, .. } => message.data().map_err(GribberishError::MessageError),
             Message::Grib2 { .. } => {
                 let data_section = unwrap_or_return!(
                     self.sections().find_map(|s| match s {
@@ -820,7 +820,6 @@ impl<'a> Message<'a> {
                 );
 
                 let mut data = if bitmap_section.has_bitmap() {
-                    
                     bitmap_section.map_data(scaled_unpacked_data)
                 } else {
                     scaled_unpacked_data

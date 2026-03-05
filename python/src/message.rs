@@ -195,7 +195,7 @@ pub fn parse_grib_message_metadata(data: &[u8], offset: usize) -> PyResult<GribM
 }
 
 #[pyfunction]
-pub fn parse_grib_message<'py>(data: &[u8], offset: usize) -> PyResult<GribMessage> {
+pub fn parse_grib_message(data: &[u8], offset: usize) -> PyResult<GribMessage> {
     match Message::from_data(data, offset) {
         Some(m) => Ok(GribMessage {
             offset,

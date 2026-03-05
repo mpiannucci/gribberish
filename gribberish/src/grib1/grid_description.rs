@@ -317,11 +317,7 @@ impl GridDefinitionTemplate for Grib1Grid {
         match self {
             Grib1Grid::LatLon(grid) => {
                 // Determine the direction increment based on scanning mode
-                let lat_start = if self.scans_negatively_j() {
-                    grid.lat1
-                } else {
-                    grid.lat1
-                };
+                let lat_start = grid.lat1;
 
                 let lat_increment = if self.scans_negatively_j() {
                     -grid.dj
@@ -329,11 +325,7 @@ impl GridDefinitionTemplate for Grib1Grid {
                     grid.dj
                 };
 
-                let lon_start = if self.scans_positively_i() {
-                    grid.lon1
-                } else {
-                    grid.lon1
-                };
+                let lon_start = grid.lon1;
 
                 let lon_increment = if self.scans_positively_i() {
                     grid.di
@@ -356,11 +348,7 @@ impl GridDefinitionTemplate for Grib1Grid {
                 // For Gaussian grids, use a simple regular projection
                 // Note: This is a simplification; proper Gaussian grid support would
                 // require computing actual Gaussian latitudes
-                let lon_start = if self.scans_positively_i() {
-                    grid.lon1
-                } else {
-                    grid.lon1
-                };
+                let lon_start = grid.lon1;
 
                 let lon_increment = if self.scans_positively_i() {
                     grid.di

@@ -37,7 +37,7 @@ impl<'a> BitmapSection<'a> {
                 true => unmapped_data[i - nan_count],
                 _ => {
                     nan_count += 1;
-                    std::f64::NAN
+                    f64::NAN
                 }
             };
         }
@@ -54,9 +54,7 @@ impl<'a> BitmapSection<'a> {
         // 012345678
         // 5 - 2 = 3
         let bitmask = self.raw_bitmap_data().view_bits::<Msb0>();
-        if bitmask.len() <= index {
-            return None;
-        } else if !bitmask[index] {
+        if bitmask.len() <= index || !bitmask[index] {
             return None;
         }
 

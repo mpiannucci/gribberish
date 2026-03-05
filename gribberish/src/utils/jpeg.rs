@@ -110,7 +110,7 @@ pub unsafe extern "C" fn jpeg_opj_stream_seek_fn(p_nb_bytes: i64, p_user_data: *
     }
 }
 
-pub fn extract_jpeg_data(raw_data: &Vec<u8>) -> Result<Vec<i32>, GribberishError> {
+pub fn extract_jpeg_data(raw_data: &[u8]) -> Result<Vec<i32>, GribberishError> {
     let mut output_data: Vec<i32>;
 
     unsafe {

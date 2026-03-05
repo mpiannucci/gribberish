@@ -166,9 +166,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
     }
 }
 
-pub fn scan_message_metadata(
-    data: &[u8],
-) -> HashMap<String, (usize, usize, MessageMetadata)> {
+pub fn scan_message_metadata(data: &[u8]) -> HashMap<String, (usize, usize, MessageMetadata)> {
     let message_iter = MessageIterator::from_data(data, 0);
 
     message_iter
