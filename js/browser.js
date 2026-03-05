@@ -1,1 +1,1 @@
-export * from 'gribberish-wasm32-wasi'
+export * from '@mattnucc/gribberish-wasm32-wasi'

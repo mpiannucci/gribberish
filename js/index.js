@@ -66,7 +66,7 @@ const isMuslFromChildProcess = () => {
 function requireNative() {
   if (process.env.NAPI_RS_NATIVE_LIBRARY_PATH) {
     try {
-      nativeBinding = require(process.env.NAPI_RS_NATIVE_LIBRARY_PATH);
+      return require(process.env.NAPI_RS_NATIVE_LIBRARY_PATH);
     } catch (err) {
       loadErrors.push(err)
     }
@@ -78,7 +78,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-android-arm64')
+        const binding = require('@mattnucc/gribberish-android-arm64')
+        const bindingPackageVersion = require('@mattnucc/gribberish-android-arm64/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -89,7 +94,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-android-arm-eabi')
+        const binding = require('@mattnucc/gribberish-android-arm-eabi')
+        const bindingPackageVersion = require('@mattnucc/gribberish-android-arm-eabi/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -104,7 +114,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-win32-x64-msvc')
+        const binding = require('@mattnucc/gribberish-win32-x64-msvc')
+        const bindingPackageVersion = require('@mattnucc/gribberish-win32-x64-msvc/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -115,7 +130,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-win32-ia32-msvc')
+        const binding = require('@mattnucc/gribberish-win32-ia32-msvc')
+        const bindingPackageVersion = require('@mattnucc/gribberish-win32-ia32-msvc/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -126,7 +146,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-win32-arm64-msvc')
+        const binding = require('@mattnucc/gribberish-win32-arm64-msvc')
+        const bindingPackageVersion = require('@mattnucc/gribberish-win32-arm64-msvc/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -140,7 +165,12 @@ function requireNative() {
       loadErrors.push(e)
     }
     try {
-      return require('gribberish-darwin-universal')
+      const binding = require('@mattnucc/gribberish-darwin-universal')
+      const bindingPackageVersion = require('@mattnucc/gribberish-darwin-universal/package.json').version
+      if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+        throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+      }
+      return binding
     } catch (e) {
       loadErrors.push(e)
     }
@@ -151,7 +181,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-darwin-x64')
+        const binding = require('@mattnucc/gribberish-darwin-x64')
+        const bindingPackageVersion = require('@mattnucc/gribberish-darwin-x64/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -162,7 +197,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-darwin-arm64')
+        const binding = require('@mattnucc/gribberish-darwin-arm64')
+        const bindingPackageVersion = require('@mattnucc/gribberish-darwin-arm64/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -177,7 +217,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-freebsd-x64')
+        const binding = require('@mattnucc/gribberish-freebsd-x64')
+        const bindingPackageVersion = require('@mattnucc/gribberish-freebsd-x64/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -188,7 +233,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-freebsd-arm64')
+        const binding = require('@mattnucc/gribberish-freebsd-arm64')
+        const bindingPackageVersion = require('@mattnucc/gribberish-freebsd-arm64/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -204,7 +254,12 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('gribberish-linux-x64-musl')
+          const binding = require('@mattnucc/gribberish-linux-x64-musl')
+          const bindingPackageVersion = require('@mattnucc/gribberish-linux-x64-musl/package.json').version
+          if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+            throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          }
+          return binding
         } catch (e) {
           loadErrors.push(e)
         }
@@ -215,7 +270,12 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('gribberish-linux-x64-gnu')
+          const binding = require('@mattnucc/gribberish-linux-x64-gnu')
+          const bindingPackageVersion = require('@mattnucc/gribberish-linux-x64-gnu/package.json').version
+          if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+            throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          }
+          return binding
         } catch (e) {
           loadErrors.push(e)
         }
@@ -228,7 +288,12 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('gribberish-linux-arm64-musl')
+          const binding = require('@mattnucc/gribberish-linux-arm64-musl')
+          const bindingPackageVersion = require('@mattnucc/gribberish-linux-arm64-musl/package.json').version
+          if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+            throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          }
+          return binding
         } catch (e) {
           loadErrors.push(e)
         }
@@ -239,7 +304,12 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('gribberish-linux-arm64-gnu')
+          const binding = require('@mattnucc/gribberish-linux-arm64-gnu')
+          const bindingPackageVersion = require('@mattnucc/gribberish-linux-arm64-gnu/package.json').version
+          if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+            throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          }
+          return binding
         } catch (e) {
           loadErrors.push(e)
         }
@@ -252,7 +322,12 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('gribberish-linux-arm-musleabihf')
+          const binding = require('@mattnucc/gribberish-linux-arm-musleabihf')
+          const bindingPackageVersion = require('@mattnucc/gribberish-linux-arm-musleabihf/package.json').version
+          if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+            throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          }
+          return binding
         } catch (e) {
           loadErrors.push(e)
         }
@@ -263,7 +338,46 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('gribberish-linux-arm-gnueabihf')
+          const binding = require('@mattnucc/gribberish-linux-arm-gnueabihf')
+          const bindingPackageVersion = require('@mattnucc/gribberish-linux-arm-gnueabihf/package.json').version
+          if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+            throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          }
+          return binding
+        } catch (e) {
+          loadErrors.push(e)
+        }
+      }
+    } else if (process.arch === 'loong64') {
+      if (isMusl()) {
+        try {
+          return require('./gribberish-js.linux-loong64-musl.node')
+        } catch (e) {
+          loadErrors.push(e)
+        }
+        try {
+          const binding = require('@mattnucc/gribberish-linux-loong64-musl')
+          const bindingPackageVersion = require('@mattnucc/gribberish-linux-loong64-musl/package.json').version
+          if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+            throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          }
+          return binding
+        } catch (e) {
+          loadErrors.push(e)
+        }
+      } else {
+        try {
+          return require('./gribberish-js.linux-loong64-gnu.node')
+        } catch (e) {
+          loadErrors.push(e)
+        }
+        try {
+          const binding = require('@mattnucc/gribberish-linux-loong64-gnu')
+          const bindingPackageVersion = require('@mattnucc/gribberish-linux-loong64-gnu/package.json').version
+          if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+            throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          }
+          return binding
         } catch (e) {
           loadErrors.push(e)
         }
@@ -276,7 +390,12 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('gribberish-linux-riscv64-musl')
+          const binding = require('@mattnucc/gribberish-linux-riscv64-musl')
+          const bindingPackageVersion = require('@mattnucc/gribberish-linux-riscv64-musl/package.json').version
+          if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+            throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          }
+          return binding
         } catch (e) {
           loadErrors.push(e)
         }
@@ -287,7 +406,12 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          return require('gribberish-linux-riscv64-gnu')
+          const binding = require('@mattnucc/gribberish-linux-riscv64-gnu')
+          const bindingPackageVersion = require('@mattnucc/gribberish-linux-riscv64-gnu/package.json').version
+          if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+            throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+          }
+          return binding
         } catch (e) {
           loadErrors.push(e)
         }
@@ -299,7 +423,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-linux-ppc64-gnu')
+        const binding = require('@mattnucc/gribberish-linux-ppc64-gnu')
+        const bindingPackageVersion = require('@mattnucc/gribberish-linux-ppc64-gnu/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -310,7 +439,12 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-linux-s390x-gnu')
+        const binding = require('@mattnucc/gribberish-linux-s390x-gnu')
+        const bindingPackageVersion = require('@mattnucc/gribberish-linux-s390x-gnu/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -320,34 +454,49 @@ function requireNative() {
   } else if (process.platform === 'openharmony') {
     if (process.arch === 'arm64') {
       try {
-        return require('./gribberish-js.linux-arm64-ohos.node')
+        return require('./gribberish-js.openharmony-arm64.node')
       } catch (e) {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-linux-arm64-ohos')
+        const binding = require('@mattnucc/gribberish-openharmony-arm64')
+        const bindingPackageVersion = require('@mattnucc/gribberish-openharmony-arm64/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
     } else if (process.arch === 'x64') {
       try {
-        return require('./gribberish-js.linux-x64-ohos.node')
+        return require('./gribberish-js.openharmony-x64.node')
       } catch (e) {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-linux-x64-ohos')
+        const binding = require('@mattnucc/gribberish-openharmony-x64')
+        const bindingPackageVersion = require('@mattnucc/gribberish-openharmony-x64/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
     } else if (process.arch === 'arm') {
       try {
-        return require('./gribberish-js.linux-arm-ohos.node')
+        return require('./gribberish-js.openharmony-arm.node')
       } catch (e) {
         loadErrors.push(e)
       }
       try {
-        return require('gribberish-linux-arm-ohos')
+        const binding = require('@mattnucc/gribberish-openharmony-arm')
+        const bindingPackageVersion = require('@mattnucc/gribberish-openharmony-arm/package.json').version
+        if (bindingPackageVersion !== '0.28.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+          throw new Error(`Native binding package version mismatch, expected 0.28.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+        }
+        return binding
       } catch (e) {
         loadErrors.push(e)
       }
@@ -362,21 +511,31 @@ function requireNative() {
 nativeBinding = requireNative()
 
 if (!nativeBinding || process.env.NAPI_RS_FORCE_WASI) {
+  let wasiBinding = null
+  let wasiBindingError = null
   try {
-    nativeBinding = require('./gribberish-js.wasi.cjs')
+    wasiBinding = require('./gribberish-js.wasi.cjs')
+    nativeBinding = wasiBinding
   } catch (err) {
     if (process.env.NAPI_RS_FORCE_WASI) {
-      loadErrors.push(err)
+      wasiBindingError = err
     }
   }
   if (!nativeBinding) {
     try {
-      nativeBinding = require('gribberish-wasm32-wasi')
+      wasiBinding = require('@mattnucc/gribberish-wasm32-wasi')
+      nativeBinding = wasiBinding
     } catch (err) {
       if (process.env.NAPI_RS_FORCE_WASI) {
+        wasiBindingError.cause = err
         loadErrors.push(err)
       }
     }
+  }
+  if (process.env.NAPI_RS_FORCE_WASI === 'error' && !wasiBinding) {
+    const error = new Error('WASI binding not found and NAPI_RS_FORCE_WASI is set to error')
+    error.cause = wasiBindingError
+    throw error
   }
 }
 
@@ -386,11 +545,19 @@ if (!nativeBinding) {
       `Cannot find native binding. ` +
         `npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828). ` +
         'Please try `npm i` again after removing both package-lock.json and node_modules directory.',
-      { cause: loadErrors }
+      {
+        cause: loadErrors.reduce((err, cur) => {
+          cur.cause = err
+          return cur
+        }),
+      },
     )
   }
   throw new Error(`Failed to load native binding`)
 }
 
 module.exports = nativeBinding
-module.exports.plus100 = nativeBinding.plus100
+module.exports.GribMessage = nativeBinding.GribMessage
+module.exports.GribMessageFactory = nativeBinding.GribMessageFactory
+module.exports.GribMessageMetadataFactory = nativeBinding.GribMessageMetadataFactory
+module.exports.parseMessagesFromBuffer = nativeBinding.parseMessagesFromBuffer

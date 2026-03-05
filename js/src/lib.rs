@@ -126,14 +126,10 @@ impl GribMessage {
 }
 
 #[napi]
-pub fn parse_messages_from_buffer(buffer: Uint8Array) -> napi::Result<Vec<GribMessage>> {
+pub fn parse_messages_from_buffer(buffer: Uint8Array) -> Vec<GribMessage> {
     let buf = buffer.to_vec();
     read_messages(&buf)
-        .map(|gm| {
-            DataMessage::try_from(&gm)
-                .map(|msg| GribMessage { inner: msg })
-                .map_err(|e| napi::Error::from_reason(e.to_string()))
-        })
+        .filter_map(|gm| DataMessage::try_from(&gm).ok().map(|msg| GribMessage { inner: msg }))
         .collect()
 }
 

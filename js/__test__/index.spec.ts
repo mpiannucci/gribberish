@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { join, dirname } from 'node:path'
 
 import test from 'ava'
 
 import { GribMessage, GribMessageFactory, GribMessageMetadataFactory, parseMessagesFromBuffer } from '../index'
 
-const EXAMPLES_DIR = join(__dirname, '../../python/examples')
+const EXAMPLES_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../python/examples')
 
 test('parseMessagesFromBuffer reads HRRR GRIB2 messages', (t) => {
   const data = readFileSync(join(EXAMPLES_DIR, 'hrrr.t00z.wrfsfcf37.grib2'))

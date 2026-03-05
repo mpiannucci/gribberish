@@ -56,4 +56,7 @@ const {
   },
 })
 export default __napiModule.exports
-export const plus100 = __napiModule.exports.plus100
+export const GribMessage = __napiModule.exports.GribMessage
+export const GribMessageFactory = __napiModule.exports.GribMessageFactory
+export const GribMessageMetadataFactory = __napiModule.exports.GribMessageMetadataFactory
+export const parseMessagesFromBuffer = __napiModule.exports.parseMessagesFromBuffer

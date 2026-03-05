@@ -39,9 +39,9 @@ if (__nodeFs.existsSync(__wasmDebugFilePath)) {
   __wasmFilePath = __wasmDebugFilePath
 } else if (!__nodeFs.existsSync(__wasmFilePath)) {
   try {
-    __wasmFilePath = __nodePath.resolve('gribberish-wasm32-wasi')
+    __wasmFilePath = __nodePath.resolve('@mattnucc/gribberish-wasm32-wasi')
   } catch {
-    throw new Error('Cannot find gribberish-js.wasm32-wasi.wasm file, and gribberish-wasm32-wasi package is not installed.')
+    throw new Error('Cannot find gribberish-js.wasm32-wasi.wasm file, and @mattnucc/gribberish-wasm32-wasi package is not installed.')
   }
 }
 
@@ -108,4 +108,7 @@ const { instance: __napiInstance, module: __wasiModule, napiModule: __napiModule
   },
 })
 module.exports = __napiModule.exports
-module.exports.plus100 = __napiModule.exports.plus100
+module.exports.GribMessage = __napiModule.exports.GribMessage
+module.exports.GribMessageFactory = __napiModule.exports.GribMessageFactory
+module.exports.GribMessageMetadataFactory = __napiModule.exports.GribMessageMetadataFactory
+module.exports.parseMessagesFromBuffer = __napiModule.exports.parseMessagesFromBuffer
