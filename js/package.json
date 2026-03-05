@@ -1,11 +1,11 @@
 {
   "name": "@mattnucc/gribberish",
   "version": "0.28.1",
-  "description": "Template project for writing node package with napi-rs",
+  "description": "JavaScript bindings for gribberish, a GRIB2 parsing library",
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/napi-rs/package-template.git"
+    "url": "git+https://github.com/mpiannucci/gribberish.git"
   },
   "license": "MIT",
   "browser": "browser.js",
@@ -49,7 +49,7 @@
     "format:toml": "taplo format",
     "format:rs": "cargo fmt",
     "lint": "oxlint .",
-    "prepublishOnly": "napi prepublish -t npm",
+    "prepublishOnly": "napi prepublish -t npm --no-gh-release",
     "test": "ava",
     "preversion": "napi build --platform && git add .",
     "version": "napi version",
