@@ -5,8 +5,8 @@ members = [
     "macros",
     "types",
     "gribberish",
-    "node",
-    "python"
+    "python",
+    "js"
 ]
 
 [profile.release]
