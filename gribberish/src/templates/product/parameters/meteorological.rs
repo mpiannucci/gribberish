@@ -51,6 +51,10 @@ pub enum TemperatureProduct {
     #[abbrev = "APTMP"]
     #[unit = "K"]
     ApparentTemperature = 21,
+    #[description = "skin temperature"]
+    #[abbrev = "SKINT"]
+    #[unit = "K"]
+    SkinTemperature = 17,
     Missing = 255,
 }
 
@@ -480,6 +484,10 @@ pub enum MassProduct {
     #[abbrev = "MSLET"]
     #[unit = "pa"]
     MSLP = 192,
+    #[description = "mslp (maps system reduction)"]
+    #[abbrev = "MSLMA"]
+    #[unit = "pa"]
+    MSLPMaps = 198,
     Missing = 255,
 }
 
