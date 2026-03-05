@@ -5,13 +5,12 @@ macro_rules! unwrap_or_return {
             Some(x) => x,
             None => return Err($err),
         }
-    }
+    };
 }
 
 #[macro_export]
-macro_rules! as_signed{
+macro_rules! as_signed {
     ($e:expr, $sig_bit:expr, $dest:ident) => {
-
         if ($e & (1 << ($sig_bit - 1))) > 0 {
             -(($e & !(1 << ($sig_bit - 1))) as $dest)
         } else {

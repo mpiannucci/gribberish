@@ -3,12 +3,14 @@ use bitvec::prelude::*;
 use mappers::{projections::LambertConformalConic, Ellipsoid, Projection};
 
 use crate::{
-    error::GribberishError, templates::template::{Template, TemplateType}, utils::{
+    error::GribberishError,
+    templates::template::{Template, TemplateType},
+    utils::{
         iter::projection::{
             LambertConformalConicProjection, LatLngProjection, RegularCoordinateIterator,
         },
         read_u32_from_bytes,
-    }
+    },
 };
 
 use super::{
@@ -100,9 +102,15 @@ impl LambertConformalTemplate {
                 E: 0.0,
                 F: 0.0,
             }),
-            EarthShape::OblateIAU => Err(GribberishError::GridTemplateError("unimplemented: OblateIAU".into())),
-            EarthShape::OblateKM => Err(GribberishError::GridTemplateError("unimplemented: OblateKM".into())),
-            EarthShape::OblateIAGGRS80 => Err(GribberishError::GridTemplateError("unimplemented: OblateIAGGRS80".into())),
+            EarthShape::OblateIAU => Err(GribberishError::GridTemplateError(
+                "unimplemented: OblateIAU".into(),
+            )),
+            EarthShape::OblateKM => Err(GribberishError::GridTemplateError(
+                "unimplemented: OblateKM".into(),
+            )),
+            EarthShape::OblateIAGGRS80 => Err(GribberishError::GridTemplateError(
+                "unimplemented: OblateIAGGRS80".into(),
+            )),
             EarthShape::WGS84 => Ok(Ellipsoid::WGS84),
             EarthShape::Spherical2 => Ok(Ellipsoid {
                 A: 6_371_229.0,
@@ -110,9 +118,15 @@ impl LambertConformalTemplate {
                 E: 0.0,
                 F: 0.0,
             }),
-            EarthShape::OblateM => Err(GribberishError::GridTemplateError("unimplemented: OblateM".into())),
-            EarthShape::OblateWGS84 => Err(GribberishError::GridTemplateError("unimplemented: OblateWGS84".into())),
-            EarthShape::Missing => Err(GribberishError::GridTemplateError("Missing EarthShape".into())),
+            EarthShape::OblateM => Err(GribberishError::GridTemplateError(
+                "unimplemented: OblateM".into(),
+            )),
+            EarthShape::OblateWGS84 => Err(GribberishError::GridTemplateError(
+                "unimplemented: OblateWGS84".into(),
+            )),
+            EarthShape::Missing => Err(GribberishError::GridTemplateError(
+                "Missing EarthShape".into(),
+            )),
         }
     }
 
@@ -124,12 +138,20 @@ impl LambertConformalTemplate {
             EarthShape::Spherical => Ok(" +a=6367470 +b=6367470".to_string()),
             EarthShape::SpecifiedRadiusSpherical => Ok(format!(" +a={major} +b={minor}")),
             EarthShape::OblateIAU => Ok(" +a=6,378,160.0 b=6356775 +rf=297".to_string()),
-            EarthShape::OblateKM => Err(GribberishError::GridTemplateError("unimplemented: OblateKM".into())),
-            EarthShape::OblateIAGGRS80 => Ok(format!(" +a=6378137 +b=6356752.314 +rf=298.257222101")),
+            EarthShape::OblateKM => Err(GribberishError::GridTemplateError(
+                "unimplemented: OblateKM".into(),
+            )),
+            EarthShape::OblateIAGGRS80 => {
+                Ok(" +a=6378137 +b=6356752.314 +rf=298.257222101".to_string())
+            }
             EarthShape::WGS84 => Ok(" +ellps=WGS84".to_string()),
             EarthShape::Spherical2 => Ok(" +a=6371229 +b=6371229".to_string()),
-            EarthShape::OblateM => Err(GribberishError::GridTemplateError("unimplemented: OblateM".into())),
-            EarthShape::OblateWGS84 => Err(GribberishError::GridTemplateError("unimplemented: OblateWGS84".into())),
+            EarthShape::OblateM => Err(GribberishError::GridTemplateError(
+                "unimplemented: OblateM".into(),
+            )),
+            EarthShape::OblateWGS84 => Err(GribberishError::GridTemplateError(
+                "unimplemented: OblateWGS84".into(),
+            )),
             EarthShape::Missing => todo!(),
         }
     }
@@ -139,13 +161,24 @@ impl LambertConformalTemplate {
         let minor = self.earth_minor_axis();
 
         match self.earth_shape() {
-            EarthShape::Spherical => Ok(vec![("a".to_string(), 6_367_470.0), ("b".to_string(), 6_367_470.0)]),
-            EarthShape::SpecifiedRadiusSpherical => Ok(vec![("a".to_string(), major), ("b".to_string(), minor)]),
+            EarthShape::Spherical => Ok(vec![
+                ("a".to_string(), 6_367_470.0),
+                ("b".to_string(), 6_367_470.0),
+            ]),
+            EarthShape::SpecifiedRadiusSpherical => {
+                Ok(vec![("a".to_string(), major), ("b".to_string(), minor)])
+            }
             EarthShape::OblateIAU => Err("unimplemented: OblateIAU".into()),
             EarthShape::OblateKM => Err("unimplemented: OblateKM".into()),
-            EarthShape::OblateIAGGRS80 => Ok(vec![("a".to_string(), 6_378_137.0), ("b".to_string(), 6_356_752.314)]),
+            EarthShape::OblateIAGGRS80 => Ok(vec![
+                ("a".to_string(), 6_378_137.0),
+                ("b".to_string(), 6_356_752.314),
+            ]),
             EarthShape::WGS84 => Err("unimplemented: WGS84".into()),
-            EarthShape::Spherical2 => Ok(vec![("a".to_string(), 6_371_229.0), ("b".to_string(), 6_371_229.0)]),
+            EarthShape::Spherical2 => Ok(vec![
+                ("a".to_string(), 6_371_229.0),
+                ("b".to_string(), 6_371_229.0),
+            ]),
             EarthShape::OblateM => Err("unimplemented: OblateM".into()),
             EarthShape::OblateWGS84 => Err("unimplemented: OblateWGS84".into()),
             EarthShape::Missing => Err("Missing EarthShape".into()),
@@ -173,7 +206,7 @@ impl LambertConformalTemplate {
     }
 
     pub fn resolution_component_flags(&self) -> &BitSlice<u8, Msb0> {
-        (&self.data[46..47]).view_bits()
+        self.data[46..47].view_bits()
     }
 
     pub fn latitude_of_dx_dy(&self) -> f64 {
@@ -261,10 +294,16 @@ impl LambertConformalTemplate {
             self.latin_2(),
             earth_shape,
         )
-        .map_err(|e| GribberishError::GridTemplateError(format!("Failed to create lambert conformal conic projection: {e}")))
+        .map_err(|e| {
+            GribberishError::GridTemplateError(format!(
+                "Failed to create lambert conformal conic projection: {e}"
+            ))
+        })
     }
 
-    pub fn project_axes(&self) -> Result<(LambertConformalConic, Vec<f64>, Vec<f64>), GribberishError> {
+    pub fn project_axes(
+        &self,
+    ) -> Result<(LambertConformalConic, Vec<f64>, Vec<f64>), GribberishError> {
         let mut start_lng = self.longitude_of_first_grid_point();
         start_lng = if start_lng > 180.0 {
             start_lng - 360.0

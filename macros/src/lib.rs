@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Item, ItemEnum, DeriveInput};
+use syn::{parse_macro_input, DeriveInput, Item, ItemEnum};
 
 #[proc_macro_derive(DisplayDescription, attributes(description))]
 pub fn display_description(input: TokenStream) -> TokenStream {
@@ -12,10 +12,9 @@ pub fn display_description(input: TokenStream) -> TokenStream {
 
     if let Item::Enum(e) = item {
         // Build the output, possibly using quasi-quotation
-        let expanded = generate_display_impl(&e);
 
         // Hand the output tokens back to the compiler
-        TokenStream::from(expanded)
+        generate_display_impl(&e)
     } else {
         panic!("Only Enums are supported for DisplayDescription!");
     }
@@ -23,17 +22,22 @@ pub fn display_description(input: TokenStream) -> TokenStream {
 
 fn generate_display_impl(enum_data: &ItemEnum) -> TokenStream {
     let name: &syn::Ident = &enum_data.ident;
-    let variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma> = &enum_data.variants;
+    let variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma> =
+        &enum_data.variants;
     let variant_names = variants.into_iter().map(|v| v.ident.clone());
-    let variant_descriptions = variants
-        .into_iter()
-        .map(|v| {
-            let desc_attribute = v.attrs.iter().find(|a| a.path.is_ident("description"));
-            match desc_attribute {
-                Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
-                _ => v.ident.to_string().to_lowercase(),
-            }
-        });
+    let variant_descriptions = variants.into_iter().map(|v| {
+        let desc_attribute = v.attrs.iter().find(|a| a.path.is_ident("description"));
+        match desc_attribute {
+            Some(a) => a
+                .tokens
+                .to_string()
+                .replace("=", "")
+                .replace("\"", "")
+                .trim()
+                .to_string(),
+            _ => v.ident.to_string().to_lowercase(),
+        }
+    });
 
     (quote! {
         impl std::fmt::Display for #name {
@@ -46,7 +50,8 @@ fn generate_display_impl(enum_data: &ItemEnum) -> TokenStream {
                 write!(f, "{}", description)
             }
         }
-    }).into()
+    })
+    .into()
 }
 
 #[proc_macro_derive(FromValue)]
@@ -57,10 +62,9 @@ pub fn from_value(input: TokenStream) -> TokenStream {
 
     if let Item::Enum(e) = item {
         // Build the output, possibly using quasi-quotation
-        let expanded = generate_from_value_impl(&e);
 
         // Hand the output tokens back to the compiler
-        TokenStream::from(expanded)
+        generate_from_value_impl(&e)
     } else {
         panic!("Only Enums are supported for DisplayDescription!");
     }
@@ -68,7 +72,8 @@ pub fn from_value(input: TokenStream) -> TokenStream {
 
 fn generate_from_value_impl(enum_data: &ItemEnum) -> TokenStream {
     let name: &syn::Ident = &enum_data.ident;
-    let variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma> = &enum_data.variants;
+    let variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma> =
+        &enum_data.variants;
     let variant_names = variants.into_iter().map(|v| v.ident.clone());
     let default_variant_name = variant_names.clone().last().clone().unwrap();
     let variant_values = variants.into_iter().map(|v| match &v.discriminant {
@@ -77,7 +82,7 @@ fn generate_from_value_impl(enum_data: &ItemEnum) -> TokenStream {
                 syn::Lit::Int(i) => i.base10_parse().unwrap_or(254u8),
                 _ => 253u8,
             },
-            _ => 252u8
+            _ => 252u8,
         },
         None => 251u8,
     });
@@ -93,7 +98,8 @@ fn generate_from_value_impl(enum_data: &ItemEnum) -> TokenStream {
                 }
             }
         }
-    }).into()
+    })
+    .into()
 }
 
 #[proc_macro_derive(ToParameter, attributes(name, abbrev, unit))]
@@ -104,10 +110,9 @@ pub fn parameter_attributes(input: TokenStream) -> TokenStream {
 
     if let Item::Enum(e) = item {
         // Build the output, possibly using quasi-quotation
-        let expanded = generate_parameter_attributes(&e);
 
         // Hand the output tokens back to the compiler
-        TokenStream::from(expanded)
+        generate_parameter_attributes(&e)
     } else {
         panic!("Only Enums are supported for DisplayDescription!");
     }
@@ -115,37 +120,50 @@ pub fn parameter_attributes(input: TokenStream) -> TokenStream {
 
 fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
     let name: &syn::Ident = &enum_data.ident;
-    let variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma> = &enum_data.variants;
+    let variants: &syn::punctuated::Punctuated<syn::Variant, syn::token::Comma> =
+        &enum_data.variants;
     let variant_names_first = variants.into_iter().map(|v| v.ident.clone());
     let variant_names_second = variants.into_iter().map(|v| v.ident.clone());
     let variant_names_third = variants.into_iter().map(|v| v.ident.clone());
-    let variant_names = variants
-        .into_iter()
-        .map(|v| {
-            let unit_attribute = v.attrs.iter().find(|a| a.path.is_ident("name"));
-            match unit_attribute {
-                Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
-                _ => v.ident.to_string().to_lowercase(),
-            }
-        });
-    let variant_abbreviations = variants
-        .into_iter()
-        .map(|v| {
-            let abbrev_attribute = v.attrs.iter().find(|a| a.path.is_ident("abbrev"));
-            match abbrev_attribute {
-                Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
-                _ => v.ident.to_string().to_lowercase(),
-            }
-        });
-    let variant_units = variants
-        .into_iter()
-        .map(|v| {
-            let unit_attribute = v.attrs.iter().find(|a| a.path.is_ident("unit"));
-            match unit_attribute {
-                Some(a) => a.tokens.to_string().replace("=", "").replace("\"", "").trim().to_string(),
-                _ => "".to_string(),
-            }
-        });
+    let variant_names = variants.into_iter().map(|v| {
+        let unit_attribute = v.attrs.iter().find(|a| a.path.is_ident("name"));
+        match unit_attribute {
+            Some(a) => a
+                .tokens
+                .to_string()
+                .replace("=", "")
+                .replace("\"", "")
+                .trim()
+                .to_string(),
+            _ => v.ident.to_string().to_lowercase(),
+        }
+    });
+    let variant_abbreviations = variants.into_iter().map(|v| {
+        let abbrev_attribute = v.attrs.iter().find(|a| a.path.is_ident("abbrev"));
+        match abbrev_attribute {
+            Some(a) => a
+                .tokens
+                .to_string()
+                .replace("=", "")
+                .replace("\"", "")
+                .trim()
+                .to_string(),
+            _ => v.ident.to_string().to_lowercase(),
+        }
+    });
+    let variant_units = variants.into_iter().map(|v| {
+        let unit_attribute = v.attrs.iter().find(|a| a.path.is_ident("unit"));
+        match unit_attribute {
+            Some(a) => a
+                .tokens
+                .to_string()
+                .replace("=", "")
+                .replace("\"", "")
+                .trim()
+                .to_string(),
+            _ => "".to_string(),
+        }
+    });
 
     (quote! {
         impl #name {
@@ -183,5 +201,6 @@ fn generate_parameter_attributes(enum_data: &ItemEnum) -> TokenStream {
                 }
             }
         }
-    }).into()
+    })
+    .into()
 }

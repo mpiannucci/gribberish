@@ -3,7 +3,6 @@
 /// The BMS indicates which grid points contain valid data.
 /// If a bit is 1, the corresponding grid point has data.
 /// If a bit is 0, the grid point is missing/undefined.
-
 use crate::utils::convert::read_u24_from_bytes;
 
 #[derive(Debug, Clone)]
@@ -55,9 +54,7 @@ impl Grib1BitmapSection {
 
     /// Generate a vector of valid indices
     pub fn valid_indices(&self, num_points: usize) -> Vec<usize> {
-        (0..num_points)
-            .filter(|&i| self.is_valid(i))
-            .collect()
+        (0..num_points).filter(|&i| self.is_valid(i)).collect()
     }
 
     /// Count number of valid points
@@ -96,9 +93,9 @@ mod tests {
 
         let bms = Grib1BitmapSection::from_data(&data).unwrap();
 
-        assert!(bms.is_valid(0));  // 1
+        assert!(bms.is_valid(0)); // 1
         assert!(!bms.is_valid(1)); // 0
-        assert!(bms.is_valid(2));  // 1
+        assert!(bms.is_valid(2)); // 1
         assert!(!bms.is_valid(3)); // 0
     }
 }

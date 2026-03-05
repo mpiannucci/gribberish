@@ -5,10 +5,11 @@ members = [
     "macros",
     "types",
     "gribberish",
-    "node",
-    "python"
+    "python",
+    "js"
 ]
 
 [profile.release]
 debug = true
 lto = true
+strip = "symbols"

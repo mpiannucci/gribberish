@@ -150,7 +150,7 @@ fn read_bits(data: &[u8], bit_offset: usize, num_bits: usize) -> u32 {
     let bit_in_byte = bit_offset % 8;
 
     // Read enough bytes to get all the bits we need
-    let bytes_needed = (bit_in_byte + num_bits + 7) / 8;
+    let bytes_needed = (bit_in_byte + num_bits).div_ceil(8);
 
     if byte_offset + bytes_needed > data.len() {
         return 0;

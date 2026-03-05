@@ -1,5 +1,9 @@
+use crate::templates::data_representation::{
+    CCSDSDataRepresentationTemplate, ComplexPackingDataRepresentationTemplate,
+    ComplexSpatialPackingDataRepresentationTemplate, DataRepresentationTemplate,
+    SimplePackingDataRepresentationTemplate,
+};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
-use crate::templates::data_representation::{DataRepresentationTemplate, SimplePackingDataRepresentationTemplate, ComplexPackingDataRepresentationTemplate, ComplexSpatialPackingDataRepresentationTemplate, CCSDSDataRepresentationTemplate};
 
 #[cfg(feature = "jpeg")]
 use crate::templates::data_representation::JPEGDataRepresentationTemplate;
@@ -12,13 +16,11 @@ pub struct DataRepresentationSection<'a> {
     data: &'a [u8],
 }
 
-impl <'a> DataRepresentationSection<'a> {
+impl<'a> DataRepresentationSection<'a> {
     pub fn from_data(data: &'a [u8]) -> Self {
-        DataRepresentationSection {
-            data,
-        }
+        DataRepresentationSection { data }
     }
-    
+
     pub fn data_point_count(&self) -> usize {
         read_u32_from_bytes(self.data, 5).unwrap_or(0) as usize
     }
@@ -30,20 +32,32 @@ impl <'a> DataRepresentationSection<'a> {
     pub fn data_representation_template(&self) -> Option<Box<dyn DataRepresentationTemplate<f64>>> {
         let template_number = self.data_representation_template_number();
         match template_number {
-            0 => Some(Box::new(SimplePackingDataRepresentationTemplate::new(self.data.to_vec()))),
-            2 => Some(Box::new(ComplexPackingDataRepresentationTemplate::new(self.data.to_vec()))),
-            3 => Some(Box::new(ComplexSpatialPackingDataRepresentationTemplate::new(self.data.to_vec()))),
+            0 => Some(Box::new(SimplePackingDataRepresentationTemplate::new(
+                self.data.to_vec(),
+            ))),
+            2 => Some(Box::new(ComplexPackingDataRepresentationTemplate::new(
+                self.data.to_vec(),
+            ))),
+            3 => Some(Box::new(
+                ComplexSpatialPackingDataRepresentationTemplate::new(self.data.to_vec()),
+            )),
             #[cfg(feature = "jpeg")]
-            40 => Some(Box::new(JPEGDataRepresentationTemplate::new(self.data.to_vec()))),
+            40 => Some(Box::new(JPEGDataRepresentationTemplate::new(
+                self.data.to_vec(),
+            ))),
             #[cfg(feature = "png")]
-            41 => Some(Box::new(PNGDataRepresentationTemplate::new(self.data.to_vec()))),
-            42 => Some(Box::new(CCSDSDataRepresentationTemplate::new(self.data.to_vec()))),
+            41 => Some(Box::new(PNGDataRepresentationTemplate::new(
+                self.data.to_vec(),
+            ))),
+            42 => Some(Box::new(CCSDSDataRepresentationTemplate::new(
+                self.data.to_vec(),
+            ))),
             _ => None,
         }
     }
 }
 
-impl <'a> GribSection for DataRepresentationSection<'a> {
+impl<'a> GribSection for DataRepresentationSection<'a> {
     fn len(&self) -> usize {
         read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
     }

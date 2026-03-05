@@ -1,7 +1,7 @@
-use gribberish_macros::{DisplayDescription, FromValue};
-use crate::utils::{read_u32_from_bytes, read_u16_from_bytes};
 use super::grib_section::GribSection;
+use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use chrono::prelude::*;
+use gribberish_macros::{DisplayDescription, FromValue};
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -10,7 +10,7 @@ pub enum ReferenceDataSignificance {
     #[description = "start of forecast"]
     StartOfForecast = 1,
     #[description = "verifying time of forecast"]
-    VerifyingTimeOfForecast = 2, 
+    VerifyingTimeOfForecast = 2,
     #[description = "observation time"]
     ObservationTime = 3,
     Missing = 255,
@@ -51,7 +51,7 @@ pub enum GribDataType {
     #[description = "perturbed forecast"]
     PerturbedForecast = 4,
     #[description = "control and perturbed forecast"]
-    ControlAndPerturbedForecast = 5, 
+    ControlAndPerturbedForecast = 5,
     #[description = "processed satellite observations"]
     ProcessedSatelliteObservations = 6,
     #[description = "processed radar observations"]
@@ -66,26 +66,25 @@ pub struct IdentificationSection<'a> {
     data: &'a [u8],
 }
 
-impl <'a> IdentificationSection<'a> {
+impl<'a> IdentificationSection<'a> {
     pub fn from_data(data: &'a [u8]) -> Self {
-        IdentificationSection {
-            data,
-        }
+        IdentificationSection { data }
     }
- 
+
     pub fn reference_date_significance(&self) -> ReferenceDataSignificance {
         self.data[11].into()
     }
 
     pub fn reference_date(&self) -> DateTime<Utc> {
-        let year = read_u16_from_bytes(self.data, 12 ).unwrap_or(0) as i32;
+        let year = read_u16_from_bytes(self.data, 12).unwrap_or(0) as i32;
         let month = self.data[14] as u32;
         let day = self.data[15] as u32;
         let hour = self.data[16] as u32;
         let minute = self.data[17] as u32;
         let second = self.data[18] as u32;
 
-        Utc.with_ymd_and_hms(year, month, day, hour, minute, second).unwrap()
+        Utc.with_ymd_and_hms(year, month, day, hour, minute, second)
+            .unwrap()
     }
 
     pub fn production_status(&self) -> ProductionStatus {
@@ -97,7 +96,7 @@ impl <'a> IdentificationSection<'a> {
     }
 }
 
-impl <'a> GribSection for IdentificationSection<'a> {
+impl<'a> GribSection for IdentificationSection<'a> {
     fn len(&self) -> usize {
         read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
     }

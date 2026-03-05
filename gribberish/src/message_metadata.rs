@@ -3,9 +3,12 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::{
-    error::GribberishError, message::{Message, MessageIterator}, templates::product::tables::{
+    error::GribberishError,
+    message::{Message, MessageIterator},
+    templates::product::tables::{
         FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
-    }, utils::iter::projection::LatLngProjection
+    },
+    utils::iter::projection::LatLngProjection,
 };
 
 #[derive(Clone, Debug)]
@@ -63,7 +66,6 @@ impl MessageMetadata {
         let level = if self.first_fixed_surface_type.is_single_level() {
             self.first_fixed_surface_type.name().into()
         } else {
-
             let level_value = if let Some(level_value) = self.first_fixed_surface_value {
                 format!("{level_value:.0}")
             } else {
@@ -71,27 +73,27 @@ impl MessageMetadata {
             };
 
             if self.first_fixed_surface_type.is_sequence_level() {
-                format!(
-                    "{level_value} in {}", self.first_fixed_surface_type.name()
-                )
+                format!("{level_value} in {}", self.first_fixed_surface_type.name())
             } else {
-                let level_unit = if self.first_fixed_surface_type.unit().len() > 0 {
+                let level_unit = if !self.first_fixed_surface_type.unit().is_empty() {
                     format!(" {}", self.first_fixed_surface_type.unit())
                 } else {
                     "".to_string()
                 };
 
                 format!(
-                    "{level_value}{level_unit} {}", self.first_fixed_surface_type.name()
+                    "{level_value}{level_unit} {}",
+                    self.first_fixed_surface_type.name()
                 )
             }
         };
 
-        let statistical_process = if let Some(statistical_process) = self.statistical_process.as_ref() {
-            format!("{} ", statistical_process.abbv())
-        } else {
-            "".to_string()
-        };
+        let statistical_process =
+            if let Some(statistical_process) = self.statistical_process.as_ref() {
+                format!("{} ", statistical_process.abbv())
+            } else {
+                "".to_string()
+            };
 
         let time_offset = if let Some(time_increment_interval) = self.time_increment_interval {
             format!("{}-{} ", self.time_interval, time_increment_interval)
@@ -164,15 +166,13 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
     }
 }
 
-pub fn scan_message_metadata<'a>(
-    data: &'a [u8],
-) -> HashMap<String, (usize, usize, MessageMetadata)> {
+pub fn scan_message_metadata(data: &[u8]) -> HashMap<String, (usize, usize, MessageMetadata)> {
     let message_iter = MessageIterator::from_data(data, 0);
 
     message_iter
         .enumerate()
         .filter_map(|(index, m)| match MessageMetadata::try_from(&m) {
-            Ok(mm) => Some(((&mm.key).clone(), (index, m.byte_offset(), mm))),
+            Ok(mm) => Some((mm.key.clone(), (index, m.byte_offset(), mm))),
             Err(_) => None,
         })
         .collect()

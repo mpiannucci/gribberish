@@ -22,7 +22,7 @@ pub enum Section<'a> {
     End(EndSection<'a>),
 }
 
-impl <'a> Section<'a> {
+impl<'a> Section<'a> {
     pub fn from_data(data: &'a [u8], offset: usize) -> Option<Section<'a>> {
         let section_len = section_length(data, offset)?;
         let section_num = section_number(data, offset)?;
@@ -30,10 +30,16 @@ impl <'a> Section<'a> {
         let section_data = &data[offset..offset + section_len];
 
         match section_num {
-            0 => Some(Section::Indicator(IndicatorSection::from_data(section_data))),
-            1 => Some(Section::Identification(IdentificationSection::from_data(section_data))),
+            0 => Some(Section::Indicator(IndicatorSection::from_data(
+                section_data,
+            ))),
+            1 => Some(Section::Identification(IdentificationSection::from_data(
+                section_data,
+            ))),
             2 => Some(Section::LocalUse(LocalUseSection::from_data(section_data))),
-            3 => Some(Section::GridDefinition(GridDefinitionSection::from_data(section_data ))),
+            3 => Some(Section::GridDefinition(GridDefinitionSection::from_data(
+                section_data,
+            ))),
             4 => Some(Section::ProductDefinition(
                 ProductDefinitionSection::from_data(section_data),
             )),
@@ -61,6 +67,10 @@ impl <'a> Section<'a> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn number(&self) -> u8 {
         match self {
             Section::Indicator(indicator) => indicator.number(),
@@ -79,7 +89,7 @@ impl <'a> Section<'a> {
 // TODO: IMPL TRY FROMS FOR INNER TYPES HERE
 
 fn section_length(data: &[u8], offset: usize) -> Option<usize> {
-    if data.len() <= offset + 4 { 
+    if data.len() <= offset + 4 {
         None
     } else if IndicatorSection::is_indicator_section(data, offset) {
         Some(16)
@@ -107,7 +117,7 @@ pub struct SectionIterator<'a> {
     pub offset: usize,
 }
 
-impl <'a> Iterator for SectionIterator<'a> {
+impl<'a> Iterator for SectionIterator<'a> {
     type Item = Section<'a>;
 
     fn next(&mut self) -> std::option::Option<<Self as std::iter::Iterator>::Item> {

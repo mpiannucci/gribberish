@@ -1,14 +1,15 @@
 use bitvec::prelude::*;
 
 use super::grid_definition_template::GridDefinitionTemplate;
-use super::tables::{EarthShape, ScanningModeFlags, ScanningMode};
+use super::tables::{EarthShape, ScanningMode, ScanningModeFlags};
 use crate::templates::template::{Template, TemplateType};
-use crate::utils::iter::projection::{RegularCoordinateIterator, LatLngProjection, PlateCareeProjection};
+use crate::utils::iter::projection::{
+    LatLngProjection, PlateCareeProjection, RegularCoordinateIterator,
+};
 use crate::utils::read_u32_from_bytes;
 
 use std::iter::Iterator;
 use std::vec::Vec;
-
 
 pub struct LatLngTemplate {
     data: Vec<u8>,
@@ -93,7 +94,7 @@ impl LatLngTemplate {
     }
 
     pub fn resolution_component_flags(&self) -> &BitSlice<u8, Msb0> {
-        (&self.data[54..55]).view_bits()
+        self.data[54..55].view_bits()
     }
 
     pub fn end_latitude(&self) -> f64 {
@@ -112,7 +113,7 @@ impl LatLngTemplate {
         let value = value * (10f64.powf(-6.0));
 
         if self.scanning_mode_flags()[0] == ScanningMode::MinusI {
-            value * -1.0
+            -value
         } else {
             value
         }
@@ -123,7 +124,7 @@ impl LatLngTemplate {
         let value = value * (10f64.powf(-6.0));
 
         if self.scanning_mode_flags()[1] == ScanningMode::MinusJ {
-            value * -1.0
+            -value
         } else {
             value
         }
@@ -160,7 +161,10 @@ impl LatLngTemplate {
     }
 
     pub fn grid_bounds(&self) -> ((f64, f64), (f64, f64)) {
-        ((self.start_latitude(), self.start_longitude()), (self.end_latitude(), self.end_longitude()))
+        (
+            (self.start_latitude(), self.start_longitude()),
+            (self.end_latitude(), self.end_longitude()),
+        )
     }
 }
 
@@ -177,7 +181,7 @@ impl GridDefinitionTemplate for LatLngTemplate {
     }
 
     fn proj_string(&self) -> String {
-        format!("+proj=latlon +a=6367470 +b=6367470")
+        "+proj=latlon +a=6367470 +b=6367470".to_string()
     }
 
     fn crs(&self) -> String {
@@ -204,17 +208,17 @@ impl GridDefinitionTemplate for LatLngTemplate {
         let lat_iter = RegularCoordinateIterator::new(
             self.start_latitude(),
             self.j_direction_increment(),
-            self.y_count()
+            self.y_count(),
         );
 
         let lon_iter = RegularCoordinateIterator::new(
             self.start_longitude(),
             self.i_direction_increment(),
-            self.x_count()
+            self.x_count(),
         );
 
         LatLngProjection::PlateCaree(PlateCareeProjection {
-            latitudes: lat_iter, 
+            latitudes: lat_iter,
             longitudes: lon_iter,
             projection_name: self.proj_name(),
             projection_params: self.proj_params(),

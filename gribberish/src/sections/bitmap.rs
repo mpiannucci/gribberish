@@ -1,19 +1,17 @@
 use bitvec::prelude::*;
 
-use std::vec::Vec;
-use std::iter::Iterator;
-use crate::utils::read_u32_from_bytes;
 use super::grib_section::GribSection;
+use crate::utils::read_u32_from_bytes;
+use std::iter::Iterator;
+use std::vec::Vec;
 
 pub struct BitmapSection<'a> {
     data: &'a [u8],
 }
 
-impl <'a> BitmapSection<'a> {
+impl<'a> BitmapSection<'a> {
     pub fn from_data(data: &'a [u8]) -> Self {
-        BitmapSection {
-            data,
-        }
+        BitmapSection { data }
     }
 
     pub fn has_bitmap(&self) -> bool {
@@ -30,7 +28,7 @@ impl <'a> BitmapSection<'a> {
         let bitmask = self.raw_bitmap_data().view_bits::<Msb0>();
         let mut data = Vec::new();
         data.resize(bitmask.len(), 0.0);
-        if unmapped_data.len() == 0 {
+        if unmapped_data.is_empty() {
             return data;
         }
 
@@ -39,7 +37,7 @@ impl <'a> BitmapSection<'a> {
                 true => unmapped_data[i - nan_count],
                 _ => {
                     nan_count += 1;
-                    std::f64::NAN
+                    f64::NAN
                 }
             };
         }
@@ -56,15 +54,13 @@ impl <'a> BitmapSection<'a> {
         // 012345678
         // 5 - 2 = 3
         let bitmask = self.raw_bitmap_data().view_bits::<Msb0>();
-        if bitmask.len() <= index {
-            return None
-        } else if bitmask[index] == false {
-            return None
+        if bitmask.len() <= index || !bitmask[index] {
+            return None;
         }
 
         let mut nan_count: usize = 0;
         for i in (0..index).rev() {
-            if bitmask[i] == false{
+            if !bitmask[i] {
                 nan_count += 1;
             }
         }
@@ -93,7 +89,7 @@ impl <'a> BitmapSection<'a> {
     }
 }
 
-impl <'a> GribSection for BitmapSection<'a> {
+impl<'a> GribSection for BitmapSection<'a> {
     fn len(&self) -> usize {
         read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
     }

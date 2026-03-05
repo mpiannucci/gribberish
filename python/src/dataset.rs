@@ -36,6 +36,7 @@ pub fn build_grib_array<'py>(
 
 #[pyfunction]
 #[pyo3(signature = (data, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
+#[allow(clippy::too_many_arguments)]
 pub fn parse_grib_dataset<'py>(
     py: Python<'py>,
     data: &[u8],
@@ -55,16 +56,12 @@ pub fn parse_grib_dataset<'py>(
         Vec::new()
     };
 
-    let only_variables = if let Some(only_variables) = only_variables {
-        Some(
-            only_variables
-                .iter()
-                .map(|d| d.to_string().to_lowercase())
-                .collect::<Vec<String>>(),
-        )
-    } else {
-        None
-    };
+    let only_variables = only_variables.map(|only_variables| {
+        only_variables
+            .iter()
+            .map(|d| d.to_string().to_lowercase())
+            .collect::<Vec<String>>()
+    });
 
     let perserve_dims: Vec<String> = if let Some(perserve_dims) = perserve_dims {
         perserve_dims
@@ -88,11 +85,7 @@ pub fn parse_grib_dataset<'py>(
             (PyDict::new(py), false)
         };
 
-    let encode_coords = if let Some(encode_coords) = encode_coords {
-        encode_coords
-    } else {
-        false
-    };
+    let encode_coords = encode_coords.unwrap_or_default();
 
     let mapping = scan_message_metadata(data)
         .into_iter()
@@ -141,8 +134,7 @@ pub fn parse_grib_dataset<'py>(
                 v.2.statistical_process
                     .clone()
                     .map(|s| s.abbv())
-                    .unwrap_or("".to_string())
-                    .to_string(),
+                    .unwrap_or("".to_string()),
             gen = v.2.generating_process.abbv(),
         );
 
@@ -150,19 +142,9 @@ pub fn parse_grib_dataset<'py>(
         // at the same level from being grouped together (e.g., TMP and VGRD both at hag_fcst)
         let hash_key = format!("{var}_{hash}");
 
-        if hash_mapping.contains_key(&hash_key) {
-            hash_mapping.get_mut(&hash_key).unwrap().push(k.clone());
-        } else {
-            hash_mapping.insert(hash_key, vec![k.clone()]);
-        }
+        hash_mapping.entry(hash_key).or_default().push(k.clone());
 
-        if vars.contains_key(&var) {
-            vars.get_mut(&var).unwrap().insert(hash);
-        } else {
-            let mut set = HashSet::new();
-            set.insert(hash);
-            vars.insert(var, set);
-        }
+        vars.entry(var).or_default().insert(hash);
     }
 
     let mut var_names = vec![];
@@ -170,9 +152,9 @@ pub fn parse_grib_dataset<'py>(
     for (k, v) in vars.iter_mut() {
         if v.len() == 1 {
             let var_name = k.to_lowercase();
-            if only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name) {
-                continue;
-            } else if drop_variables.contains(&var_name) {
+            if (only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name))
+                || drop_variables.contains(&var_name)
+            {
                 continue;
             }
 
@@ -190,10 +172,10 @@ pub fn parse_grib_dataset<'py>(
         } else {
             for hash in v.iter() {
                 let var_name = format!("{var}_{hash}", var = k.to_lowercase());
-                if only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name)
+                if (only_variables.is_some()
+                    && !only_variables.as_ref().unwrap().contains(&var_name))
+                    || drop_variables.contains(&var_name)
                 {
-                    continue;
-                } else if drop_variables.contains(&var_name) {
                     continue;
                 }
 
@@ -228,7 +210,7 @@ pub fn parse_grib_dataset<'py>(
             if let Some(forecast_end_date) = mapping.get(k).unwrap().2.forecast_end_date {
                 times.insert(forecast_end_date);
             } else {
-                times.insert(mapping.get(k).unwrap().2.forecast_date.clone());
+                times.insert(mapping.get(k).unwrap().2.forecast_date);
             }
         }
         let mut times = times.into_iter().collect::<Vec<_>>();
@@ -247,14 +229,12 @@ pub fn parse_grib_dataset<'py>(
         time_map.insert(time_key, times);
     }
 
-    let mut time_index = 0;
-    for (var, times) in time_map.iter() {
+    for (time_index, (var, times)) in time_map.iter().enumerate() {
         let name = if time_map.len() == 1 || time_index == 0 {
             "time".to_string()
         } else {
             format!("time_{time_index}")
         };
-        time_index += 1;
 
         let times = times
             .iter()
@@ -450,21 +430,22 @@ pub fn parse_grib_dataset<'py>(
             .join("_");
 
         if member_dim_map.contains_key(&member_key) {
-            member_dim_map.get_mut(&member_key).unwrap().push(var.clone());
+            member_dim_map
+                .get_mut(&member_key)
+                .unwrap()
+                .push(var.clone());
         } else {
             member_dim_map.insert(member_key.clone(), vec![var.clone()]);
         }
         member_map.insert(member_key, members);
     }
 
-    let mut member_index = 0;
-    for (member_key, members) in member_map.iter() {
+    for (member_index, (member_key, members)) in member_map.iter().enumerate() {
         let name = if member_map.len() == 1 || member_index == 0 {
             "number".to_string()
         } else {
             format!("number_{member_index}")
         };
-        member_index += 1;
 
         let members_i64 = members.iter().map(|m| *m as i64).collect::<Vec<_>>();
         let members_array = PyArray1::from_vec(py, members_i64);
@@ -476,8 +457,12 @@ pub fn parse_grib_dataset<'py>(
 
         let member = PyDict::new(py);
         let member_metadata = PyDict::new(py);
-        member_metadata.set_item("standard_name", "realization").unwrap();
-        member_metadata.set_item("long_name", "ensemble member").unwrap();
+        member_metadata
+            .set_item("standard_name", "realization")
+            .unwrap();
+        member_metadata
+            .set_item("long_name", "ensemble member")
+            .unwrap();
         member_metadata.set_item("axis", "E").unwrap();
         member.set_item("values", members_array).unwrap();
         member.set_item("attrs", member_metadata).unwrap();
@@ -509,8 +494,8 @@ pub fn parse_grib_dataset<'py>(
     let first = mapping.values().next().unwrap();
     let grid_shape = first.2.grid_shape;
     var_shape.iter_mut().for_each(|(_, v)| {
-        v.push((&grid_shape).0);
-        v.push((&grid_shape).1);
+        v.push(grid_shape.0);
+        v.push(grid_shape.1);
     });
 
     if first.2.is_regular_grid {
@@ -662,7 +647,10 @@ pub fn parse_grib_dataset<'py>(
             )
             .unwrap();
         var_metadata
-            .set_item("first_fixed_surface_type_coordinate", first.2.first_fixed_surface_type.coordinate_name())
+            .set_item(
+                "first_fixed_surface_type_coordinate",
+                first.2.first_fixed_surface_type.coordinate_name(),
+            )
             .unwrap();
         var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())
@@ -693,8 +681,7 @@ pub fn parse_grib_dataset<'py>(
         let mut filtered = false;
         if filter_by_variable_attrs_defined {
             if let Ok(Some(filter_by_variable_attrs)) = filter_by_variable_attrs.get_item(var) {
-                let filter_by_variable_attrs =
-                    filter_by_variable_attrs.downcast::<PyDict>().unwrap();
+                let filter_by_variable_attrs = filter_by_variable_attrs.cast::<PyDict>().unwrap();
                 for attr in filter_by_variable_attrs.keys() {
                     if filter_by_variable_attrs.contains(&attr).unwrap() {
                         let filter_value = filter_by_variable_attrs

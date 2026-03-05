@@ -277,7 +277,7 @@ impl InternalState {
             }
 
             let mut data: u32 = self.last_out as u32;
-            let xmax: u32 = self.xmax as u32;
+            let xmax: u32 = self.xmax;
 
             if self.xmin == 0 {
                 // Handle unsigned case
@@ -313,13 +313,11 @@ impl InternalState {
                         } else {
                             data = d - xmax - 1;
                         }
+                    } else if half_d <= xmax - data {
+                        // Use wrapping operations for intentional bit manipulation
+                        data = data.wrapping_add((d >> 1) ^ (!(d & 1).wrapping_sub(1)))
                     } else {
-                        if half_d <= xmax - data {
-                            // Use wrapping operations for intentional bit manipulation
-                            data = data.wrapping_add((d >> 1) ^ (!(d & 1).wrapping_sub(1)))
-                        } else {
-                            data = xmax - d;
-                        }
+                        data = xmax - d;
                     };
 
                     // byte_order.put_bytes(data, &mut self.next_out);
@@ -344,7 +342,7 @@ impl InternalState {
     }
 
     fn bits_get(&mut self, n: usize) -> u32 {
-        return ((self.acc >> (self.bitp - n)) & (std::u64::MAX >> (64 - n))) as u32;
+        ((self.acc >> (self.bitp - n)) & (u64::MAX >> (64 - n))) as u32
     }
 
     fn bits_ask(&mut self, n: usize) -> bool {
@@ -382,10 +380,8 @@ impl InternalState {
             return false;
         }
         while (self.acc & (1u64 << (self.bitp - 1))) == 0 {
-            if self.bitp == 1 {
-                if !self.ask() {
-                    return false;
-                }
+            if self.bitp == 1 && !self.ask() {
+                return false;
             }
             self.fs += 1;
             self.bitp -= 1;
@@ -422,7 +418,7 @@ impl InternalState {
     fn direct_get_fs(&mut self) -> u32 {
         let mut fs: u32 = 0;
         if self.bitp > 0 {
-            self.acc &= std::u64::MAX >> (64 - self.bitp);
+            self.acc &= u64::MAX >> (64 - self.bitp);
         } else {
             self.acc = 0;
         }
@@ -437,7 +433,7 @@ impl InternalState {
         let i = 63 - self.acc.leading_zeros() as usize;
         fs += (self.bitp - i - 1) as u32;
         self.bitp = i;
-        return fs;
+        fs
     }
 
     fn direct_drain(&mut self, b: usize) {
@@ -463,13 +459,13 @@ impl InternalState {
 
             self.bitp += b << 3;
         }
-        self.bitp -= n as usize;
+        self.bitp -= n;
 
-        ((self.acc >> self.bitp) & (std::u64::MAX >> (64 - n as u64))) as u32
+        ((self.acc >> self.bitp) & (u64::MAX >> (64 - n as u64))) as u32
     }
 
     fn run_id(&mut self) -> DecodeStatus {
-        if self.avail_in >= self.in_blklen.try_into().unwrap() {
+        if self.avail_in >= self.in_blklen {
             self.id = self.direct_get(self.id_len);
         } else {
             if !self.bits_ask(self.id_len) {
@@ -514,7 +510,7 @@ impl InternalState {
             }
             self.put_sample(0);
             self.sample_counter -= 1;
-            if self.sample_counter <= 0 {
+            if self.sample_counter == 0 {
                 break;
             }
         }
@@ -548,7 +544,7 @@ impl InternalState {
                 zero_blocks
             ));
         }
-        let zero_bytes = (zero_samples as usize) * self.bytes_per_sample;
+        let zero_bytes = zero_samples * self.bytes_per_sample;
         if self.avail_out >= zero_bytes {
             for _ in 0..zero_samples {
                 self.rsi_buffer[self.rsip] = 0;
@@ -705,7 +701,7 @@ impl InternalState {
                 self.rsip += self.encoded_block_size as usize;
             }
 
-            self.avail_out -= self.out_blklen as usize;
+            self.avail_out -= self.out_blklen;
             self.mode = Mode::NextCds;
         } else {
             if (self.reff != 0) && !self.copysample() {
@@ -803,7 +799,7 @@ impl InternalState {
         }
 
         // Switch back to ID mode
-        return self.run_id();
+        self.run_id()
     }
 }
 
@@ -851,7 +847,7 @@ fn create_se_table() -> [i32; 2 * (SE_TABLE_SIZE + 1)] {
 }
 
 fn is_big_endian() -> bool {
-    return cfg!(target_endian = "big");
+    cfg!(target_endian = "big")
 }
 
 fn modify_aec_flags(flags: Flags) -> Flags {
@@ -873,7 +869,7 @@ pub fn extract_ccsds_data(
     reference_sample_interval: u16,
     bits_per_sample: usize,
 ) -> Result<Vec<f32>, GribberishError> {
-    let nbytes_per_sample: usize = (bits_per_sample + 7) / 8;
+    let nbytes_per_sample: usize = bits_per_sample.div_ceil(8);
 
     let flags = modify_aec_flags(Flags::from_bits_truncate(compression_options_mask));
 

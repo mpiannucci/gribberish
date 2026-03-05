@@ -1,5 +1,5 @@
-mod message;
 mod dataset;
+mod message;
 
 use message::GribMessage;
 use pyo3::prelude::*;

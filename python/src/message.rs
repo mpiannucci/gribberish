@@ -20,7 +20,7 @@ impl GribMessageMetadata {
     fn message_size(&self) -> usize {
         self.inner.message_size
     }
- 
+
     #[getter]
     fn var_name(&self) -> &str {
         self.inner.name.as_str()
@@ -147,7 +147,10 @@ impl GribMessageMetadata {
         )
     }
 
-    fn latlng<'py>(&self, py: Python<'py>) -> (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>) {
+    fn latlng<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>) {
         let (lat, lng) = self.inner.latlng();
         (PyArray::from_vec(py, lat), PyArray::from_vec(py, lng))
     }
@@ -168,13 +171,17 @@ pub struct GribMessage {
 
 #[pymethods]
 impl GribMessage {
-    fn data<'py>(&self, py: Python<'py>, ) -> Bound<'py, PyArray1<f64>> {
+    fn data<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
         parse_grib_array(py, &self.raw_data, self.offset)
     }
 }
 
 #[pyfunction]
-pub fn parse_grib_array<'py>(py: Python<'py>, data: &[u8], offset: usize) -> Bound<'py, PyArray1<f64>> {
+pub fn parse_grib_array<'py>(
+    py: Python<'py>,
+    data: &[u8],
+    offset: usize,
+) -> Bound<'py, PyArray1<f64>> {
     let message = Message::from_data(data, offset).unwrap();
     let data = message.data().unwrap();
     PyArray::from_vec(py, data)
@@ -188,8 +195,8 @@ pub fn parse_grib_message_metadata(data: &[u8], offset: usize) -> PyResult<GribM
 }
 
 #[pyfunction]
-pub fn parse_grib_message<'py>(data: &[u8], offset: usize) -> PyResult<GribMessage> {
-    match Message::from_data(&data.to_vec(), offset) {
+pub fn parse_grib_message(data: &[u8], offset: usize) -> PyResult<GribMessage> {
+    match Message::from_data(data, offset) {
         Some(m) => Ok(GribMessage {
             offset,
             raw_data: data.to_vec(),

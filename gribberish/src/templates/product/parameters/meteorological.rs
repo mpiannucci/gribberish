@@ -106,7 +106,7 @@ pub enum MoistureProduct {
     TotalSnowfall = 29,
     #[abbrev = "HAIL"]
     #[unit = "m"]
-    Hail=31,
+    Hail = 31,
     #[description = "categorical rain"]
     #[abbrev = "CRAIN"]
     #[unit = "BOOL"]
@@ -684,7 +684,9 @@ pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter
         4 => Some(Parameter::from(ShortWaveRadiationProduct::from(parameter))),
         5 => Some(Parameter::from(LongWaveRadiationProduct::from(parameter))),
         6 => Some(Parameter::from(CloudProduct::from(parameter))),
-        7 => Some(Parameter::from(ThermodynamicStabilityProduct::from(parameter))),
+        7 => Some(Parameter::from(ThermodynamicStabilityProduct::from(
+            parameter,
+        ))),
         14 => Some(Parameter::from(TraceGasesProduct::from(parameter))),
         15 => Some(Parameter::from(RadarProduct::from(parameter))),
         16 => Some(Parameter::from(ForecastRadarImagery::from(parameter))),

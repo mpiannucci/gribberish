@@ -1,6 +1,11 @@
 use gribberish_types::Parameter;
 
-use self::{meteorological::{meteorological_category, meteorological_parameter}, land_surface::{land_surface_category, land_surface_parameter}, oceanographic::{oceanographic_category, oceanographic_parameter}, mrms::{multiradar_category, multiradar_parameter}};
+use self::{
+    land_surface::{land_surface_category, land_surface_parameter},
+    meteorological::{meteorological_category, meteorological_parameter},
+    mrms::{multiradar_category, multiradar_parameter},
+    oceanographic::{oceanographic_category, oceanographic_parameter},
+};
 
 pub mod land_surface;
 pub mod meteorological;

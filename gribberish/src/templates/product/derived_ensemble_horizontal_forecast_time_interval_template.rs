@@ -2,28 +2,31 @@ use crate::templates::template::{Template, TemplateType};
 use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use chrono::{prelude::*, Duration};
 
-use super::HorizontalAnalysisForecastTemplate;
 use super::product_template::ProductTemplate;
-use super::tables::{TypeOfStatisticalProcessing, TypeOfTimeInterval, TimeUnit, GeneratingProcess, FixedSurfaceType, DerivedForecastType};
+use super::tables::{
+    DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit,
+    TypeOfStatisticalProcessing, TypeOfTimeInterval,
+};
+use super::HorizontalAnalysisForecastTemplate;
 
 pub struct DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
-	data: Vec<u8>,
-	discipline: u8,
+    data: Vec<u8>,
+    discipline: u8,
 }
 
 impl Template for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
-	fn data(&self) -> &[u8] {
-    	&self.data
- 	}
+    fn data(&self) -> &[u8] {
+        &self.data
+    }
 
- 	fn template_number(&self) -> u16 {
- 	    12
- 	}
+    fn template_number(&self) -> u16 {
+        12
+    }
 
- 	fn template_type(&self) -> TemplateType {
- 	    TemplateType::Product
- 	}
- 	
+    fn template_type(&self) -> TemplateType {
+        TemplateType::Product
+    }
+
     fn template_name(&self) -> &str {
         "Derived forecasts based on all ensemble members at a horizontal level
         or in a horizontal layer in a continuous or non-continuous time interval"
@@ -31,32 +34,29 @@ impl Template for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
 }
 
 impl DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
-	pub fn new(	data: Vec<u8>, discipline: u8) -> Self {
-		Self {
-            data, 
-            discipline,
-        }
-	}
+    pub fn new(data: Vec<u8>, discipline: u8) -> Self {
+        Self { data, discipline }
+    }
 
-	pub fn category_value(&self) -> u8 {
-		self.data[9]
-	}
+    pub fn category_value(&self) -> u8 {
+        self.data[9]
+    }
 
-	pub fn parameter_value(&self) -> u8{
-		self.data[10]
-	}
+    pub fn parameter_value(&self) -> u8 {
+        self.data[10]
+    }
 
-	pub fn generating_process(&self) -> GeneratingProcess {
-		self.data[11].into()
-	}
+    pub fn generating_process(&self) -> GeneratingProcess {
+        self.data[11].into()
+    }
 
-	pub fn observation_cutoff_hours_after_reference_time(&self) -> u16 {
-		read_u16_from_bytes(&self.data, 14).unwrap_or(0)
-	}
+    pub fn observation_cutoff_hours_after_reference_time(&self) -> u16 {
+        read_u16_from_bytes(&self.data, 14).unwrap_or(0)
+    }
 
-	pub fn observation_cutoff_minutes_after_cutoff_time(&self) -> u8 {
-		self.data[16]
-	}
+    pub fn observation_cutoff_minutes_after_cutoff_time(&self) -> u8 {
+        self.data[16]
+    }
 
     pub fn first_fixed_surface_scale_factor(&self) -> i8 {
         as_signed!(self.data[23], 8, i8)
@@ -67,18 +67,18 @@ impl DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
     }
 
     pub fn second_fixed_surface_scale_factor(&self) -> i8 {
-		as_signed!(self.data[29], 8, i8)
+        as_signed!(self.data[29], 8, i8)
     }
 
     pub fn second_fixed_surface_scaled_value(&self) -> i32 {
         as_signed!(read_u32_from_bytes(&self.data, 30).unwrap_or(0), 32, i32)
     }
 
-	pub fn number_of_forecasts_in_ensemble(&self) -> u8 {
-		self.data[35]
-	}
+    pub fn number_of_forecasts_in_ensemble(&self) -> u8 {
+        self.data[35]
+    }
 
-    pub fn valid_end_date(&self) -> DateTime<Utc>  {
+    pub fn valid_end_date(&self) -> DateTime<Utc> {
         let data = self.data();
         let year = read_u16_from_bytes(data, 36).unwrap_or(0) as i32;
         let month = data[38] as u32;
@@ -87,7 +87,8 @@ impl DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
         let minute = data[41] as u32;
         let second = data[42] as u32;
 
-        Utc.with_ymd_and_hms(year as i32, month, day, hour, minute, second).unwrap()
+        Utc.with_ymd_and_hms(year as i32, month, day, hour, minute, second)
+            .unwrap()
     }
 
     pub fn number_of_time_ranges(&self) -> u8 {
@@ -113,8 +114,8 @@ impl DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
 
 impl ProductTemplate for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
     fn discipline(&self) -> u8 {
-		self.discipline
-	}
+        self.discipline
+    }
 
     fn category_value(&self) -> u8 {
         self.data[9]
@@ -145,8 +146,8 @@ impl ProductTemplate for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
     }
 
     fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc> {
-		let offset_duration: Duration = self.time_interval_duration();
-		reference_date + offset_duration
+        let offset_duration: Duration = self.time_interval_duration();
+        reference_date + offset_duration
     }
 
     fn forecast_end_datetime(&self, _reference_date: DateTime<Utc>) -> Option<DateTime<Utc>> {
@@ -158,7 +159,10 @@ impl ProductTemplate for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
     }
 
     fn first_fixed_surface_value(&self) -> Option<f64> {
-        HorizontalAnalysisForecastTemplate::scale_value(self.first_fixed_surface_scale_factor(), self.first_fixed_surface_scaled_value())
+        HorizontalAnalysisForecastTemplate::scale_value(
+            self.first_fixed_surface_scale_factor(),
+            self.first_fixed_surface_scaled_value(),
+        )
     }
 
     fn second_fixed_surface_type(&self) -> FixedSurfaceType {
@@ -166,7 +170,10 @@ impl ProductTemplate for DerivedEnsembleHorizontalForecastTimeIntervalTemplate {
     }
 
     fn second_fixed_surface_value(&self) -> Option<f64> {
-        HorizontalAnalysisForecastTemplate::scale_value(self.second_fixed_surface_scale_factor(), self.second_fixed_surface_scaled_value())
+        HorizontalAnalysisForecastTemplate::scale_value(
+            self.second_fixed_surface_scale_factor(),
+            self.second_fixed_surface_scaled_value(),
+        )
     }
 
     fn derived_forecast_type(&self) -> Option<DerivedForecastType> {

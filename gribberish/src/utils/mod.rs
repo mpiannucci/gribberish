@@ -1,10 +1,10 @@
 pub mod iter;
 #[macro_use]
 pub mod macros;
-pub mod convert;
 pub mod ccsds;
 #[cfg(feature = "libaec")]
 pub mod ccsds_libaec;
+pub mod convert;
 
 pub use convert::*;
 

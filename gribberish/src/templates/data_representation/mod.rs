@@ -1,19 +1,19 @@
-pub mod tables;
-pub mod data_representation_template;
-pub mod simple_packing_template;
+pub mod ccsds_template;
 pub mod complex_packing_template;
 pub mod complex_spatial_packing_template;
-pub mod ccsds_template;
+pub mod data_representation_template;
 #[cfg(feature = "jpeg")]
 pub mod jpeg_template;
+pub mod simple_packing_template;
+pub mod tables;
 
 #[cfg(feature = "png")]
 pub mod png_template;
 
-pub use data_representation_template::DataRepresentationTemplate;
-pub use simple_packing_template::SimplePackingDataRepresentationTemplate;
 pub use complex_packing_template::ComplexPackingDataRepresentationTemplate;
 pub use complex_spatial_packing_template::ComplexSpatialPackingDataRepresentationTemplate;
+pub use data_representation_template::DataRepresentationTemplate;
+pub use simple_packing_template::SimplePackingDataRepresentationTemplate;
 
 #[cfg(feature = "jpeg")]
 pub use jpeg_template::JPEGDataRepresentationTemplate;

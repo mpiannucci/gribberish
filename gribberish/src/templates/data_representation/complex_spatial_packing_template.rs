@@ -5,10 +5,12 @@ use std::iter;
 use itertools::izip;
 
 use crate::{
-    error::GribberishError, templates::template::{Template, TemplateType}, utils::{
+    error::GribberishError,
+    templates::template::{Template, TemplateType},
+    utils::{
         iter::{spatial_differencing::SpatialDifferencingIterator, ScaleGribValueIterator},
         read_f32_from_bytes, read_u16_from_bytes, read_u32_from_bytes,
-    }
+    },
 };
 
 use super::{
@@ -138,12 +140,12 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         let bits_for_differencing = self.number_of_octets_for_differencing() as usize * 8;
         let mut idx = 0;
-        let d1: u32 = (&bits[idx..idx + bits_for_differencing]).load_be();
+        let d1: u32 = bits[idx..idx + bits_for_differencing].load_be();
         let d1: i32 = as_signed!(d1, bits_for_differencing, i32);
         idx += bits_for_differencing;
 
         let d2: u32 = if self.spatial_differencing_order() == SpatialDifferencingOrder::Second {
-            let val = (&bits[idx..idx + bits_for_differencing]).load_be();
+            let val = bits[idx..idx + bits_for_differencing].load_be();
             idx += bits_for_differencing;
             val
         } else {
@@ -151,7 +153,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         };
         let d2: i32 = as_signed!(d2, bits_for_differencing, i32);
 
-        let dmin: u32 = (&bits[idx..idx + bits_for_differencing]).load_be();
+        let dmin: u32 = bits[idx..idx + bits_for_differencing].load_be();
         let dmin: i32 = as_signed!(dmin, bits_for_differencing, i32);
         idx += bits_for_differencing;
 

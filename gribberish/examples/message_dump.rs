@@ -47,7 +47,10 @@ fn main() {
     println!("------------------------------------------------------------------------------------------------------------");
 
     message_iter.enumerate().for_each(|(idx, m)| {
-        let bbox = m.latlng_projector().expect("Failed to get message projection").bbox();
+        let bbox = m
+            .latlng_projector()
+            .expect("Failed to get message projection")
+            .bbox();
 
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
