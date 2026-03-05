@@ -478,6 +478,8 @@ version = "0.28.0"
 name = "gribberish_js"
 version = "0.28.0"
 dependencies = [
+ "chrono",
+ "gribberish",
  "napi",
  "napi-build",
  "napi-derive",
@@ -659,6 +661,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6944d0bf100571cd6e1a98a316cdca262deb6fccf8d93f5ae1502ca3fc88bd3"
 dependencies = [
  "bitflags 2.6.0",
+ "chrono",
  "ctor",
  "futures",
  "napi-build",

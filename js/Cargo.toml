@@ -9,12 +9,10 @@ version = "0.28.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = "3.0.0"
+napi = { version = "3.0.0", features = ["chrono_date"] }
 napi-derive = "3.0.0"
+gribberish = { path = "../gribberish", version = "0.28.0" }
+chrono = "0.4"
 
 [build-dependencies]
 napi-build = "2"
-
-[profile.release]
-lto = true
-strip = "symbols"
