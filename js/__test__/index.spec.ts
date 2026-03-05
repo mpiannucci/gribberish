@@ -6,10 +6,10 @@ import test from 'ava'
 
 import { GribMessage, GribMessageFactory, GribMessageMetadataFactory, parseMessagesFromBuffer } from '../index'
 
-const EXAMPLES_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../python/examples')
+const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../gribberish/tests/data')
 
 test('parseMessagesFromBuffer reads HRRR GRIB2 messages', (t) => {
-  const data = readFileSync(join(EXAMPLES_DIR, 'hrrr.t00z.wrfsfcf37.grib2'))
+  const data = readFileSync(join(DATA_DIR, 'hrrr.t06z.wrfsfcf01-TMP.grib2'))
   const messages = parseMessagesFromBuffer(data)
 
   t.true(messages.length > 0, 'should read at least one message')
@@ -27,7 +27,7 @@ test('parseMessagesFromBuffer reads HRRR GRIB2 messages', (t) => {
 })
 
 test('GribMessage.parseFromBuffer parses a single message', (t) => {
-  const data = readFileSync(join(EXAMPLES_DIR, 'hrrr.t00z.wrfsfcf37.grib2'))
+  const data = readFileSync(join(DATA_DIR, 'hrrr.t06z.wrfsfcf01-TMP.grib2'))
   const msg = GribMessage.parseFromBuffer(data, 0)
 
   t.truthy(msg.key)
@@ -46,7 +46,7 @@ test('GribMessage.parseFromBuffer parses a single message', (t) => {
 })
 
 test('GribMessage latlng and data match grid shape', (t) => {
-  const data = readFileSync(join(EXAMPLES_DIR, 'hrrr.t00z.wrfsfcf37.grib2'))
+  const data = readFileSync(join(DATA_DIR, 'hrrr.t06z.wrfsfcf01-TMP.grib2'))
   const msg = GribMessage.parseFromBuffer(data, 0)
   const expectedPoints = msg.gridShape.rows * msg.gridShape.cols
 
@@ -56,7 +56,7 @@ test('GribMessage latlng and data match grid shape', (t) => {
 })
 
 test('GribMessageFactory lists and retrieves available messages', (t) => {
-  const data = readFileSync(join(EXAMPLES_DIR, 'hrrr.t00z.wrfsfcf37.grib2'))
+  const data = readFileSync(join(DATA_DIR, 'hrrr.t06z.wrfsfcf01-TMP.grib2'))
   const factory = GribMessageFactory.fromBuffer(data)
 
   const keys = factory.availableMessages
@@ -69,7 +69,7 @@ test('GribMessageFactory lists and retrieves available messages', (t) => {
 })
 
 test('GribMessageMetadataFactory lists and retrieves messages efficiently', (t) => {
-  const data = readFileSync(join(EXAMPLES_DIR, 'hrrr.t00z.wrfsfcf37.grib2'))
+  const data = readFileSync(join(DATA_DIR, 'hrrr.t06z.wrfsfcf01-TMP.grib2'))
   const factory = GribMessageMetadataFactory.fromBuffer(data)
 
   const keys = factory.availableMessages
@@ -82,7 +82,7 @@ test('GribMessageMetadataFactory lists and retrieves messages efficiently', (t) 
 })
 
 test('GribMessageFactory throws for unknown key', (t) => {
-  const data = readFileSync(join(EXAMPLES_DIR, 'hrrr.t00z.wrfsfcf37.grib2'))
+  const data = readFileSync(join(DATA_DIR, 'hrrr.t06z.wrfsfcf01-TMP.grib2'))
   const factory = GribMessageFactory.fromBuffer(data)
 
   t.throws(() => factory.getMessage('nonexistent_key_xyz'), {
