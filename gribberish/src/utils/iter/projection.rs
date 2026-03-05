@@ -39,7 +39,9 @@ impl LatLngProjection {
             LatLngProjection::PlateCaree(projection) => {
                 let lats: Vec<f64> = projection.latitudes.clone().collect();
                 let lon_start = projection.longitudes.start;
-                let lngs: Vec<f64> = projection.longitudes.clone()
+                let lngs: Vec<f64> = projection
+                    .longitudes
+                    .clone()
                     .map(|lon| {
                         // Normalize to 0..360 range for grids that wrap around the globe
                         // (consistent with GRIB1 handling in grid_description.rs)
@@ -78,7 +80,9 @@ impl LatLngProjection {
         match self {
             LatLngProjection::PlateCaree(projection) => {
                 let lon_start = projection.longitudes.start;
-                projection.longitudes.clone()
+                projection
+                    .longitudes
+                    .clone()
                     .map(|lon| {
                         // Normalize to 0..360 range for grids that wrap around the globe
                         if lon >= 360.0 {
@@ -136,19 +140,23 @@ impl LatLngProjection {
 
     pub fn latlng_start(&self) -> (f64, f64) {
         match self {
-            LatLngProjection::PlateCaree(projection) => (projection.latitudes.start, projection.longitudes.start),
+            LatLngProjection::PlateCaree(projection) => {
+                (projection.latitudes.start, projection.longitudes.start)
+            }
             LatLngProjection::LambertConformal(projection) => {
                 self.project_xy(projection.x.start, projection.y.start)
-            },
+            }
         }
     }
 
     pub fn latlng_end(&self) -> (f64, f64) {
         match self {
-            LatLngProjection::PlateCaree(projection) => (projection.latitudes.end, projection.longitudes.end),
+            LatLngProjection::PlateCaree(projection) => {
+                (projection.latitudes.end, projection.longitudes.end)
+            }
             LatLngProjection::LambertConformal(projection) => {
                 self.project_xy(projection.x.end, projection.y.end)
-            },
+            }
         }
     }
 
@@ -224,12 +232,14 @@ mod tests {
     fn test_regular_grid_latlng_projection() {
         let latitudes = super::RegularCoordinateIterator::new(0.0, 1.0, 10);
         let longitudes = super::RegularCoordinateIterator::new(0.0, 2.0, 5);
-        let projection = super::LatLngProjection::PlateCaree(crate::utils::iter::projection::PlateCareeProjection { 
-            latitudes, 
-            longitudes,
-            projection_name: "latlon".into(), 
-            projection_params: HashMap::from([("a".into(), 6367470.), ("b".into(), 6367470.)]),
-        });
+        let projection = super::LatLngProjection::PlateCaree(
+            crate::utils::iter::projection::PlateCareeProjection {
+                latitudes,
+                longitudes,
+                projection_name: "latlon".into(),
+                projection_params: HashMap::from([("a".into(), 6367470.), ("b".into(), 6367470.)]),
+            },
+        );
         let (lats, lngs) = projection.lat_lng();
         assert_eq!(lats.len(), 10);
         assert_eq!(lngs.len(), 5);
@@ -252,12 +262,14 @@ mod tests {
         // Grid: 180°, 180.25°, ..., 359.75°, 0°, 0.25°, ..., 179.75°
         let latitudes = super::RegularCoordinateIterator::new(90.0, -0.25, 721);
         let longitudes = super::RegularCoordinateIterator::new(180.0, 0.25, 1440);
-        let projection = super::LatLngProjection::PlateCaree(crate::utils::iter::projection::PlateCareeProjection {
-            latitudes,
-            longitudes,
-            projection_name: "latlon".into(),
-            projection_params: HashMap::from([("a".into(), 6367470.), ("b".into(), 6367470.)]),
-        });
+        let projection = super::LatLngProjection::PlateCaree(
+            crate::utils::iter::projection::PlateCareeProjection {
+                latitudes,
+                longitudes,
+                projection_name: "latlon".into(),
+                projection_params: HashMap::from([("a".into(), 6367470.), ("b".into(), 6367470.)]),
+            },
+        );
 
         let (lats, lngs) = projection.lat_lng();
 
@@ -268,13 +280,17 @@ mod tests {
 
         // Check longitudes are normalized
         assert_eq!(lngs.len(), 1440);
-        assert!((lngs[0] - 180.0).abs() < f64::EPSILON);  // Starts at 180
-        assert!((lngs[720] - 0.0).abs() < f64::EPSILON);   // Wraps to 0 at index 720
+        assert!((lngs[0] - 180.0).abs() < f64::EPSILON); // Starts at 180
+        assert!((lngs[720] - 0.0).abs() < f64::EPSILON); // Wraps to 0 at index 720
         assert!((lngs[1439] - 179.75).abs() < f64::EPSILON); // Ends at 179.75
 
         // All longitudes should be in [0, 360) range
         for lng in &lngs {
-            assert!(*lng >= 0.0 && *lng < 360.0, "Longitude {} out of range", lng);
+            assert!(
+                *lng >= 0.0 && *lng < 360.0,
+                "Longitude {} out of range",
+                lng
+            );
         }
     }
 }

@@ -56,8 +56,9 @@ pub fn parse_message_metadata_only(
         }
         2 => {
             // Parse GRIB2 message (metadata only)
-            let message = Message::from_data(data, offset)
-                .ok_or_else(|| GribberishError::MessageError("Failed to parse GRIB2 message".to_string()))?;
+            let message = Message::from_data(data, offset).ok_or_else(|| {
+                GribberishError::MessageError("Failed to parse GRIB2 message".to_string())
+            })?;
 
             let metadata = MessageMetadata::try_from(&message)?;
             let length = message.len();
@@ -96,16 +97,18 @@ pub fn parse_message(
                 .map_err(|e| GribberishError::MessageError(format!("GRIB1 parse error: {}", e)))?;
 
             let metadata = grib1_to_metadata(&message)?;
-            let values = message.data()
-                .map_err(|e| GribberishError::MessageError(format!("Failed to extract GRIB1 data: {}", e)))?;
+            let values = message.data().map_err(|e| {
+                GribberishError::MessageError(format!("Failed to extract GRIB1 data: {}", e))
+            })?;
             let length = message.length();
 
             Ok((metadata, values, length))
         }
         2 => {
             // Parse GRIB2 message
-            let message = Message::from_data(data, offset)
-                .ok_or_else(|| GribberishError::MessageError("Failed to parse GRIB2 message".to_string()))?;
+            let message = Message::from_data(data, offset).ok_or_else(|| {
+                GribberishError::MessageError("Failed to parse GRIB2 message".to_string())
+            })?;
 
             let metadata = MessageMetadata::try_from(&message)?;
             let values = message.data()?;
@@ -193,9 +196,11 @@ fn grib1_to_metadata(message: &Grib1Message) -> Result<MessageMetadata, Gribberi
     use crate::utils::iter::projection::LatLngProjection;
 
     // Get parameter info
-    let (var_abbrev, var_name, units) = message
-        .parameter()
-        .unwrap_or(("unknown".to_string(), "Unknown".to_string(), "".to_string()));
+    let (var_abbrev, var_name, units) = message.parameter().unwrap_or((
+        "unknown".to_string(),
+        "Unknown".to_string(),
+        "".to_string(),
+    ));
 
     // Get level info
     let (level_type_name, level_value, _level_units) = message.level_info();
@@ -292,8 +297,8 @@ fn grib1_to_metadata(message: &Grib1Message) -> Result<MessageMetadata, Gribberi
         name: var_name,
         units,
         generating_process: GeneratingProcess::Forecast, // GRIB1 doesn't distinguish as much
-        statistical_process: None, // Could parse from time range indicator
-        time_unit: TimeUnit::Hour, // Default, could parse from PDS
+        statistical_process: None,                       // Could parse from time range indicator
+        time_unit: TimeUnit::Hour,                       // Default, could parse from PDS
         time_increment_unit: None,
         time_interval: 0,
         time_increment_interval: None,
@@ -303,8 +308,8 @@ fn grib1_to_metadata(message: &Grib1Message) -> Result<MessageMetadata, Gribberi
         second_fixed_surface_value: None,
         discipline: "meteorological".to_string(),
         category: "unknown".to_string(),
-        discipline_value: 0, // GRIB1 defaults to meteorological
-        category_value: 255, // GRIB1 doesn't have category
+        discipline_value: 0,  // GRIB1 defaults to meteorological
+        category_value: 255,  // GRIB1 doesn't have category
         parameter_value: 255, // GRIB1 uses different parameter encoding
         data_compression: "simple_packing".to_string(),
         has_bitmap: false, // Could check if message has bitmap

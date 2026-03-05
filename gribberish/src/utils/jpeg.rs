@@ -1,7 +1,7 @@
-use std::ffi::c_void;
-use std::slice;
-use std::ptr::null_mut;
 use std::convert::TryInto;
+use std::ffi::c_void;
+use std::ptr::null_mut;
+use std::slice;
 
 use crate::error::GribberishError;
 
@@ -114,7 +114,7 @@ pub fn extract_jpeg_data(raw_data: &Vec<u8>) -> Result<Vec<i32>, GribberishError
     let mut output_data: Vec<i32>;
 
     unsafe {
-        let parameters = &mut openjpeg_sys::opj_dparameters{
+        let parameters = &mut openjpeg_sys::opj_dparameters {
             cp_reduce: 0,
             cp_layer: 0,
             infile: [0; 4096],
@@ -153,13 +153,17 @@ pub fn extract_jpeg_data(raw_data: &Vec<u8>) -> Result<Vec<i32>, GribberishError
         if openjpeg_sys::opj_read_header(stream, dinfo, &mut image) != 1 {
             openjpeg_sys::opj_destroy_codec(dinfo);
             openjpeg_sys::opj_image_destroy(image);
-            return Err(GribberishError::JpegError("Failed to decode JPEG byte stream header".into()));
+            return Err(GribberishError::JpegError(
+                "Failed to decode JPEG byte stream header".into(),
+            ));
         }
 
         if openjpeg_sys::opj_decode(dinfo, stream, image) != 1 {
             openjpeg_sys::opj_destroy_codec(dinfo);
             openjpeg_sys::opj_image_destroy(image);
-            return Err(GribberishError::JpegError("Failed to decode JPEG byte stream".into()));
+            return Err(GribberishError::JpegError(
+                "Failed to decode JPEG byte stream".into(),
+            ));
         }
 
         // Do things to the data
@@ -180,8 +184,10 @@ pub fn extract_jpeg_data(raw_data: &Vec<u8>) -> Result<Vec<i32>, GribberishError
         openjpeg_sys::opj_image_destroy(image);
     }
 
-    if output_data.len() == 0  {
-        Err(GribberishError::JpegError("Unknown failure extracting JPEG data".into()))
+    if output_data.len() == 0 {
+        Err(GribberishError::JpegError(
+            "Unknown failure extracting JPEG data".into(),
+        ))
     } else {
         Ok(output_data)
     }

@@ -1,12 +1,12 @@
-use std::convert::TryFrom;
 use crate::{error::GribberishError, message::Message, message_metadata::MessageMetadata};
+use std::convert::TryFrom;
 
 pub struct DataMessage {
     pub metadata: MessageMetadata,
-    pub data: Vec<f64>
+    pub data: Vec<f64>,
 }
 
-impl <'a> TryFrom<&Message<'a>> for DataMessage {
+impl<'a> TryFrom<&Message<'a>> for DataMessage {
     type Error = GribberishError;
 
     fn try_from(message: &Message) -> Result<Self, Self::Error> {
@@ -18,7 +18,7 @@ impl <'a> TryFrom<&Message<'a>> for DataMessage {
     }
 }
 
-impl <'a> TryFrom<(&Message<'a>, &MessageMetadata)> for DataMessage {
+impl<'a> TryFrom<(&Message<'a>, &MessageMetadata)> for DataMessage {
     type Error = GribberishError;
 
     fn try_from(message: (&Message<'a>, &MessageMetadata)) -> Result<Self, Self::Error> {

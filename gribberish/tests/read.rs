@@ -501,28 +501,44 @@ fn test_longitude_normalization() {
     assert_eq!(lngs.len(), 720, "Expected 720 longitude points");
 
     // Verify latitude range (90 to -90)
-    assert!((lats[0] - 90.0).abs() < 0.001, "First latitude should be 90°");
-    assert!((lats[360] - (-90.0)).abs() < 0.001, "Last latitude should be -90°");
+    assert!(
+        (lats[0] - 90.0).abs() < 0.001,
+        "First latitude should be 90°"
+    );
+    assert!(
+        (lats[360] - (-90.0)).abs() < 0.001,
+        "Last latitude should be -90°"
+    );
 
     // Verify longitude range (0 to 359.5)
-    assert!((lngs[0] - 0.0).abs() < 0.001, "First longitude should be 0°");
-    assert!((lngs[719] - 359.5).abs() < 0.001, "Last longitude should be 359.5°");
+    assert!(
+        (lngs[0] - 0.0).abs() < 0.001,
+        "First longitude should be 0°"
+    );
+    assert!(
+        (lngs[719] - 359.5).abs() < 0.001,
+        "Last longitude should be 359.5°"
+    );
 
     // All longitudes should be in valid range [0, 360)
     for (i, lng) in lngs.iter().enumerate() {
         assert!(
             *lng >= 0.0 && *lng < 360.0,
             "Longitude[{}] = {} is out of valid range [0, 360)",
-            i, lng
+            i,
+            lng
         );
     }
 
     // Verify monotonic increase in longitude (no wrapping issues for this grid)
     for i in 1..lngs.len() {
         assert!(
-            lngs[i] > lngs[i-1],
+            lngs[i] > lngs[i - 1],
             "Longitudes should be monotonically increasing: lng[{}]={} > lng[{}]={}",
-            i, lngs[i], i-1, lngs[i-1]
+            i,
+            lngs[i],
+            i - 1,
+            lngs[i - 1]
         );
     }
 }
@@ -543,19 +559,32 @@ fn test_longitude_normalization_era5_grib1() {
     assert_eq!(lngs.len(), 120, "Expected 120 longitude points");
 
     // Verify latitude range (90 to -90)
-    assert!((lats[0] - 90.0).abs() < 0.001, "First latitude should be 90°");
-    assert!((lats[60] - (-90.0)).abs() < 0.001, "Last latitude should be -90°");
+    assert!(
+        (lats[0] - 90.0).abs() < 0.001,
+        "First latitude should be 90°"
+    );
+    assert!(
+        (lats[60] - (-90.0)).abs() < 0.001,
+        "Last latitude should be -90°"
+    );
 
     // Verify longitude range (0 to 357 at 3° steps)
-    assert!((lngs[0] - 0.0).abs() < 0.001, "First longitude should be 0°");
-    assert!((lngs[119] - 357.0).abs() < 0.001, "Last longitude should be 357°");
+    assert!(
+        (lngs[0] - 0.0).abs() < 0.001,
+        "First longitude should be 0°"
+    );
+    assert!(
+        (lngs[119] - 357.0).abs() < 0.001,
+        "Last longitude should be 357°"
+    );
 
     // All longitudes should be in valid range [0, 360)
     for (i, lng) in lngs.iter().enumerate() {
         assert!(
             *lng >= 0.0 && *lng < 360.0,
             "Longitude[{}] = {} is out of valid range [0, 360)",
-            i, lng
+            i,
+            lng
         );
     }
 }
@@ -572,7 +601,10 @@ fn read_hrrr_hpbl_parameter() {
 
     // Validate the new parameter metadata
     assert_eq!(message.variable_abbrev().unwrap(), "HPBL");
-    assert_eq!(message.variable_name().unwrap(), "planetaryboundarylayerheight");
+    assert_eq!(
+        message.variable_name().unwrap(),
+        "planetaryboundarylayerheight"
+    );
     assert_eq!(message.unit().unwrap(), "m");
 
     // Validate grid dimensions (HRRR 3km CONUS grid)
@@ -586,7 +618,10 @@ fn read_hrrr_hpbl_parameter() {
     // Validate specific data values (planetary boundary layer height in meters)
     assert!((data[0] - 741.0781190395355).abs() < 0.001, "data[0]");
     assert!((data[1000] - 727.7656190395355).abs() < 0.001, "data[1000]");
-    assert!((data[100000] - 678.6406190395355).abs() < 0.001, "data[100000]");
+    assert!(
+        (data[100000] - 678.6406190395355).abs() < 0.001,
+        "data[100000]"
+    );
 }
 
 #[test]

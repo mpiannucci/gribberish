@@ -1,6 +1,11 @@
-use crate::{utils::{read_u16_from_bytes, read_u32_from_bytes}, templates::grid_definition::{GridDefinitionTemplate, LatLngTemplate, LambertConformalTemplate}};
-use gribberish_macros::{DisplayDescription, FromValue};
 use super::grib_section::GribSection;
+use crate::{
+    templates::grid_definition::{
+        GridDefinitionTemplate, LambertConformalTemplate, LatLngTemplate,
+    },
+    utils::{read_u16_from_bytes, read_u32_from_bytes},
+};
+use gribberish_macros::{DisplayDescription, FromValue};
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
@@ -16,13 +21,13 @@ pub enum GridSource {
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum NumberListInterpretation {
     #[description = "no appended list"]
-    None = 0, 
+    None = 0,
     #[description = "Numbers define number of points corresponding to full coordinate circles (i.e. parallels).  Coordinate values on each circle are multiple of the circle mesh, and extreme coordinate values given in grid definition may not be reached in all rows."]
     Parallels = 1,
     #[description = "Numbers define number of points corresponding to coordinate lines delimited by extreme coordinate values given in grid definition which are present in each row."]
     CoordinateLines = 2,
     #[description = "Numbers define the actual latitudes for each row in the grid. The list of numbers are integer values of the valid latitudes in microdegrees (scale by 106) or in unit equal to the ratio of the basic angle and the subdivisions number for each row, in the same order as specified in the 'scanning mode flag' (bit no. 2)"]
-    ActualLatitudes = 3, 
+    ActualLatitudes = 3,
     Missing = 255,
 }
 
@@ -30,11 +35,9 @@ pub struct GridDefinitionSection<'a> {
     data: &'a [u8],
 }
 
-impl <'a> GridDefinitionSection<'a> {
+impl<'a> GridDefinitionSection<'a> {
     pub fn from_data(data: &'a [u8]) -> Self {
-        GridDefinitionSection {
-            data,
-        }
+        GridDefinitionSection { data }
     }
 
     pub fn grid_source(&self) -> GridSource {
@@ -59,15 +62,15 @@ impl <'a> GridDefinitionSection<'a> {
 
     pub fn grid_definition_template(&self) -> Option<Box<dyn GridDefinitionTemplate>> {
         let template_number = self.grid_definition_template_number();
-       		match template_number {
-			0 => Some(Box::new(LatLngTemplate::new(self.data.to_vec()))),
+        match template_number {
+            0 => Some(Box::new(LatLngTemplate::new(self.data.to_vec()))),
             30 => Some(Box::new(LambertConformalTemplate::new(self.data.to_vec()))),
-			_ => None,
-		}
+            _ => None,
+        }
     }
 }
 
-impl <'a> GribSection for GridDefinitionSection<'a> {
+impl<'a> GribSection for GridDefinitionSection<'a> {
     fn len(&self) -> usize {
         read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
     }

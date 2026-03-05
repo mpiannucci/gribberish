@@ -1,19 +1,17 @@
-use crate::utils::read_u32_from_bytes;
 use super::grib_section::GribSection;
+use crate::utils::read_u32_from_bytes;
 
 pub struct LocalUseSection<'a> {
     data: &'a [u8],
 }
 
-impl <'a> LocalUseSection<'a> {
+impl<'a> LocalUseSection<'a> {
     pub fn from_data(data: &'a [u8]) -> Self {
-        LocalUseSection {
-            data,
-        }
+        LocalUseSection { data }
     }
 }
 
-impl <'a> GribSection for LocalUseSection<'a> {
+impl<'a> GribSection for LocalUseSection<'a> {
     fn len(&self) -> usize {
         read_u32_from_bytes(&self.data[0..4], 0).unwrap_or(0) as usize
     }

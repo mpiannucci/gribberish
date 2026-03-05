@@ -450,7 +450,10 @@ pub fn parse_grib_dataset<'py>(
             .join("_");
 
         if member_dim_map.contains_key(&member_key) {
-            member_dim_map.get_mut(&member_key).unwrap().push(var.clone());
+            member_dim_map
+                .get_mut(&member_key)
+                .unwrap()
+                .push(var.clone());
         } else {
             member_dim_map.insert(member_key.clone(), vec![var.clone()]);
         }
@@ -476,8 +479,12 @@ pub fn parse_grib_dataset<'py>(
 
         let member = PyDict::new(py);
         let member_metadata = PyDict::new(py);
-        member_metadata.set_item("standard_name", "realization").unwrap();
-        member_metadata.set_item("long_name", "ensemble member").unwrap();
+        member_metadata
+            .set_item("standard_name", "realization")
+            .unwrap();
+        member_metadata
+            .set_item("long_name", "ensemble member")
+            .unwrap();
         member_metadata.set_item("axis", "E").unwrap();
         member.set_item("values", members_array).unwrap();
         member.set_item("attrs", member_metadata).unwrap();
@@ -662,7 +669,10 @@ pub fn parse_grib_dataset<'py>(
             )
             .unwrap();
         var_metadata
-            .set_item("first_fixed_surface_type_coordinate", first.2.first_fixed_surface_type.coordinate_name())
+            .set_item(
+                "first_fixed_surface_type_coordinate",
+                first.2.first_fixed_surface_type.coordinate_name(),
+            )
             .unwrap();
         var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())

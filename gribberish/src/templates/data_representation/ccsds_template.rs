@@ -6,9 +6,7 @@ use crate::utils::read_f32_from_bytes;
 use crate::{
     error::GribberishError,
     templates::template::{Template, TemplateType},
-    utils::{
-        iter::ScaleGribValueIterator, read_u16_from_bytes, read_u32_from_bytes,
-    },
+    utils::{iter::ScaleGribValueIterator, read_u16_from_bytes, read_u32_from_bytes},
 };
 
 #[cfg(feature = "libaec")]

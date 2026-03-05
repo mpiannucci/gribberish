@@ -1,8 +1,8 @@
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::{PathBuf};
 use clap::Parser;
 use gribberish::message_metadata::scan_message_metadata;
+use std::fs::File;
+use std::io::{Read, Write};
+use std::path::PathBuf;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -23,8 +23,13 @@ impl Args {
             folder.clone()
         } else {
             let input_path = PathBuf::from(&self.input_file);
-            let grib_dir = input_path.parent().expect("Failed to get grib output folder");
-            grib_dir.to_str().expect("Failed to get grib output folder path").into()
+            let grib_dir = input_path
+                .parent()
+                .expect("Failed to get grib output folder");
+            grib_dir
+                .to_str()
+                .expect("Failed to get grib output folder path")
+                .into()
         }
     }
 }
@@ -51,8 +56,10 @@ pub fn main() {
         message_path.push(filename);
         let mut message_file = File::create(message_path).expect("Failed to create message file");
 
-        let data = &raw_grib_data[*offset..*offset+metadata.message_size];
+        let data = &raw_grib_data[*offset..*offset + metadata.message_size];
 
-        message_file.write_all(&data).expect("Failed to write message file");
+        message_file
+            .write_all(&data)
+            .expect("Failed to write message file");
     });
 }

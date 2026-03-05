@@ -4,8 +4,8 @@ pub mod derived_ensemble_horizontal_forecast_time_interval_template;
 pub mod ensemble_forecast_time_interval_template;
 pub mod horizontal_analysis_template;
 pub mod horizontal_ensemble_template;
-pub mod probability_horizontal_template;
 pub mod parameters;
+pub mod probability_horizontal_template;
 pub mod product_template;
 pub mod tables;
 
@@ -15,4 +15,3 @@ pub use ensemble_forecast_time_interval_template::EnsembleForecastTimeIntervalTe
 pub use horizontal_analysis_template::HorizontalAnalysisForecastTemplate;
 pub use horizontal_ensemble_template::HorizontalEnsembleForecastTemplate;
 pub use probability_horizontal_template::ProbabilityHorizontalForecastTemplate;
-

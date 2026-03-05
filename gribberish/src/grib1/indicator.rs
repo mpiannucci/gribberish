@@ -4,7 +4,6 @@
 /// - Bytes 0-3: 'GRIB' magic number
 /// - Bytes 4-6: Total message length (3 bytes, big-endian)
 /// - Byte 7: GRIB edition number (should be 1)
-
 use crate::utils::read_u24_from_bytes;
 
 pub struct Grib1IndicatorSection<'a> {
@@ -49,7 +48,7 @@ mod tests {
     #[test]
     fn test_indicator_section() {
         // Create a minimal GRIB1 indicator
-        let data = b"GRIB\x00\x00\x40\x01";  // GRIB, length=64, edition=1
+        let data = b"GRIB\x00\x00\x40\x01"; // GRIB, length=64, edition=1
 
         let section = Grib1IndicatorSection::from_data(data).unwrap();
         assert_eq!(section.edition(), 1);

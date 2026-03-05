@@ -164,30 +164,30 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         let mut pos =
             group_lengths_start + (((n_length_bits * ng) as f32 / 8.0).ceil() as usize * 8);
         let values = izip!(group_references, group_widths, group_lengths)
-        .flat_map(|(reference, width, length)| {
-            let n_bits = (width * length) as usize;
-            let group_values = (0..length).map(move |i| {
-                let value = if width == 0 {
-                    0u32
-                } else {
-                    bits[pos + (i * width) as usize
-                        ..pos + (i * width) as usize + width as usize]
-                        .load_be::<u32>()
-                };
-                let raw = as_signed!(value, 32, i32);
-                raw + reference as i32
-            });
+            .flat_map(|(reference, width, length)| {
+                let n_bits = (width * length) as usize;
+                let group_values = (0..length).map(move |i| {
+                    let value = if width == 0 {
+                        0u32
+                    } else {
+                        bits[pos + (i * width) as usize
+                            ..pos + (i * width) as usize + width as usize]
+                            .load_be::<u32>()
+                    };
+                    let raw = as_signed!(value, 32, i32);
+                    raw + reference as i32
+                });
 
-            pos += n_bits;
+                pos += n_bits;
 
-            group_values
-        })
-        .scale_value_by(
-            self.binary_scale_factor(),
-            self.decimal_scale_factor(),
-            self.reference_value(),
-        )
-        .collect();
+                group_values
+            })
+            .scale_value_by(
+                self.binary_scale_factor(),
+                self.decimal_scale_factor(),
+                self.reference_value(),
+            )
+            .collect();
 
         Ok(values)
     }

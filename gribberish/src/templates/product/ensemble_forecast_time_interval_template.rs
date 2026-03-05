@@ -249,7 +249,9 @@ impl ProductTemplate for EnsembleForecastTimeIntervalTemplate {
                 .single()
         } else {
             // Fall back to calculating from time range
-            let time_range_duration = self.time_range_unit().duration(self.time_range_length() as i64);
+            let time_range_duration = self
+                .time_range_unit()
+                .duration(self.time_range_length() as i64);
             Some(reference_date + self.time_interval_duration() + time_range_duration)
         }
     }

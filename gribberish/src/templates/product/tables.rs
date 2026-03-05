@@ -227,7 +227,6 @@ pub enum GeneratingProcess {
     PerturbedAnalysisForEnsembleInitialization = 196,
 }
 
-
 impl GeneratingProcess {
     pub fn abbv(&self) -> String {
         match self {

@@ -2,10 +2,11 @@
 ///
 /// The GDS describes the grid geometry and projection.
 /// This implementation focuses on lat/lon grids (type 0) initially.
-
 use crate::templates::grid_definition::grid_definition_template::GridDefinitionTemplate;
 use crate::utils::convert::read_u16_from_bytes;
-use crate::utils::iter::projection::{LatLngProjection, PlateCareeProjection, RegularCoordinateIterator};
+use crate::utils::iter::projection::{
+    LatLngProjection, PlateCareeProjection, RegularCoordinateIterator,
+};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -18,15 +19,15 @@ pub enum Grib1Grid {
 
 #[derive(Debug, Clone)]
 pub struct LatLonGrid {
-    pub ni: usize,              // Number of points along x-axis
-    pub nj: usize,              // Number of points along y-axis
-    pub lat1: f64,              // Latitude of first grid point (degrees)
-    pub lon1: f64,              // Longitude of first grid point (degrees)
-    pub lat2: f64,              // Latitude of last grid point (degrees)
-    pub lon2: f64,              // Longitude of last grid point (degrees)
-    pub di: f64,                // i-direction increment (degrees)
-    pub dj: f64,                // j-direction increment (degrees)
-    pub scanning_mode: u8,      // Scanning mode flags
+    pub ni: usize,         // Number of points along x-axis
+    pub nj: usize,         // Number of points along y-axis
+    pub lat1: f64,         // Latitude of first grid point (degrees)
+    pub lon1: f64,         // Longitude of first grid point (degrees)
+    pub lat2: f64,         // Latitude of last grid point (degrees)
+    pub lon2: f64,         // Longitude of last grid point (degrees)
+    pub di: f64,           // i-direction increment (degrees)
+    pub dj: f64,           // j-direction increment (degrees)
+    pub scanning_mode: u8, // Scanning mode flags
 }
 
 #[derive(Debug, Clone)]
@@ -38,7 +39,7 @@ pub struct GaussianGrid {
     pub lat2: f64,
     pub lon2: f64,
     pub di: f64,
-    pub n: u16,                 // Number of latitude circles between pole and equator
+    pub n: u16, // Number of latitude circles between pole and equator
     pub scanning_mode: u8,
 }
 
@@ -157,7 +158,7 @@ impl Grib1Grid {
             Grib1Grid::Gaussian(g) => g.scanning_mode,
             _ => 0,
         };
-        (mode & 0x40) == 0  // Bit 6 = 0 means scanning in -j direction
+        (mode & 0x40) == 0 // Bit 6 = 0 means scanning in -j direction
     }
 
     /// Generate latitude values for the grid
@@ -340,17 +341,9 @@ impl GridDefinitionTemplate for Grib1Grid {
                     -grid.di
                 };
 
-                let lat_iter = RegularCoordinateIterator::new(
-                    lat_start,
-                    lat_increment,
-                    grid.nj,
-                );
+                let lat_iter = RegularCoordinateIterator::new(lat_start, lat_increment, grid.nj);
 
-                let lon_iter = RegularCoordinateIterator::new(
-                    lon_start,
-                    lon_increment,
-                    grid.ni,
-                );
+                let lon_iter = RegularCoordinateIterator::new(lon_start, lon_increment, grid.ni);
 
                 LatLngProjection::PlateCaree(PlateCareeProjection {
                     latitudes: lat_iter,
@@ -383,17 +376,9 @@ impl GridDefinitionTemplate for Grib1Grid {
                     0.0
                 };
 
-                let lat_iter = RegularCoordinateIterator::new(
-                    grid.lat1,
-                    lat_increment,
-                    grid.nj,
-                );
+                let lat_iter = RegularCoordinateIterator::new(grid.lat1, lat_increment, grid.nj);
 
-                let lon_iter = RegularCoordinateIterator::new(
-                    lon_start,
-                    lon_increment,
-                    grid.ni,
-                );
+                let lon_iter = RegularCoordinateIterator::new(lon_start, lon_increment, grid.ni);
 
                 LatLngProjection::PlateCaree(PlateCareeProjection {
                     latitudes: lat_iter,
@@ -449,8 +434,8 @@ mod tests {
     fn test_latlon_grid_basics() {
         // Create a simple 2x2 lat/lon grid
         let mut data = vec![0u8; 32];
-        data[5] = 0;  // Grid type 0 (lat/lon)
-        data[6..8].copy_from_slice(&2u16.to_be_bytes());  // ni = 2
+        data[5] = 0; // Grid type 0 (lat/lon)
+        data[6..8].copy_from_slice(&2u16.to_be_bytes()); // ni = 2
         data[8..10].copy_from_slice(&2u16.to_be_bytes()); // nj = 2
 
         // lat1 = 90.0 degrees (90000 millidegrees)

@@ -3,9 +3,12 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::{
-    error::GribberishError, message::{Message, MessageIterator}, templates::product::tables::{
+    error::GribberishError,
+    message::{Message, MessageIterator},
+    templates::product::tables::{
         FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
-    }, utils::iter::projection::LatLngProjection
+    },
+    utils::iter::projection::LatLngProjection,
 };
 
 #[derive(Clone, Debug)]
@@ -63,7 +66,6 @@ impl MessageMetadata {
         let level = if self.first_fixed_surface_type.is_single_level() {
             self.first_fixed_surface_type.name().into()
         } else {
-
             let level_value = if let Some(level_value) = self.first_fixed_surface_value {
                 format!("{level_value:.0}")
             } else {
@@ -71,9 +73,7 @@ impl MessageMetadata {
             };
 
             if self.first_fixed_surface_type.is_sequence_level() {
-                format!(
-                    "{level_value} in {}", self.first_fixed_surface_type.name()
-                )
+                format!("{level_value} in {}", self.first_fixed_surface_type.name())
             } else {
                 let level_unit = if self.first_fixed_surface_type.unit().len() > 0 {
                     format!(" {}", self.first_fixed_surface_type.unit())
@@ -82,16 +82,18 @@ impl MessageMetadata {
                 };
 
                 format!(
-                    "{level_value}{level_unit} {}", self.first_fixed_surface_type.name()
+                    "{level_value}{level_unit} {}",
+                    self.first_fixed_surface_type.name()
                 )
             }
         };
 
-        let statistical_process = if let Some(statistical_process) = self.statistical_process.as_ref() {
-            format!("{} ", statistical_process.abbv())
-        } else {
-            "".to_string()
-        };
+        let statistical_process =
+            if let Some(statistical_process) = self.statistical_process.as_ref() {
+                format!("{} ", statistical_process.abbv())
+            } else {
+                "".to_string()
+            };
 
         let time_offset = if let Some(time_increment_interval) = self.time_increment_interval {
             format!("{}-{} ", self.time_interval, time_increment_interval)

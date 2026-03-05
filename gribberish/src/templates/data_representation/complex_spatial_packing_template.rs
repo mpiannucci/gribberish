@@ -5,10 +5,12 @@ use std::iter;
 use itertools::izip;
 
 use crate::{
-    error::GribberishError, templates::template::{Template, TemplateType}, utils::{
+    error::GribberishError,
+    templates::template::{Template, TemplateType},
+    utils::{
         iter::{spatial_differencing::SpatialDifferencingIterator, ScaleGribValueIterator},
         read_f32_from_bytes, read_u16_from_bytes, read_u32_from_bytes,
-    }
+    },
 };
 
 use super::{

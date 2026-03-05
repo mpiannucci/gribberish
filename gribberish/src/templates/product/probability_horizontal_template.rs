@@ -3,7 +3,7 @@ use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use chrono::{DateTime, Utc};
 
 use super::product_template::ProductTemplate;
-use super::tables::{FixedSurfaceType, GeneratingProcess, TimeUnit, ProbabilityType};
+use super::tables::{FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit};
 
 /// Product Definition Template 4.5
 /// Probability forecast at a horizontal level or in a horizontal layer at a point in time

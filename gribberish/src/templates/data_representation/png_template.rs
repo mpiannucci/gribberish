@@ -1,7 +1,11 @@
 use bitvec::prelude::*;
 
-use crate::{error::GribberishError, templates::template::{Template, TemplateType}, utils::{iter::ScaleGribValueIterator, read_f32_from_bytes, read_u16_from_bytes}};
-use super::{DataRepresentationTemplate, tables::OriginalFieldValue};
+use super::{tables::OriginalFieldValue, DataRepresentationTemplate};
+use crate::{
+    error::GribberishError,
+    templates::template::{Template, TemplateType},
+    utils::{iter::ScaleGribValueIterator, read_f32_from_bytes, read_u16_from_bytes},
+};
 use png::Decoder;
 
 pub struct PNGDataRepresentationTemplate {
@@ -36,11 +40,19 @@ impl PNGDataRepresentationTemplate {
     }
 
     pub fn binary_scale_factor(&self) -> i16 {
-        as_signed!(read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0), 16, i16)
+        as_signed!(
+            read_u16_from_bytes(self.data.as_slice(), 15).unwrap_or(0),
+            16,
+            i16
+        )
     }
 
     pub fn decimal_scale_factor(&self) -> i16 {
-        as_signed!(read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0), 16, i16)
+        as_signed!(
+            read_u16_from_bytes(self.data.as_slice(), 17).unwrap_or(0),
+            16,
+            i16
+        )
     }
 
     pub fn bit_count(&self) -> u8 {
@@ -57,8 +69,8 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
         "PNG".into()
     }
 
-	fn bit_count_per_datapoint(&self) -> usize {
-		self.bit_count() as usize
+    fn bit_count_per_datapoint(&self) -> usize {
+        self.bit_count() as usize
     }
 
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
@@ -75,7 +87,11 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
         let values = (0..image_data.len())
             .step_by(bytes_per_datapoint)
             .map(|ib| read_u16_from_bytes(&image_data, ib).unwrap())
-            .scale_value_by(self.binary_scale_factor(), self.decimal_scale_factor(), self.reference_value())
+            .scale_value_by(
+                self.binary_scale_factor(),
+                self.decimal_scale_factor(),
+                self.reference_value(),
+            )
             .collect();
 
         Ok(values)
