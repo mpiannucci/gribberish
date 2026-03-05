@@ -559,3 +559,54 @@ fn test_longitude_normalization_era5_grib1() {
         );
     }
 }
+
+#[test]
+fn read_hrrr_hpbl_parameter() {
+    // Test the new PlanetaryBoundaryLayerHeight (HPBL) meteorological parameter
+    // disc=0 (meteorological), cat=3 (mass), num=18
+    let read_data = read_grib_messages("tests/data/hrrr.t00z.wrfsfcf00-HPBL.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    // Validate the new parameter metadata
+    assert_eq!(message.variable_abbrev().unwrap(), "HPBL");
+    assert_eq!(message.variable_name().unwrap(), "planetaryboundarylayerheight");
+    assert_eq!(message.unit().unwrap(), "m");
+
+    // Validate grid dimensions (HRRR 3km CONUS grid)
+    let dims = message.grid_dimensions().unwrap();
+    assert_eq!(dims, (1059, 1799));
+
+    // Validate data can be unpacked
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1905141);
+
+    // Validate specific data values (planetary boundary layer height in meters)
+    assert!((data[0] - 741.0781190395355).abs() < 0.001, "data[0]");
+    assert!((data[1000] - 727.7656190395355).abs() < 0.001, "data[1000]");
+    assert!((data[100000] - 678.6406190395355).abs() < 0.001, "data[100000]");
+}
+
+#[test]
+fn read_hrrr_cfrzr_metadata() {
+    // Validate that the existing CFRZR test file resolves correct metadata
+    // This file uses categorical freezing rain (disc=0, cat=1, num=34)
+    let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-CFRZR.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.variable_abbrev().unwrap(), "CFRZR");
+    assert_eq!(message.variable_name().unwrap(), "categoricalfreezingrain");
+    assert_eq!(message.unit().unwrap(), "BOOL");
+
+    let dims = message.grid_dimensions().unwrap();
+    assert_eq!(dims, (1059, 1799));
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1905141);
+    assert!((data[1000] - 0.0).abs() < 0.0000001);
+}
