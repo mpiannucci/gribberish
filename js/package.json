@@ -1,6 +1,6 @@
 {
   "name": "@mattnucc/gribberish",
-  "version": "0.28.2",
+  "version": "0.28.4",
   "description": "JavaScript bindings for gribberish, a GRIB2 parsing library",
   "main": "index.js",
   "repository": {
