@@ -94,7 +94,7 @@ impl LatLngTemplate {
     }
 
     pub fn resolution_component_flags(&self) -> &BitSlice<u8, Msb0> {
-        (&self.data[54..55]).view_bits()
+        self.data[54..55].view_bits()
     }
 
     pub fn end_latitude(&self) -> f64 {
@@ -113,7 +113,7 @@ impl LatLngTemplate {
         let value = value * (10f64.powf(-6.0));
 
         if self.scanning_mode_flags()[0] == ScanningMode::MinusI {
-            value * -1.0
+            -value
         } else {
             value
         }
@@ -124,7 +124,7 @@ impl LatLngTemplate {
         let value = value * (10f64.powf(-6.0));
 
         if self.scanning_mode_flags()[1] == ScanningMode::MinusJ {
-            value * -1.0
+            -value
         } else {
             value
         }
@@ -181,7 +181,7 @@ impl GridDefinitionTemplate for LatLngTemplate {
     }
 
     fn proj_string(&self) -> String {
-        format!("+proj=latlon +a=6367470 +b=6367470")
+        "+proj=latlon +a=6367470 +b=6367470".to_string()
     }
 
     fn crs(&self) -> String {

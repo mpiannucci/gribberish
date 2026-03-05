@@ -12,10 +12,10 @@ pub fn display_description(input: TokenStream) -> TokenStream {
 
     if let Item::Enum(e) = item {
         // Build the output, possibly using quasi-quotation
-        let expanded = generate_display_impl(&e);
+        
 
         // Hand the output tokens back to the compiler
-        TokenStream::from(expanded)
+        generate_display_impl(&e)
     } else {
         panic!("Only Enums are supported for DisplayDescription!");
     }
@@ -63,10 +63,10 @@ pub fn from_value(input: TokenStream) -> TokenStream {
 
     if let Item::Enum(e) = item {
         // Build the output, possibly using quasi-quotation
-        let expanded = generate_from_value_impl(&e);
+        
 
         // Hand the output tokens back to the compiler
-        TokenStream::from(expanded)
+        generate_from_value_impl(&e)
     } else {
         panic!("Only Enums are supported for DisplayDescription!");
     }
@@ -112,10 +112,10 @@ pub fn parameter_attributes(input: TokenStream) -> TokenStream {
 
     if let Item::Enum(e) = item {
         // Build the output, possibly using quasi-quotation
-        let expanded = generate_parameter_attributes(&e);
+        
 
         // Hand the output tokens back to the compiler
-        TokenStream::from(expanded)
+        generate_parameter_attributes(&e)
     } else {
         panic!("Only Enums are supported for DisplayDescription!");
     }

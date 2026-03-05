@@ -142,7 +142,7 @@ impl LambertConformalTemplate {
                 "unimplemented: OblateKM".into(),
             )),
             EarthShape::OblateIAGGRS80 => {
-                Ok(format!(" +a=6378137 +b=6356752.314 +rf=298.257222101"))
+                Ok(" +a=6378137 +b=6356752.314 +rf=298.257222101".to_string())
             }
             EarthShape::WGS84 => Ok(" +ellps=WGS84".to_string()),
             EarthShape::Spherical2 => Ok(" +a=6371229 +b=6371229".to_string()),
@@ -206,7 +206,7 @@ impl LambertConformalTemplate {
     }
 
     pub fn resolution_component_flags(&self) -> &BitSlice<u8, Msb0> {
-        (&self.data[46..47]).view_bits()
+        self.data[46..47].view_bits()
     }
 
     pub fn latitude_of_dx_dy(&self) -> f64 {

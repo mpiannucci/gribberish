@@ -13,7 +13,7 @@ use gribberish_types::Parameter;
 use std::collections::HashMap;
 use std::vec::Vec;
 
-pub fn scan_messages<'a>(data: &'a [u8]) -> HashMap<String, (usize, usize)> {
+pub fn scan_messages(data: &[u8]) -> HashMap<String, (usize, usize)> {
     let message_iter = MessageIterator::from_data(data, 0);
 
     message_iter
@@ -56,7 +56,7 @@ impl<'a> Iterator for MessageIterator<'a> {
         while self.offset + 4 <= self.data.len() {
             if &self.data[self.offset..self.offset + 4] == b"GRIB" {
                 // Found a potential GRIB message
-                match Message::from_data(&self.data, self.offset) {
+                match Message::from_data(self.data, self.offset) {
                     Some(m) => {
                         self.offset += m.len();
                         return Some(m);
@@ -216,30 +216,21 @@ impl<'a> Message<'a> {
     pub fn variable_names(messages: Vec<Message>) -> Vec<Option<String>> {
         Message::parameters(messages)
             .iter()
-            .map(|p| match p {
-                Some(p) => Some(p.name.clone()),
-                None => None,
-            })
+            .map(|p| p.as_ref().map(|p| p.name.clone()))
             .collect()
     }
 
     pub fn variable_abbrevs(messages: Vec<Message>) -> Vec<Option<String>> {
         Message::parameters(messages)
             .iter()
-            .map(|p| match p {
-                Some(p) => Some(p.abbrev.clone()),
-                None => None,
-            })
+            .map(|p| p.as_ref().map(|p| p.abbrev.clone()))
             .collect()
     }
 
     pub fn units(messages: Vec<Message>) -> Vec<Option<String>> {
         Message::parameters(messages)
             .iter()
-            .map(|p| match p {
-                Some(p) => Some(p.unit.clone()),
-                None => None,
-            })
+            .map(|p| p.as_ref().map(|p| p.unit.clone()))
             .collect()
     }
 
@@ -247,10 +238,7 @@ impl<'a> Message<'a> {
         messages
             .iter()
             .map(|m| m.parameter())
-            .map(|r| match r {
-                Ok(parameter) => Some(parameter),
-                Err(_) => None,
-            })
+            .map(|r| r.ok())
             .collect()
     }
 
@@ -258,10 +246,7 @@ impl<'a> Message<'a> {
         messages
             .iter()
             .map(|m| m.forecast_date())
-            .map(|r| match r {
-                Ok(date) => Some(date),
-                Err(_) => None,
-            })
+            .map(|r| r.ok())
             .collect()
     }
 
@@ -397,7 +382,6 @@ impl<'a> Message<'a> {
                     product_template.category_value(),
                     product_template.parameter_value()
                 )
-                .into()
             )
         );
 
@@ -488,7 +472,7 @@ impl<'a> Message<'a> {
         match self {
             Message::Grib1 { message, .. } => message
                 .reference_datetime()
-                .map_err(|e| GribberishError::MessageError(e)),
+                .map_err(GribberishError::MessageError),
             Message::Grib2 { .. } => {
                 let reference_date = unwrap_or_return!(
                     self.sections().find_map(|s| match s {
@@ -561,7 +545,7 @@ impl<'a> Message<'a> {
         match self {
             Message::Grib1 { message, .. } => message
                 .forecast_datetime()
-                .map_err(|e| GribberishError::MessageError(e)),
+                .map_err(GribberishError::MessageError),
             Message::Grib2 { .. } => {
                 let product_template = self.product_template()?;
                 let reference_date = self.reference_date()?;
@@ -790,7 +774,7 @@ impl<'a> Message<'a> {
     pub fn data(&self) -> Result<Vec<f64>, GribberishError> {
         match self {
             Message::Grib1 { message, .. } => {
-                message.data().map_err(|e| GribberishError::MessageError(e))
+                message.data().map_err(GribberishError::MessageError)
             }
             Message::Grib2 { .. } => {
                 let data_section = unwrap_or_return!(
@@ -836,8 +820,8 @@ impl<'a> Message<'a> {
                 );
 
                 let mut data = if bitmap_section.has_bitmap() {
-                    let mapped_scaled_data = bitmap_section.map_data(scaled_unpacked_data);
-                    mapped_scaled_data
+                    
+                    bitmap_section.map_data(scaled_unpacked_data)
                 } else {
                     scaled_unpacked_data
                 };

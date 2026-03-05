@@ -75,7 +75,7 @@ impl MessageMetadata {
             if self.first_fixed_surface_type.is_sequence_level() {
                 format!("{level_value} in {}", self.first_fixed_surface_type.name())
             } else {
-                let level_unit = if self.first_fixed_surface_type.unit().len() > 0 {
+                let level_unit = if !self.first_fixed_surface_type.unit().is_empty() {
                     format!(" {}", self.first_fixed_surface_type.unit())
                 } else {
                     "".to_string()
@@ -166,15 +166,15 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
     }
 }
 
-pub fn scan_message_metadata<'a>(
-    data: &'a [u8],
+pub fn scan_message_metadata(
+    data: &[u8],
 ) -> HashMap<String, (usize, usize, MessageMetadata)> {
     let message_iter = MessageIterator::from_data(data, 0);
 
     message_iter
         .enumerate()
         .filter_map(|(index, m)| match MessageMetadata::try_from(&m) {
-            Ok(mm) => Some(((&mm.key).clone(), (index, m.byte_offset(), mm))),
+            Ok(mm) => Some((mm.key.clone(), (index, m.byte_offset(), mm))),
             Err(_) => None,
         })
         .collect()

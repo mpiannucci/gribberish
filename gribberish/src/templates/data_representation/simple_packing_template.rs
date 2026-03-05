@@ -89,7 +89,7 @@ impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate
                 }
 
                 let relevent_bits = &bits[i..i_end_index];
-                if relevent_bits.len() == 0 {
+                if relevent_bits.is_empty() {
                     None
                 } else {
                     Some(relevent_bits.load_be::<u32>())

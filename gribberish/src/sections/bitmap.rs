@@ -28,7 +28,7 @@ impl<'a> BitmapSection<'a> {
         let bitmask = self.raw_bitmap_data().view_bits::<Msb0>();
         let mut data = Vec::new();
         data.resize(bitmask.len(), 0.0);
-        if unmapped_data.len() == 0 {
+        if unmapped_data.is_empty() {
             return data;
         }
 
@@ -56,13 +56,13 @@ impl<'a> BitmapSection<'a> {
         let bitmask = self.raw_bitmap_data().view_bits::<Msb0>();
         if bitmask.len() <= index {
             return None;
-        } else if bitmask[index] == false {
+        } else if !bitmask[index] {
             return None;
         }
 
         let mut nan_count: usize = 0;
         for i in (0..index).rev() {
-            if bitmask[i] == false {
+            if !bitmask[i] {
                 nan_count += 1;
             }
         }

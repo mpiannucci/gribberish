@@ -199,11 +199,7 @@ impl Grib1Message {
         }
 
         // Build bitmap if present
-        let bitmap_vec: Option<Vec<bool>> = if let Some(ref bms) = self.bitmap {
-            Some((0..num_points).map(|i| bms.is_valid(i)).collect())
-        } else {
-            None
-        };
+        let bitmap_vec: Option<Vec<bool>> = self.bitmap.as_ref().map(|bms| (0..num_points).map(|i| bms.is_valid(i)).collect());
 
         let mut values = self.bds.unpack_data(num_points, bitmap_vec.as_deref())?;
 

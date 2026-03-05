@@ -120,7 +120,7 @@ impl Grib1ProductDefinitionSection {
         let minute = self.minute() as u32;
 
         // Determine full year (assume 1900-2099 range)
-        let year = if year_of_century >= 0 && year_of_century <= 99 {
+        let year = if (0..=99).contains(&year_of_century) {
             // GRIB1 uses 2-digit years: 00-99
             // Convention: 00-49 = 2000-2049, 50-99 = 1950-1999
             if year_of_century <= 49 {

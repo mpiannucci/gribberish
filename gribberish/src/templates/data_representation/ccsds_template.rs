@@ -106,7 +106,7 @@ impl DataRepresentationTemplate<f64> for CCSDSDataRepresentationTemplate {
 
         let bytes: Vec<u8> = bits.to_bitvec().into();
 
-        let nbytes_per_sample: usize = (bits_per_val + 7) / 8;
+        let nbytes_per_sample: usize = bits_per_val.div_ceil(8);
 
         let size = self.data_point_count() * nbytes_per_sample;
         let outputwr = extract_ccsds_data(

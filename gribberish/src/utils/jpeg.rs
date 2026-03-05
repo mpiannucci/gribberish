@@ -31,11 +31,11 @@ pub unsafe extern "C" fn jpeg_opj_stream_read_fn(
     p_nb_bytes: usize,
     p_user_data: *mut c_void,
 ) -> usize {
-    let userdata = p_user_data as *mut JpegUserData;
-    assert!((*userdata).input_stream);
+    let userdata = &mut *(p_user_data as *mut JpegUserData);
+    assert!(userdata.input_stream);
 
-    let n_imgsize = (&(*userdata).input).len();
-    let n_byteleft = n_imgsize - (*userdata).offset;
+    let n_imgsize = userdata.input.len();
+    let n_byteleft = n_imgsize - userdata.offset;
 
     let mut n_read = p_nb_bytes;
 
@@ -43,17 +43,17 @@ pub unsafe extern "C" fn jpeg_opj_stream_read_fn(
         n_read = n_byteleft;
     }
 
-    if (&(*userdata).input).is_empty() || p_buffer.is_null() || n_read == 0 || n_byteleft == 0 {
+    if userdata.input.is_empty() || p_buffer.is_null() || n_read == 0 || n_byteleft == 0 {
         // TODO: The original returned -1 here,
         // but for some reason our signature is usize...
         return 0;
     }
 
     let target = slice::from_raw_parts_mut(p_buffer as *mut u8, n_read);
-    let offset = (*userdata).offset;
-    target.copy_from_slice(&(&(*userdata).input)[offset..offset + n_read]);
+    let offset = userdata.offset;
+    target.copy_from_slice(&userdata.input[offset..offset + n_read]);
 
-    (*userdata).offset += n_read;
+    userdata.offset += n_read;
 
     n_read
 }
@@ -79,11 +79,11 @@ pub unsafe extern "C" fn jpeg_opj_stream_write_fn(
 }
 
 pub unsafe extern "C" fn jpeg_opj_stream_skip_fn(p_nb_bytes: i64, p_user_data: *mut c_void) -> i64 {
-    let userdata = p_user_data as *mut JpegUserData;
-    assert!((*userdata).input_stream);
+    let userdata = &mut *(p_user_data as *mut JpegUserData);
+    assert!(userdata.input_stream);
 
-    let n_imgsize = (&(*userdata).input).len();
-    let n_byteleft = (n_imgsize - (*userdata).offset) as i64;
+    let n_imgsize = userdata.input.len();
+    let n_byteleft = (n_imgsize - userdata.offset) as i64;
 
     let mut n_skip = p_nb_bytes;
 
@@ -91,21 +91,21 @@ pub unsafe extern "C" fn jpeg_opj_stream_skip_fn(p_nb_bytes: i64, p_user_data: *
         n_skip = n_byteleft;
     }
 
-    (*userdata).offset += n_skip as usize;
-    (*userdata).offset as i64
+    userdata.offset += n_skip as usize;
+    userdata.offset as i64
 }
 
 pub unsafe extern "C" fn jpeg_opj_stream_seek_fn(p_nb_bytes: i64, p_user_data: *mut c_void) -> i32 {
-    let userdata = p_user_data as *mut JpegUserData;
-    assert!((*userdata).input_stream);
+    let userdata = &mut *(p_user_data as *mut JpegUserData);
+    assert!(userdata.input_stream);
 
-    let n_imgsize = (&(*userdata).input).len();
+    let n_imgsize = userdata.input.len();
     let n_seek = p_nb_bytes as usize;
 
     if n_seek > n_imgsize {
         0
     } else {
-        (*userdata).offset = n_seek;
+        userdata.offset = n_seek;
         1
     }
 }
@@ -184,7 +184,7 @@ pub fn extract_jpeg_data(raw_data: &Vec<u8>) -> Result<Vec<i32>, GribberishError
         openjpeg_sys::opj_image_destroy(image);
     }
 
-    if output_data.len() == 0 {
+    if output_data.is_empty() {
         Err(GribberishError::JpegError(
             "Unknown failure extracting JPEG data".into(),
         ))

@@ -55,16 +55,10 @@ pub fn parse_grib_dataset<'py>(
         Vec::new()
     };
 
-    let only_variables = if let Some(only_variables) = only_variables {
-        Some(
-            only_variables
+    let only_variables = only_variables.map(|only_variables| only_variables
                 .iter()
                 .map(|d| d.to_string().to_lowercase())
-                .collect::<Vec<String>>(),
-        )
-    } else {
-        None
-    };
+                .collect::<Vec<String>>());
 
     let perserve_dims: Vec<String> = if let Some(perserve_dims) = perserve_dims {
         perserve_dims
@@ -88,11 +82,7 @@ pub fn parse_grib_dataset<'py>(
             (PyDict::new(py), false)
         };
 
-    let encode_coords = if let Some(encode_coords) = encode_coords {
-        encode_coords
-    } else {
-        false
-    };
+    let encode_coords = encode_coords.unwrap_or_default();
 
     let mapping = scan_message_metadata(data)
         .into_iter()
@@ -141,8 +131,7 @@ pub fn parse_grib_dataset<'py>(
                 v.2.statistical_process
                     .clone()
                     .map(|s| s.abbv())
-                    .unwrap_or("".to_string())
-                    .to_string(),
+                    .unwrap_or("".to_string()),
             gen = v.2.generating_process.abbv(),
         );
 
@@ -228,7 +217,7 @@ pub fn parse_grib_dataset<'py>(
             if let Some(forecast_end_date) = mapping.get(k).unwrap().2.forecast_end_date {
                 times.insert(forecast_end_date);
             } else {
-                times.insert(mapping.get(k).unwrap().2.forecast_date.clone());
+                times.insert(mapping.get(k).unwrap().2.forecast_date);
             }
         }
         let mut times = times.into_iter().collect::<Vec<_>>();
@@ -516,8 +505,8 @@ pub fn parse_grib_dataset<'py>(
     let first = mapping.values().next().unwrap();
     let grid_shape = first.2.grid_shape;
     var_shape.iter_mut().for_each(|(_, v)| {
-        v.push((&grid_shape).0);
-        v.push((&grid_shape).1);
+        v.push(grid_shape.0);
+        v.push(grid_shape.1);
     });
 
     if first.2.is_regular_grid {
