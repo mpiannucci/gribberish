@@ -26,7 +26,7 @@ pub fn read_idx(path: &str) -> Vec<String> {
 
 #[test]
 fn test_gfs_wave_idx_generation() {
-    let read_data = read_grib_messages("tests/data/gfswave.t18z.atlocn.0p16.f001.grib2");
+    let read_data = read_grib_messages("../test-data/gfswave.t18z.atlocn.0p16.f001.grib2");
     let metadata = scan_message_metadata(read_data.as_slice());
     let mut idxs = metadata
         .iter()
@@ -34,7 +34,7 @@ fn test_gfs_wave_idx_generation() {
         .collect::<Vec<_>>();
     idxs.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let idx_lines = read_idx("tests/data/gfswave.t18z.atlocn.0p16.f001.grib2.idx");
+    let idx_lines = read_idx("../test-data/gfswave.t18z.atlocn.0p16.f001.grib2.idx");
 
     for (idx, line) in idx_lines.iter().enumerate() {
         assert_eq!(line, &idxs[idx].1);
