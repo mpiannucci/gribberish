@@ -161,12 +161,12 @@ pub fn extract_ccsds_data(
     )
     .map_err(|e| GribberishError::MessageError(format!("Failed to create decoder: {}", e)))?;
 
-    let bytes_per_sample = (bits_per_sample + 7) / 8;
+    let bytes_per_sample = bits_per_sample.div_ceil(8);
     // Calculate the number of samples we expect
     let num_samples = avail_out / bytes_per_sample;
 
     // Validate that avail_out is correctly sized
-    if avail_out % bytes_per_sample != 0 {
+    if !avail_out.is_multiple_of(bytes_per_sample) {
         return Err(GribberishError::MessageError(format!(
             "avail_out ({}) is not a multiple of bytes_per_sample ({})",
             avail_out, bytes_per_sample
