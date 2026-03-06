@@ -19,7 +19,7 @@ pub fn read_grib_messages(path: &str) -> Vec<u8> {
 
 #[test]
 fn read_jpeg() {
-    let grib_data = read_grib_messages("tests/data/multi_1.at_10m.t12z.f147.grib2");
+    let grib_data = read_grib_messages("../test-data/multi_1.at_10m.t12z.f147.grib2");
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
 
     let message_count = messages.len();
@@ -55,7 +55,7 @@ fn read_jpeg() {
 
 #[test]
 fn read_simple() {
-    let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-UGRD.grib2");
+    let read_data = read_grib_messages("../test-data/hrrr.t06z.wrfsfcf01-UGRD.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
     assert_eq!(messages.len(), 1);
 
@@ -80,7 +80,7 @@ fn read_simple() {
 
 #[test]
 fn read_spatial_differenced_complex() {
-    let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-TMP.grib2");
+    let read_data = read_grib_messages("../test-data/hrrr.t06z.wrfsfcf01-TMP.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
     assert_eq!(messages.len(), 1);
 
@@ -103,7 +103,7 @@ fn read_spatial_differenced_complex() {
 
 #[test]
 fn read_simple_zerod() {
-    let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-CFRZR.grib2");
+    let read_data = read_grib_messages("../test-data/hrrr.t06z.wrfsfcf01-CFRZR.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
     assert_eq!(messages.len(), 1);
 
@@ -126,7 +126,7 @@ fn read_simple_zerod() {
 
 #[test]
 fn read_complex_zerod() {
-    let read_data = read_grib_messages("tests/data/gfs.t18z.pgrb2.0p25.f186-RH.grib2");
+    let read_data = read_grib_messages("../test-data/gfs.t18z.pgrb2.0p25.f186-RH.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
     assert_eq!(messages.len(), 1);
 
@@ -149,7 +149,7 @@ fn read_complex_zerod() {
 #[cfg(not(feature = "libaec"))]
 #[test]
 fn read_ccsds_without_libaec_should_work() {
-    let read_data = read_grib_messages("tests/data/meteofrance.mfwam.arome-SWELL.grib2");
+    let read_data = read_grib_messages("../test-data/meteofrance.mfwam.arome-SWELL.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
     assert_eq!(messages.len(), 1);
 
@@ -172,7 +172,7 @@ fn read_ccsds_without_libaec_should_work() {
 #[cfg(feature = "libaec")]
 #[test]
 fn read_ccsds_with_libaec_should_work() {
-    let read_data = read_grib_messages("tests/data/meteofrance.mfwam.arome-SWELL.grib2");
+    let read_data = read_grib_messages("../test-data/meteofrance.mfwam.arome-SWELL.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
     assert_eq!(messages.len(), 1);
 
@@ -194,7 +194,7 @@ fn read_ccsds_with_libaec_should_work() {
 
 #[test]
 fn read_ensemble_average() {
-    let grib_data = read_grib_messages("tests/data/geavg.t12z.pgrb2a.0p50.f000");
+    let grib_data = read_grib_messages("../test-data/geavg.t12z.pgrb2a.0p50.f000");
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
 
     // Verify we have the expected number of messages
@@ -367,7 +367,7 @@ fn read_ensemble_average() {
 
 #[test]
 fn read_grib1_era5_levels_members() {
-    let grib_data = read_grib_messages("tests/data/era5-levels-members.grib");
+    let grib_data = read_grib_messages("../test-data/era5-levels-members.grib");
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
 
     // Verify we have the expected number of messages
@@ -457,7 +457,7 @@ fn read_grib1_ecmwf_table_128_soil_tiny_fixture() {
 fn test_iterator_scans_past_padding() {
     // This test verifies that the MessageIterator correctly scans past
     // non-GRIB data (padding bytes, headers, etc.) to find all GRIB messages
-    let grib_data = read_grib_messages("tests/data/era5-levels-members.grib");
+    let grib_data = read_grib_messages("../test-data/era5-levels-members.grib");
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
 
     // The ERA5 file has 160 GRIB1 messages with 8-byte padding between each
@@ -488,7 +488,7 @@ fn test_longitude_normalization() {
     // This validates the fix for longitude wrapping in the projection code
 
     // Test with geavg (GRIB2) - 0.5° global grid starting at 0°
-    let grib_data = read_grib_messages("tests/data/geavg.t12z.pgrb2a.0p50.f000");
+    let grib_data = read_grib_messages("../test-data/geavg.t12z.pgrb2a.0p50.f000");
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
     assert!(!messages.is_empty(), "Expected at least one message");
 
@@ -546,7 +546,7 @@ fn test_longitude_normalization() {
 #[test]
 fn test_longitude_normalization_era5_grib1() {
     // Test longitude normalization for GRIB1 ERA5 file
-    let grib_data = read_grib_messages("tests/data/era5-levels-members.grib");
+    let grib_data = read_grib_messages("../test-data/era5-levels-members.grib");
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
     assert!(!messages.is_empty(), "Expected at least one message");
 
@@ -593,7 +593,7 @@ fn test_longitude_normalization_era5_grib1() {
 fn read_hrrr_hpbl_parameter() {
     // Test the new PlanetaryBoundaryLayerHeight (HPBL) meteorological parameter
     // disc=0 (meteorological), cat=3 (mass), num=18
-    let read_data = read_grib_messages("tests/data/hrrr.t00z.wrfsfcf00-HPBL.grib2");
+    let read_data = read_grib_messages("../test-data/hrrr.t00z.wrfsfcf00-HPBL.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
     assert_eq!(messages.len(), 1);
 
@@ -628,7 +628,7 @@ fn read_hrrr_hpbl_parameter() {
 fn read_hrrr_cfrzr_metadata() {
     // Validate that the existing CFRZR test file resolves correct metadata
     // This file uses categorical freezing rain (disc=0, cat=1, num=34)
-    let read_data = read_grib_messages("tests/data/hrrr.t06z.wrfsfcf01-CFRZR.grib2");
+    let read_data = read_grib_messages("../test-data/hrrr.t06z.wrfsfcf01-CFRZR.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
     assert_eq!(messages.len(), 1);
 
