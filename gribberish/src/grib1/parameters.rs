@@ -71,12 +71,6 @@ fn get_ecmwf_legacy_parameter(parameter: u8) -> Option<Grib1Parameter> {
             name: "Temperature",
             units: "K",
         },
-        29 => Grib1Parameter {
-            number: 29,
-            abbreviation: "sst",
-            name: "Sea surface temperature",
-            units: "K",
-        },
         31 => Grib1Parameter {
             number: 31,
             abbreviation: "u",
@@ -260,23 +254,101 @@ fn get_ecmwf_legacy_parameter(parameter: u8) -> Option<Grib1Parameter> {
 /// ECMWF parameter table 228 (center 98, table version 228)
 fn get_ecmwf_table_228_parameter(parameter: u8) -> Option<Grib1Parameter> {
     let param = match parameter {
+        22 => Grib1Parameter {
+            number: 22,
+            abbreviation: "10fg6",
+            name: "10 metre wind gust in the last 6 hours",
+            units: "m s-1",
+        },
+        29 => Grib1Parameter {
+            number: 29,
+            abbreviation: "i10fg",
+            name: "Instantaneous 10 metre wind gust since last post-processing",
+            units: "m s-1",
+        },
+        44 => Grib1Parameter {
+            number: 44,
+            abbreviation: "es",
+            name: "Snow evaporation",
+            units: "m of water equivalent",
+        },
+        89 => Grib1Parameter {
+            number: 89,
+            abbreviation: "tcrw",
+            name: "Total column rain water",
+            units: "kg m-2",
+        },
+        129 => Grib1Parameter {
+            number: 129,
+            abbreviation: "tp",
+            name: "Total precipitation",
+            units: "m",
+        },
         131 => Grib1Parameter {
             number: 131,
             abbreviation: "u10n",
-            name: "10 metre u-component of neutral wind",
-            units: "m s**-1",
+            name: "10 metre U component of neutral wind",
+            units: "m s-1",
+        },
+        217 => Grib1Parameter {
+            number: 217,
+            abbreviation: "10fg3",
+            name: "10 metre wind gust in the last 3 hours",
+            units: "m s-1",
+        },
+        218 => Grib1Parameter {
+            number: 218,
+            abbreviation: "10fg1",
+            name: "10 metre wind gust in the last 1 hour",
+            units: "m s-1",
+        },
+        219 => Grib1Parameter {
+            number: 219,
+            abbreviation: "cape",
+            name: "Convective available potential energy",
+            units: "J kg-1",
+        },
+        220 => Grib1Parameter {
+            number: 220,
+            abbreviation: "cin",
+            name: "Convective inhibition",
+            units: "J kg-1",
+        },
+        226 => Grib1Parameter {
+            number: 226,
+            abbreviation: "mwd",
+            name: "Mean wave direction",
+            units: "Degree true",
+        },
+        239 => Grib1Parameter {
+            number: 239,
+            abbreviation: "csf",
+            name: "Convective snowfall",
+            units: "m of water equivalent",
+        },
+        240 => Grib1Parameter {
+            number: 240,
+            abbreviation: "lsf",
+            name: "Large-scale snowfall",
+            units: "m of water equivalent",
+        },
+        241 => Grib1Parameter {
+            number: 241,
+            abbreviation: "acf",
+            name: "Accumulated cloud fraction tendency",
+            units: "(-1 to 1)",
         },
         246 => Grib1Parameter {
             number: 246,
             abbreviation: "100u",
             name: "100 metre U wind component",
-            units: "m s**-1",
+            units: "m s-1",
         },
         247 => Grib1Parameter {
             number: 247,
             abbreviation: "100v",
             name: "100 metre V wind component",
-            units: "m s**-1",
+            units: "m s-1",
         },
         _ => return None,
     };
@@ -421,6 +493,45 @@ mod tests {
     #[test]
     fn test_ecmwf_table_128_entry_count() {
         assert_eq!(ECMWF_TABLE_128.len(), 209);
+    }
+
+    #[test]
+    fn test_table_128_param_34_is_sst() {
+        // ECMWF table 128, param 34 = Sea surface temperature
+        let param = get_parameter(98, 128, 34).unwrap();
+        assert_eq!(param.abbreviation, "sst");
+        assert_eq!(param.name, "Sea surface temperature");
+        assert_eq!(param.units, "K");
+    }
+
+    #[test]
+    fn test_table_228_param_29_is_not_sst() {
+        // Table 228, param 29 = Instantaneous 10m wind gust, NOT SST.
+        // This was previously misidentified as SST via a legacy fallback.
+        let param = get_parameter(98, 228, 29).unwrap();
+        assert_eq!(param.abbreviation, "i10fg");
+        assert_ne!(param.abbreviation, "sst");
+    }
+
+    #[test]
+    fn test_table_228_wind_gust_variants() {
+        let p22 = get_parameter(98, 228, 22).unwrap();
+        assert_eq!(p22.abbreviation, "10fg6");
+
+        let p217 = get_parameter(98, 228, 217).unwrap();
+        assert_eq!(p217.abbreviation, "10fg3");
+
+        let p218 = get_parameter(98, 228, 218).unwrap();
+        assert_eq!(p218.abbreviation, "10fg1");
+    }
+
+    #[test]
+    fn test_table_228_cape_cin() {
+        let cape = get_parameter(98, 228, 219).unwrap();
+        assert_eq!(cape.abbreviation, "cape");
+
+        let cin = get_parameter(98, 228, 220).unwrap();
+        assert_eq!(cin.abbreviation, "cin");
     }
 
     #[test]
