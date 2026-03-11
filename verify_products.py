@@ -49,6 +49,10 @@ PRODUCTS = {
         "s3": "s3://spire-wx-products-datafeed-stage/saifs/s2s/ensemble/20260311/00/saifs-s2s.ens.global.t00z.pgrb2.0p5.D001.grib2",
         "local": "test-data/saifs-s2s.ens.global.t00z.pgrb2.0p5.D001.grib2",
     },
+    "upp": {
+        "s3": "s3://spire-wx-products-datafeed-stage/mpp/20260311/12/upp.t12z.pgrb2.0p125.f000",
+        "local": "test-data/upp.t12z.pgrb2.0p125.f000",
+    },
 }
 
 
