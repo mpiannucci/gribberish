@@ -834,3 +834,52 @@ fn read_aifs_ensemble_temperature() {
     assert!((data[1000] - 236.822784).abs() < 0.001, "data[1000]");
     assert!((data[100000] - 233.666534).abs() < 0.001, "data[100000]");
 }
+
+#[test]
+fn read_ecmwf_ifs_oper_surface() {
+    // ECMWF IFS operational 0.25° global analysis, surface fields.
+    // Tests ECMWF-specific parameters within standard WMO disciplines:
+    //   - Snow albedo (d=0/c=19/p=192, ECMWF local-use)
+    //   - Precipitation type (d=0/c=1/p=19, WMO table 4.2-0-1)
+    //   - Snow density (d=0/c=1/p=61, WMO table 4.2-0-1)
+    //   - Snow depth water equivalent (d=0/c=1/p=254, ECMWF local-use)
+    //   - Total cloud cover (d=0/c=6/p=192, ECMWF local-use)
+    // Data from public ECMWF forecasts: s3://ecmwf-forecasts/
+    let read_data = read_grib_messages("../test-data/ecmwf-ifs-oper-surface.grib2");
+    let messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 5);
+
+    // Snow albedo
+    let asn = &messages[0];
+    assert_eq!(asn.variable_abbrev().unwrap(), "ASN");
+    assert_eq!(asn.variable_name().unwrap(), "snowalbedo");
+    assert_eq!(asn.grid_dimensions().unwrap(), (721, 1440));
+    let data = asn.data().unwrap();
+    assert!((data[0] - 0.849609).abs() < 0.001, "asn data[0]");
+
+    // Precipitation type
+    let ptype = &messages[1];
+    assert_eq!(ptype.variable_abbrev().unwrap(), "PTYPE");
+    assert_eq!(ptype.variable_name().unwrap(), "precipitationtype");
+    let data = ptype.data().unwrap();
+    assert!((data[0] - 5.0).abs() < 0.001, "ptype data[0]");
+
+    // Snow density
+    let rsn = &messages[2];
+    assert_eq!(rsn.variable_abbrev().unwrap(), "RSN");
+    assert_eq!(rsn.variable_name().unwrap(), "snowdensity");
+    let data = rsn.data().unwrap();
+    assert!((data[0] - 100.005066).abs() < 0.001, "rsn data[0]");
+
+    // Snow depth water equivalent
+    let sd = &messages[3];
+    assert_eq!(sd.variable_abbrev().unwrap(), "SD");
+    assert_eq!(sd.variable_name().unwrap(), "snowdepthwaterequivalent");
+
+    // Total cloud cover (ECMWF local-use d=0/c=6/p=192)
+    let tcc = &messages[4];
+    assert_eq!(tcc.variable_abbrev().unwrap(), "TCC");
+    assert_eq!(tcc.variable_name().unwrap(), "totalcloudcoverecmwf");
+    let data = tcc.data().unwrap();
+    assert!((data[0] - 0.109375).abs() < 0.001, "tcc data[0]");
+}

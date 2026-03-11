@@ -96,6 +96,10 @@ pub enum MoistureProduct {
     #[abbrev = "NCPCP"]
     #[unit = "kgm-2"]
     LargeScalePrecipitation = 9,
+    #[description = "precipitation type"]
+    #[abbrev = "PTYPE"]
+    #[unit = "code table 4.201"]
+    PrecipitationType = 19,
     #[description = "total precipitation"]
     #[abbrev = "APCP"]
     #[unit = "kgm-2"]
@@ -187,6 +191,14 @@ pub enum MoistureProduct {
     #[abbrev = "TCOLI"]
     #[unit = "kgm-2"]
     TotalColumnIntegratedCloudIce = 70,
+    #[description = "snow density"]
+    #[abbrev = "RSN"]
+    #[unit = "kgm-3"]
+    SnowDensity = 61,
+    #[description = "total column vertically-integrated water vapour"]
+    #[abbrev = "TCWV"]
+    #[unit = "kgm-2"]
+    TotalColumnWaterVapour = 64,
     #[description = "total column integrated graupel"]
     #[abbrev = "TCOLG"]
     #[unit = "kgm-2"]
@@ -235,6 +247,14 @@ pub enum MoistureProduct {
     #[abbrev = "ARAIN"]
     #[unit = "kgm-2"]
     LiquidPrecipitationRainfall = 221,
+    #[description = "snowfall"]
+    #[abbrev = "SF"]
+    #[unit = "m"]
+    SnowfallEcmwf = 198,
+    #[description = "snow depth water equivalent"]
+    #[abbrev = "SD"]
+    #[unit = "m"]
+    SnowDepthWaterEquivalent = 254,
     #[description = "relative humidity with respect to precipitable water"]
     #[abbrev = "RHPW"]
     #[unit = "%"]
@@ -296,6 +316,10 @@ pub enum MomentumProduct {
     #[abbrev = "RELV"]
     #[unit = "s-1"]
     RelativeVorticity = 12,
+    #[description = "divergence"]
+    #[abbrev = "DIV"]
+    #[unit = "s-1"]
+    Divergence = 13,
     #[description = "potential vorticity"]
     #[abbrev = "PVORT"]
     #[unit = "Km2kg-1s-1"]
@@ -336,6 +360,14 @@ pub enum MomentumProduct {
     #[abbrev = "WINDF"]
     #[unit = "m"]
     WindFetch = 33,
+    #[description = "time-integrated eastward turbulent surface stress"]
+    #[abbrev = "EWSS"]
+    #[unit = "Nm-2s"]
+    EastwardTurbulentSurfaceStress = 62,
+    #[description = "time-integrated northward turbulent surface stress"]
+    #[abbrev = "NSSS"]
+    #[unit = "Nm-2s"]
+    NorthwardTurbulentSurfaceStress = 63,
     #[description = "u-component of storm motion"]
     #[abbrev = "UTSM"]
     #[unit = "ms-1"]
@@ -430,6 +462,10 @@ pub enum CloudProduct {
     #[abbrev = "SUNSD"]
     #[unit = "s"]
     SunshineDuration = 201,
+    #[description = "total cloud cover"]
+    #[abbrev = "TCC"]
+    #[unit = "proportion"]
+    TotalCloudCoverEcmwf = 192,
     #[description = "cloud work function"]
     #[abbrev = "CWORK"]
     #[unit = "Jkg-1"]
@@ -877,6 +913,10 @@ pub enum PhysicalAtmosphericProperties {
     #[abbrev = "CAT"]
     #[unit = "%"]
     ClearAirTurbulence = 22,
+    #[description = "snow albedo"]
+    #[abbrev = "ASN"]
+    #[unit = "proportion"]
+    SnowAlbedo = 192,
     #[description = "turbulence potential forecast index"]
     #[abbrev = "TPFI"]
     #[unit = "nondim"]
@@ -899,6 +939,10 @@ pub enum LongWaveRadiationProduct {
     #[abbrev = "ULWRF"]
     #[unit = "Wm-2"]
     UpwardLongWaveRadiationFlux = 4,
+    #[description = "net long-wave radiation flux (top of atmosphere)"]
+    #[abbrev = "NLWRT"]
+    #[unit = "Wm-2"]
+    NetLongWaveRadiationFluxTop = 5,
     Missing = 255,
 }
 
