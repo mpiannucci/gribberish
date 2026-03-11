@@ -274,12 +274,20 @@ pub enum SurfacePropertiesProduct {
 pub enum IceProduct {
     #[description = "ice cover"]
     #[abbrev = "ICEC"]
-    #[unit = "porportion"]
+    #[unit = "proportion"]
     IceCover = 0,
     #[description = "ice thickness"]
     #[abbrev = "ICETK"]
     #[unit = "m"]
     IceThickness = 1,
+    #[description = "ice growth rate"]
+    #[abbrev = "ICEG"]
+    #[unit = "ms-1"]
+    IceGrowthRate = 6,
+    #[description = "sea ice temperature"]
+    #[abbrev = "ICETMP"]
+    #[unit = "K"]
+    SeaIceTemperature = 8,
     Missing = 255,
 }
 

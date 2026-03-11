@@ -59,12 +59,10 @@ impl<'a> ProductDefinitionSection<'a> {
                 self.data.to_vec(),
                 discipline,
             ))),
-            10 => Some(Box::new(
-                PercentileHorizontalTimeIntervalTemplate::new(
-                    self.data.to_vec(),
-                    discipline,
-                ),
-            )),
+            10 => Some(Box::new(PercentileHorizontalTimeIntervalTemplate::new(
+                self.data.to_vec(),
+                discipline,
+            ))),
             11 => Some(Box::new(EnsembleForecastTimeIntervalTemplate::new(
                 self.data.to_vec(),
                 discipline,
