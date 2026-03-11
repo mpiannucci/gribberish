@@ -53,6 +53,14 @@ PRODUCTS = {
         "s3": "s3://spire-wx-products-datafeed-stage/mpp/20260311/12/upp.t12z.pgrb2.0p125.f000",
         "local": "test-data/upp.t12z.pgrb2.0p125.f000",
     },
+    "aifs_single": {
+        "s3": "s3://spire-wx-products-datafeed-stage/aifs-single/20260310/12/20260310120000-0h-oper-fc.grib2",
+        "local": "test-data/aifs-single-20260310.grib2",
+    },
+    "aifs_ens": {
+        "s3": "s3://ecmwf-forecasts/20260310/00z/aifs-ens/0p25/enfo/20260310000000-0h-enfo-cf.grib2",
+        "local": "test-data/aifs-ens-cf-20260310.grib2",
+    },
 }
 
 
