@@ -128,12 +128,11 @@ pub fn parse_grib_dataset<'py>(
         // generating process, and derived forecast type. This is used for naming variables
         // when they have multiple level types (e.g., tmp_sfc_fcst vs tmp_isobar_fcst) or
         // derived forecast types (e.g., tmp_mean vs tmp_stddev).
-        let derived = v
-            .2
-            .derived_forecast_type
-            .as_ref()
-            .map(|d| d.abbv())
-            .unwrap_or_default();
+        let derived =
+            v.2.derived_forecast_type
+                .as_ref()
+                .map(|d| d.abbv())
+                .unwrap_or_default();
         let hash = format!(
             "{surf}_{stat}{gen}{accum_period}{derived}",
             surf = v.2.first_fixed_surface_type.coordinate_name(),
