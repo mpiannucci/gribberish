@@ -675,6 +675,42 @@ pub enum TraceGasesProduct {
     Missing = 255,
 }
 
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum AtmosphericChemicalConstituents {
+    #[description = "mass density"]
+    #[abbrev = "MASSDEN"]
+    #[unit = "kg m-3"]
+    MassDensity = 0,
+    #[description = "column integrated mass density"]
+    #[abbrev = "COLMD"]
+    #[unit = "kg m-2"]
+    ColumnIntegratedMassDensity = 1,
+    #[description = "mass mixing ratio"]
+    #[abbrev = "MASSMR"]
+    #[unit = "kg kg-1"]
+    MassMixingRatio = 2,
+    #[description = "atmosphere optical thickness"]
+    #[abbrev = "APTS"]
+    #[unit = ""]
+    AtmosphereOpticalThickness = 102,
+    Missing = 255,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum NcepMiscellaneous {
+    #[description = "latitude"]
+    #[abbrev = "NLAT"]
+    #[unit = "degrees"]
+    Latitude = 192,
+    #[description = "east longitude"]
+    #[abbrev = "ELON"]
+    #[unit = "degrees"]
+    EastLongitude = 193,
+    Missing = 255,
+}
+
 pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter> {
     match category {
         0 => Some(Parameter::from(TemperatureProduct::from(parameter))),
@@ -694,6 +730,10 @@ pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter
         19 => Some(Parameter::from(PhysicalAtmosphericProperties::from(
             parameter,
         ))),
+        20 => Some(Parameter::from(AtmosphericChemicalConstituents::from(
+            parameter,
+        ))),
+        191 => Some(Parameter::from(NcepMiscellaneous::from(parameter))),
         _ => None,
     }
 }
@@ -713,6 +753,8 @@ pub fn meteorological_category(category: u8) -> &'static str {
         16 => "forecast radar imagery",
         17 => "electromagnetics",
         19 => "physical atmospheric properties",
+        20 => "atmospheric chemical constituents",
+        191 => "miscellaneous",
         _ => "other",
     }
 }

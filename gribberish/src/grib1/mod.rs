@@ -1,6 +1,7 @@
 pub mod binary_data;
 pub mod bitmap;
 pub mod ecmwf_table_128;
+pub mod ecmwf_table_140;
 pub mod grid_description;
 /// GRIB1 format support
 ///

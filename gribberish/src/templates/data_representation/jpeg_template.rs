@@ -83,6 +83,11 @@ impl DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate {
     }
 
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
+        if self.bit_count() == 0 {
+            // Constant field: all values equal the reference value
+            return Ok(vec![]);
+        }
+
         let bytes: Vec<u8> = bits.to_bitvec().into();
 
         let output_value: Vec<f64> = extract_jpeg_data(&bytes)?

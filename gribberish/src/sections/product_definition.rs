@@ -4,8 +4,10 @@ use crate::{
         derived_ensemble_horizontal_forecast_time_interval_template::DerivedEnsembleHorizontalForecastTimeIntervalTemplate,
         product_template::ProductTemplate,
         AverageAccumulationExtremeHorizontalAnalysisForecastTemplate,
-        DerivedEnsembleHorizontalAnalysisForecastTemplate, HorizontalAnalysisForecastTemplate,
-        HorizontalEnsembleForecastTemplate,
+        DerivedEnsembleHorizontalAnalysisForecastTemplate, EnsembleForecastTimeIntervalTemplate,
+        HorizontalAnalysisForecastTemplate, HorizontalEnsembleForecastTemplate,
+        PercentileHorizontalTimeIntervalTemplate, ProbabilityHorizontalForecastTemplate,
+        ProbabilityHorizontalTimeIntervalTemplate,
     },
     utils::{read_u16_from_bytes, read_u32_from_bytes},
 };
@@ -49,6 +51,24 @@ impl<'a> ProductDefinitionSection<'a> {
                     discipline,
                 ),
             )),
+            5 => Some(Box::new(ProbabilityHorizontalForecastTemplate::new(
+                self.data.to_vec(),
+                discipline,
+            ))),
+            9 => Some(Box::new(ProbabilityHorizontalTimeIntervalTemplate::new(
+                self.data.to_vec(),
+                discipline,
+            ))),
+            10 => Some(Box::new(
+                PercentileHorizontalTimeIntervalTemplate::new(
+                    self.data.to_vec(),
+                    discipline,
+                ),
+            )),
+            11 => Some(Box::new(EnsembleForecastTimeIntervalTemplate::new(
+                self.data.to_vec(),
+                discipline,
+            ))),
             12 => Some(Box::new(
                 DerivedEnsembleHorizontalForecastTimeIntervalTemplate::new(
                     self.data.to_vec(),

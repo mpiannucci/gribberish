@@ -3,6 +3,7 @@
 /// Maps parameter numbers to variable names and units for different centers.
 /// Starting with ECMWF (center 98) parameters.
 use super::ecmwf_table_128::ECMWF_TABLE_128;
+use super::ecmwf_table_140::ECMWF_TABLE_140;
 
 #[derive(Debug, Clone)]
 pub struct Grib1Parameter {
@@ -26,6 +27,9 @@ fn get_ecmwf_parameter(table2_version: u8, parameter: u8) -> Option<Grib1Paramet
     match table2_version {
         128 => lookup_table_parameter(ECMWF_TABLE_128, parameter)
             .or_else(|| get_ecmwf_legacy_parameter(parameter)),
+        140 => lookup_table_parameter(ECMWF_TABLE_140, parameter)
+            .or_else(|| get_ecmwf_legacy_parameter(parameter))
+            .or_else(|| get_wmo_standard_parameter(parameter)),
         228 => get_ecmwf_table_228_parameter(parameter)
             .or_else(|| get_ecmwf_legacy_parameter(parameter))
             .or_else(|| get_wmo_standard_parameter(parameter)),
@@ -386,6 +390,12 @@ fn get_wmo_standard_parameter(parameter: u8) -> Option<Grib1Parameter> {
             abbreviation: "t",
             name: "Temperature",
             units: "K",
+        },
+        20 => Grib1Parameter {
+            number: 20,
+            abbreviation: "vis",
+            name: "Visibility",
+            units: "m",
         },
         33 => Grib1Parameter {
             number: 33,
