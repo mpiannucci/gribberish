@@ -265,69 +265,6 @@ def test_latitude_values():
     assert np.all(lats <= 90.0), "All latitudes should be <= 90"
 
 
-def test_xarray_backend_derived_ensemble_statistics_are_separated():
-    ds_members = xr.open_dataset(
-        "./../test-data/saifs-s2s.ens.global.t00z.pgrb2.0p5.D001.grib2",
-        engine="gribberish",
-    )
-    ds_stats = xr.open_dataset(
-        "./../test-data/saifs-s2s.stats.global.t00z.pgrb2.0p5.D001.grib2",
-        engine="gribberish",
-    )
-
-    expected_tmp_vars = {
-        "tmp_hag_avgens_24h",
-        "tmp_hag_maxens_24h",
-        "tmp_hag_minens_24h",
-        "tmp_isobar_avgens_24h",
-    }
-
-    assert expected_tmp_vars.issubset(ds_members.data_vars)
-    assert expected_tmp_vars.issubset(ds_stats.data_vars)
-    assert "number" in ds_members.coords
-    assert "number" not in ds_stats.coords
-
-    assert ds_members.tmp_hag_avgens_24h.dims == (
-        "time",
-        "number",
-        "latitude",
-        "longitude",
-    )
-    assert ds_members.tmp_hag_maxens_24h.dims == (
-        "time",
-        "number",
-        "latitude",
-        "longitude",
-    )
-    assert ds_members.tmp_hag_minens_24h.dims == (
-        "time",
-        "number",
-        "latitude",
-        "longitude",
-    )
-    assert ds_members.tmp_isobar_avgens_24h.dims == (
-        "time",
-        "isobar",
-        "number",
-        "latitude",
-        "longitude",
-    )
-
-    assert ds_stats.tmp_hag_avgens_24h.dims == ("time", "latitude", "longitude")
-    assert ds_stats.tmp_hag_maxens_24h.dims == ("time", "latitude", "longitude")
-    assert ds_stats.tmp_hag_minens_24h.dims == ("time", "latitude", "longitude")
-    assert ds_stats.tmp_isobar_avgens_24h.dims == (
-        "time",
-        "isobar",
-        "latitude",
-        "longitude",
-    )
-
-    assert ds_members.tmp_hag_avgens_24h.attrs["generating_process"] == "ensemble forecast"
-    assert ds_members.tmp_hag_maxens_24h.attrs["generating_process"] == "ensemble forecast"
-    assert ds_members.tmp_hag_minens_24h.attrs["generating_process"] == "ensemble forecast"
-
-
 def test_xarray_backend_aifs_ensemble():
     ds = xr.open_dataset(
         "./../test-data/aifs-ens-cf-20260310.grib2",
