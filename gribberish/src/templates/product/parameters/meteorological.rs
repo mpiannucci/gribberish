@@ -39,6 +39,14 @@ pub enum TemperatureProduct {
     #[abbrev = "LAPR"]
     #[unit = "Km-1"]
     LapseRate = 8,
+    #[description = "latent heat net flux"]
+    #[abbrev = "LHTFL"]
+    #[unit = "Wm-2"]
+    LatentHeatNetFlux = 10,
+    #[description = "sensible heat net flux"]
+    #[abbrev = "SHTFL"]
+    #[unit = "Wm-2"]
+    SensibleHeatNetFlux = 11,
     #[description = "heat index"]
     #[abbrev = "HEATX"]
     #[unit = "K"]
@@ -84,6 +92,14 @@ pub enum MoistureProduct {
     #[abbrev = "PRATE"]
     #[unit = "kgm-2s-1"]
     PrecipitationRate = 7,
+    #[description = "large-scale precipitation (non-convective)"]
+    #[abbrev = "NCPCP"]
+    #[unit = "kgm-2"]
+    LargeScalePrecipitation = 9,
+    #[description = "precipitation type"]
+    #[abbrev = "PTYPE"]
+    #[unit = "code table 4.201"]
+    PrecipitationType = 19,
     #[description = "total precipitation"]
     #[abbrev = "APCP"]
     #[unit = "kgm-2"]
@@ -96,10 +112,26 @@ pub enum MoistureProduct {
     #[abbrev = "SNOD"]
     #[unit = "m"]
     SnowDepth = 11,
-    #[description = "water Equivalent of accumulated snow depth"]
+    #[description = "water equivalent of accumulated snow depth"]
     #[abbrev = "WEASD"]
     #[unit = "kgm-2"]
     WaterEquavalentSnowDepth = 13,
+    #[description = "cloud mixing ratio"]
+    #[abbrev = "CLWMR"]
+    #[unit = "kgkg-1"]
+    CloudMixingRatio = 22,
+    #[description = "ice water mixing ratio"]
+    #[abbrev = "ICMR"]
+    #[unit = "kgkg-1"]
+    IceWaterMixingRatio = 23,
+    #[description = "rain mixing ratio"]
+    #[abbrev = "RWMR"]
+    #[unit = "kgkg-1"]
+    RainMixingRatio = 24,
+    #[description = "snow mixing ratio"]
+    #[abbrev = "SNMR"]
+    #[unit = "kgkg-1"]
+    SnowMixingRatio = 25,
     #[description = "total snowfall"]
     #[abbrev = "ASNOW"]
     #[unit = "m"]
@@ -107,6 +139,10 @@ pub enum MoistureProduct {
     #[abbrev = "HAIL"]
     #[unit = "m"]
     Hail = 31,
+    #[description = "graupel"]
+    #[abbrev = "GRLE"]
+    #[unit = "kgkg-1"]
+    Graupel = 32,
     #[description = "categorical rain"]
     #[abbrev = "CRAIN"]
     #[unit = "BOOL"]
@@ -123,6 +159,10 @@ pub enum MoistureProduct {
     #[abbrev = "CSNOW"]
     #[unit = "BOOL"]
     CategoricalSnow = 36,
+    #[description = "convective precipitation"]
+    #[abbrev = "CPRAT"]
+    #[unit = "kgm-2"]
+    ConvectivePrecipitationWmo = 37,
     #[description = "percent frozen precipitation"]
     #[abbrev = "CPOFP"]
     #[unit = "%"]
@@ -131,10 +171,46 @@ pub enum MoistureProduct {
     #[abbrev = "SNOWC"]
     #[unit = "%"]
     SnowCover = 42,
+    #[description = "total column water"]
+    #[abbrev = "TCW"]
+    #[unit = "kgm-2"]
+    TotalColumnWater = 51,
+    #[description = "total precipitation"]
+    #[abbrev = "TP"]
+    #[unit = "kgm-2"]
+    TotalPrecipitationWmo = 52,
+    #[description = "snowfall water equivalent"]
+    #[abbrev = "SF"]
+    #[unit = "kgm-2"]
+    SnowfallWaterEquivalent = 53,
+    #[description = "total column-integrated cloud water"]
+    #[abbrev = "TCOLW"]
+    #[unit = "kgm-2"]
+    TotalColumnIntegratedCloudWater = 69,
+    #[description = "total column-integrated cloud ice"]
+    #[abbrev = "TCOLI"]
+    #[unit = "kgm-2"]
+    TotalColumnIntegratedCloudIce = 70,
+    #[description = "snow density"]
+    #[abbrev = "RSN"]
+    #[unit = "kgm-3"]
+    SnowDensity = 61,
+    #[description = "total column vertically-integrated water vapour"]
+    #[abbrev = "TCWV"]
+    #[unit = "kgm-2"]
+    TotalColumnWaterVapour = 64,
     #[description = "total column integrated graupel"]
     #[abbrev = "TCOLG"]
     #[unit = "kgm-2"]
     TotalColumnIntegratedGraupel = 74,
+    #[description = "cloud ice mixing ratio"]
+    #[abbrev = "CIMIXR"]
+    #[unit = "kgkg-1"]
+    CloudIceMixingRatio = 82,
+    #[description = "effective radius of hail"]
+    #[abbrev = "EFRHAIL"]
+    #[unit = "m"]
+    EffectiveRadiusOfHail = 134,
     #[description = "categorical rain (NCEP)"]
     #[abbrev = "CRAIN"]
     #[unit = "BOOL"]
@@ -151,6 +227,38 @@ pub enum MoistureProduct {
     #[abbrev = "CSNOW"]
     #[unit = "BOOL"]
     CategoricalSnowNcep = 195,
+    #[description = "convective precipitation rate (NCEP)"]
+    #[abbrev = "CPRAT"]
+    #[unit = "kgm-2s-1"]
+    ConvectivePrecipitationRateNcep = 196,
+    #[description = "potential evaporation rate"]
+    #[abbrev = "PEVPR"]
+    #[unit = "Wm-2"]
+    PotentialEvaporationRate = 200,
+    #[description = "snow cover (NCEP)"]
+    #[abbrev = "SNOWC"]
+    #[unit = "%"]
+    SnowCoverNcep = 201,
+    #[description = "total icing potential diagnostic"]
+    #[abbrev = "TIPD"]
+    #[unit = "nondim"]
+    TotalIcingPotentialDiagnostic = 206,
+    #[description = "liquid precipitation (rainfall)"]
+    #[abbrev = "ARAIN"]
+    #[unit = "kgm-2"]
+    LiquidPrecipitationRainfall = 221,
+    #[description = "snowfall"]
+    #[abbrev = "SF"]
+    #[unit = "m"]
+    SnowfallEcmwf = 198,
+    #[description = "snow depth water equivalent"]
+    #[abbrev = "SD"]
+    #[unit = "m"]
+    SnowDepthWaterEquivalent = 254,
+    #[description = "relative humidity with respect to precipitable water"]
+    #[abbrev = "RHPW"]
+    #[unit = "%"]
+    RelativeHumidityPrecipitableWater = 242,
     #[description = "freezing rain"]
     #[abbrev = "FRZR"]
     #[unit = "kgm-2"]
@@ -188,6 +296,10 @@ pub enum MomentumProduct {
     #[abbrev = "RELV"]
     #[unit = "s-1"]
     ShortWaveRadiation = 4,
+    #[description = "montgomery stream function"]
+    #[abbrev = "MNTSF"]
+    #[unit = "m2s-2"]
+    MontgomeryStreamFunction = 6,
     #[description = "vertical velocity (pressure)"]
     #[abbrev = "VVEL"]
     #[unit = "Pas-1"]
@@ -200,9 +312,34 @@ pub enum MomentumProduct {
     #[abbrev = "ABSV"]
     #[unit = "s-1"]
     AbsoluteVorticity = 10,
-    #[abbrev = "SWRD"]
-    #[unit = "Wm-2"]
+    #[description = "relative vorticity"]
+    #[abbrev = "RELV"]
+    #[unit = "s-1"]
     RelativeVorticity = 12,
+    #[description = "divergence"]
+    #[abbrev = "DIV"]
+    #[unit = "s-1"]
+    Divergence = 13,
+    #[description = "potential vorticity"]
+    #[abbrev = "PVORT"]
+    #[unit = "Km2kg-1s-1"]
+    PotentialVorticity = 14,
+    #[description = "vertical u-component shear"]
+    #[abbrev = "VUCSH"]
+    #[unit = "s-1"]
+    VerticalUComponentShear = 15,
+    #[description = "vertical v-component shear"]
+    #[abbrev = "VVCSH"]
+    #[unit = "s-1"]
+    VerticalVComponentShear = 16,
+    #[description = "momentum flux, u-component"]
+    #[abbrev = "UFLX"]
+    #[unit = "Nm-2"]
+    MomentumFluxU = 17,
+    #[description = "momentum flux, v-component"]
+    #[abbrev = "VFLX"]
+    #[unit = "Nm-2"]
+    MomentumFluxV = 18,
     #[description = "Maximum wind speed"]
     #[abbrev = "MAXGUST"]
     #[unit = "ms-1"]
@@ -223,6 +360,14 @@ pub enum MomentumProduct {
     #[abbrev = "WINDF"]
     #[unit = "m"]
     WindFetch = 33,
+    #[description = "time-integrated eastward turbulent surface stress"]
+    #[abbrev = "EWSS"]
+    #[unit = "Nm-2s"]
+    EastwardTurbulentSurfaceStress = 62,
+    #[description = "time-integrated northward turbulent surface stress"]
+    #[abbrev = "NSSS"]
+    #[unit = "Nm-2s"]
+    NorthwardTurbulentSurfaceStress = 63,
     #[description = "u-component of storm motion"]
     #[abbrev = "UTSM"]
     #[unit = "ms-1"]
@@ -231,6 +376,34 @@ pub enum MomentumProduct {
     #[abbrev = "VSTM"]
     #[unit = "ms-1"]
     VComponentStormMotion = 28,
+    #[description = "frictional velocity"]
+    #[abbrev = "FRICV"]
+    #[unit = "ms-1"]
+    FrictionalVelocity = 30,
+    #[description = "vertical speed shear (NCEP)"]
+    #[abbrev = "VWSH"]
+    #[unit = "s-1"]
+    VerticalSpeedShearNcep = 192,
+    #[description = "u-component of storm motion (NCEP)"]
+    #[abbrev = "USTM"]
+    #[unit = "ms-1"]
+    UComponentStormMotionNcep = 194,
+    #[description = "v-component of storm motion (NCEP)"]
+    #[abbrev = "VSTM"]
+    #[unit = "ms-1"]
+    VComponentStormMotionNcep = 195,
+    #[description = "frictional velocity (NCEP)"]
+    #[abbrev = "FRICV"]
+    #[unit = "ms-1"]
+    FrictionalVelocityNcep = 197,
+    #[description = "hourly maximum of upward vertical velocity"]
+    #[abbrev = "MAXUVV"]
+    #[unit = "ms-1"]
+    HourlyMaxUpwardVerticalVelocity = 220,
+    #[description = "hourly maximum of downward vertical velocity"]
+    #[abbrev = "MAXDVV"]
+    #[unit = "ms-1"]
+    HourlyMaxDownwardVerticalVelocity = 221,
     #[description = "u component of hourly maximum 10m wind speed"]
     #[abbrev = "MAXUW"]
     #[unit = "ms-1"]
@@ -239,6 +412,10 @@ pub enum MomentumProduct {
     #[abbrev = "MAXVW"]
     #[unit = "ms-1"]
     VComponentHourlyMaximumWindSpeed = 223,
+    #[description = "ventilation rate"]
+    #[abbrev = "VRATE"]
+    #[unit = "m2s-1"]
+    VentilationRate = 224,
     #[description = "tropical wind direction"]
     #[abbrev = "TPWDIR"]
     #[unit = "degrees"]
@@ -273,10 +450,26 @@ pub enum CloudProduct {
     #[abbrev = "HCDC"]
     #[unit = "%"]
     HighCloudCover = 5,
+    #[description = "cloud water"]
+    #[abbrev = "CWAT"]
+    #[unit = "kgm-2"]
+    CloudWater = 6,
     #[description = "cloud amount"]
     #[abbrev = "CDCA"]
     #[unit = "%"]
     CloudAmount = 7,
+    #[description = "sunshine duration"]
+    #[abbrev = "SUNSD"]
+    #[unit = "s"]
+    SunshineDuration = 201,
+    #[description = "total cloud cover"]
+    #[abbrev = "TCC"]
+    #[unit = "proportion"]
+    TotalCloudCoverEcmwf = 192,
+    #[description = "cloud work function"]
+    #[abbrev = "CWORK"]
+    #[unit = "Jkg-1"]
+    CloudWorkFunction = 193,
     Missing = 255,
 }
 
@@ -472,22 +665,66 @@ pub enum MassProduct {
     #[abbrev = "PTEND"]
     #[unit = "pas-1"]
     PressureTendency = 2,
+    #[description = "icao standard atmosphere reference height"]
+    #[abbrev = "ICAHT"]
+    #[unit = "m"]
+    IcaoStandardAtmosphereReferenceHeight = 3,
+    #[description = "geopotential"]
+    #[abbrev = "GP"]
+    #[unit = "m2s-2"]
+    Geopotential = 4,
     #[description = "geopotential height"]
     #[abbrev = "HGT"]
     #[unit = "gpm"]
     GeopotentialHeight = 5,
+    #[description = "density"]
+    #[abbrev = "DEN"]
+    #[unit = "kgm-3"]
+    Density = 10,
+    #[description = "thickness"]
+    #[abbrev = "THICK"]
+    #[unit = "m"]
+    Thickness = 12,
     #[description = "planetary boundary layer height"]
     #[abbrev = "HPBL"]
     #[unit = "m"]
     PlanetaryBoundaryLayerHeight = 18,
+    #[description = "standard deviation of sub-gridscale orography"]
+    #[abbrev = "SDOR"]
+    #[unit = "m"]
+    StandardDeviationOfOrography = 20,
+    #[description = "slope of sub-gridscale orography"]
+    #[abbrev = "SLOR"]
+    #[unit = "numeric"]
+    SlopeOfOrography = 22,
     #[description = "mslp (eta model reduction)"]
     #[abbrev = "MSLET"]
     #[unit = "pa"]
     MSLP = 192,
+    #[description = "zonal flux of gravity wave stress"]
+    #[abbrev = "UGWD"]
+    #[unit = "Nm-2"]
+    ZonalFluxGravityWaveStress = 194,
+    #[description = "meridional flux of gravity wave stress"]
+    #[abbrev = "VGWD"]
+    #[unit = "Nm-2"]
+    MeridionalFluxGravityWaveStress = 195,
+    #[description = "planetary boundary layer height (NCEP)"]
+    #[abbrev = "HPBL"]
+    #[unit = "m"]
+    PlanetaryBoundaryLayerHeightNcep = 196,
     #[description = "mslp (maps system reduction)"]
     #[abbrev = "MSLMA"]
     #[unit = "pa"]
     MSLPMaps = 198,
+    #[description = "pressure of level from which parcel was lifted"]
+    #[abbrev = "PLPL"]
+    #[unit = "pa"]
+    PressureOfLiftedParcel = 200,
+    #[description = "layer thickness"]
+    #[abbrev = "LAYTH"]
+    #[unit = "m"]
+    LayerThickness = 205,
     Missing = 255,
 }
 
@@ -498,6 +735,10 @@ pub enum RadarProduct {
     #[abbrev = "BSWID"]
     #[unit = "ms-1"]
     BaseSpectrumWidth = 0,
+    #[description = "vertically-integrated liquid"]
+    #[abbrev = "VERIL"]
+    #[unit = "kgm-1"]
+    VerticallyIntegratedLiquid = 3,
     #[description = "base reflectivity"]
     #[abbrev = "BREF"]
     #[unit = "dB"]
@@ -528,6 +769,10 @@ pub enum ForecastRadarImagery {
     #[abbrev = "REFC"]
     #[unit = "dB"]
     CompositeReflectivity = 196,
+    #[description = "hourly maximum of simulated reflectivity"]
+    #[abbrev = "MAXREF"]
+    #[unit = "dB"]
+    HourlyMaxSimulatedReflectivity = 198,
     Missing = 255,
 }
 
@@ -614,6 +859,42 @@ pub enum ThermodynamicStabilityProduct {
     #[abbrev = "RI"]
     #[unit = "numeric"]
     RichardsonNumber = 12,
+    #[description = "leaf area index"]
+    #[abbrev = "LAI"]
+    #[unit = "numeric"]
+    LeafAreaIndex = 198,
+    #[description = "surface lifted index (NCEP)"]
+    #[abbrev = "LFTX"]
+    #[unit = "K"]
+    SurfaceLiftedIndexNcep = 192,
+    #[description = "best (4 layer) lifted index (NCEP)"]
+    #[abbrev = "4LFTX"]
+    #[unit = "K"]
+    Best4LayerLiftedIndexNcep = 193,
+    #[description = "hourly maximum of updraft helicity"]
+    #[abbrev = "MXUPHL"]
+    #[unit = "m2s-2"]
+    HourlyMaxUpdraftHelicity = 199,
+    #[description = "hourly minimum of updraft helicity"]
+    #[abbrev = "MNUPHL"]
+    #[unit = "m2s-2"]
+    HourlyMinUpdraftHelicity = 200,
+    #[description = "downdraft CAPE"]
+    #[abbrev = "DCAPE"]
+    #[unit = "Jkg-1"]
+    DowndraftCAPE = 203,
+    #[description = "effective layer height"]
+    #[abbrev = "EFHL"]
+    #[unit = "m"]
+    EffectiveLayerHeight = 204,
+    #[description = "effective storm relative helicity"]
+    #[abbrev = "ESP"]
+    #[unit = "m2s-2"]
+    EffectiveStormRelativeHelicity = 205,
+    #[description = "critical angle"]
+    #[abbrev = "CANGLE"]
+    #[unit = "degree"]
+    CriticalAngle = 206,
     Missing = 255,
 }
 
@@ -624,6 +905,22 @@ pub enum PhysicalAtmosphericProperties {
     #[abbrev = "VIS"]
     #[unit = "m"]
     Visibility = 0,
+    #[description = "albedo"]
+    #[abbrev = "ALBDO"]
+    #[unit = "%"]
+    Albedo = 1,
+    #[description = "clear air turbulence"]
+    #[abbrev = "CAT"]
+    #[unit = "%"]
+    ClearAirTurbulence = 22,
+    #[description = "snow albedo"]
+    #[abbrev = "ASN"]
+    #[unit = "proportion"]
+    SnowAlbedo = 192,
+    #[description = "turbulence potential forecast index"]
+    #[abbrev = "TPFI"]
+    #[unit = "nondim"]
+    TurbulencePotentialForecastIndex = 219,
     Missing = 255,
 }
 
@@ -642,6 +939,10 @@ pub enum LongWaveRadiationProduct {
     #[abbrev = "ULWRF"]
     #[unit = "Wm-2"]
     UpwardLongWaveRadiationFlux = 4,
+    #[description = "net long-wave radiation flux (top of atmosphere)"]
+    #[abbrev = "NLWRT"]
+    #[unit = "Wm-2"]
+    NetLongWaveRadiationFluxTop = 5,
     Missing = 255,
 }
 
@@ -675,6 +976,42 @@ pub enum TraceGasesProduct {
     Missing = 255,
 }
 
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum AtmosphericChemicalConstituents {
+    #[description = "mass density"]
+    #[abbrev = "MASSDEN"]
+    #[unit = "kg m-3"]
+    MassDensity = 0,
+    #[description = "column integrated mass density"]
+    #[abbrev = "COLMD"]
+    #[unit = "kg m-2"]
+    ColumnIntegratedMassDensity = 1,
+    #[description = "mass mixing ratio"]
+    #[abbrev = "MASSMR"]
+    #[unit = "kg kg-1"]
+    MassMixingRatio = 2,
+    #[description = "atmosphere optical thickness"]
+    #[abbrev = "APTS"]
+    #[unit = ""]
+    AtmosphereOpticalThickness = 102,
+    Missing = 255,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum NcepMiscellaneous {
+    #[description = "latitude"]
+    #[abbrev = "NLAT"]
+    #[unit = "degrees"]
+    Latitude = 192,
+    #[description = "east longitude"]
+    #[abbrev = "ELON"]
+    #[unit = "degrees"]
+    EastLongitude = 193,
+    Missing = 255,
+}
+
 pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter> {
     match category {
         0 => Some(Parameter::from(TemperatureProduct::from(parameter))),
@@ -694,6 +1031,10 @@ pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter
         19 => Some(Parameter::from(PhysicalAtmosphericProperties::from(
             parameter,
         ))),
+        20 => Some(Parameter::from(AtmosphericChemicalConstituents::from(
+            parameter,
+        ))),
+        191 => Some(Parameter::from(NcepMiscellaneous::from(parameter))),
         _ => None,
     }
 }
@@ -713,6 +1054,8 @@ pub fn meteorological_category(category: u8) -> &'static str {
         16 => "forecast radar imagery",
         17 => "electromagnetics",
         19 => "physical atmospheric properties",
+        20 => "atmospheric chemical constituents",
+        191 => "miscellaneous",
         _ => "other",
     }
 }

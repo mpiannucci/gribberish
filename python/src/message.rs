@@ -171,7 +171,7 @@ pub struct GribMessage {
 
 #[pymethods]
 impl GribMessage {
-    fn data<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+    fn data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<f64>>> {
         parse_grib_array(py, &self.raw_data, self.offset)
     }
 }
@@ -181,29 +181,36 @@ pub fn parse_grib_array<'py>(
     py: Python<'py>,
     data: &[u8],
     offset: usize,
-) -> Bound<'py, PyArray1<f64>> {
-    let message = Message::from_data(data, offset).unwrap();
-    let data = message.data().unwrap();
-    PyArray::from_vec(py, data)
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
+    let message = Message::from_data(data, offset)
+        .ok_or_else(|| PyTypeError::new_err("Failed to read GRIB message"))?;
+    let data = message
+        .data()
+        .map_err(|e| PyTypeError::new_err(format!("Failed to decode GRIB data: {e}")))?;
+    Ok(PyArray::from_vec(py, data))
 }
 
 #[pyfunction]
 pub fn parse_grib_message_metadata(data: &[u8], offset: usize) -> PyResult<GribMessageMetadata> {
-    let message = Message::from_data(data, offset).unwrap();
-    let metadata = MessageMetadata::try_from(&message).unwrap();
+    let message = Message::from_data(data, offset)
+        .ok_or_else(|| PyTypeError::new_err("Failed to read GRIB message"))?;
+    let metadata = MessageMetadata::try_from(&message)
+        .map_err(|e| PyTypeError::new_err(format!("Failed to parse metadata: {e}")))?;
     Ok(GribMessageMetadata { inner: metadata })
 }
 
 #[pyfunction]
 pub fn parse_grib_message(data: &[u8], offset: usize) -> PyResult<GribMessage> {
     match Message::from_data(data, offset) {
-        Some(m) => Ok(GribMessage {
-            offset,
-            raw_data: data.to_vec(),
-            metadata: GribMessageMetadata {
-                inner: MessageMetadata::try_from(&m).unwrap(),
-            },
-        }),
+        Some(m) => {
+            let metadata = MessageMetadata::try_from(&m)
+                .map_err(|e| PyTypeError::new_err(format!("Failed to parse metadata: {e}")))?;
+            Ok(GribMessage {
+                offset,
+                raw_data: data.to_vec(),
+                metadata: GribMessageMetadata { inner: metadata },
+            })
+        }
         None => Err(PyTypeError::new_err("Failed to read GribMessage")),
     }
 }

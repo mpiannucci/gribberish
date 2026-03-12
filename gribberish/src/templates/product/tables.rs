@@ -390,7 +390,7 @@ pub enum TypeOfTimeInterval {
 }
 
 #[repr(u8)]
-#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue)]
+#[derive(Clone, Eq, PartialEq, Debug, DisplayDescription, FromValue)]
 pub enum DerivedForecastType {
     UnweightedMean = 0,
     WeightedMean = 1,

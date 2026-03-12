@@ -29,6 +29,7 @@ def test_xarray_backend_gefs_ensemble():
         "rh_hag_ens",
         "rh_isobar_ens",
         "snod",
+        "soilw",
         "tmp_hag_ens",
         "tmp_isobar_ens",
         "tsoil",
@@ -48,6 +49,7 @@ def test_xarray_backend_gefs_ensemble():
 
     # Check dimensions of 2D variables
     assert ds.cape.values.shape == (1, 361, 720)
+    assert ds.soilw.values.shape == (1, 361, 720)
 
     # Check dimension of 3D variables
     assert ds.tmp_isobar_ens.values.shape == (1, 10, 361, 720)
@@ -261,3 +263,41 @@ def test_latitude_values():
     # All latitudes should be in valid range [-90, 90]
     assert np.all(lats >= -90.0), "All latitudes should be >= -90"
     assert np.all(lats <= 90.0), "All latitudes should be <= 90"
+
+
+def test_xarray_backend_aifs_ensemble():
+    ds = xr.open_dataset(
+        "./../test-data/aifs-ens-cf-20260310.grib2",
+        engine="gribberish",
+    )
+
+    expected_vars = {
+        "gp_isobar_ens",
+        "gp_sfc_ens",
+        "pres_msl_ens",
+        "pres_sfc_ens",
+        "tmp_hag_ens",
+        "tmp_isobar_ens",
+        "ugrd_hag_ens",
+        "ugrd_isobar_ens",
+        "vgrd_hag_ens",
+        "vgrd_isobar_ens",
+    }
+
+    assert expected_vars.issubset(ds.data_vars)
+    assert "number" in ds.coords
+    assert ds.number.values.shape == (1,)
+
+    assert ds.tmp_hag_ens.dims == ("time", "number", "latitude", "longitude")
+    assert ds.tmp_hag_ens.values.shape == (1, 1, 721, 1440)
+
+    assert ds.tmp_isobar_ens.dims == (
+        "time",
+        "isobar",
+        "number",
+        "latitude",
+        "longitude",
+    )
+    assert ds.tmp_isobar_ens.values.shape == (1, 13, 1, 721, 1440)
+    assert ds.gp_isobar_ens.values.shape == (1, 13, 1, 721, 1440)
+    assert ds.pres_msl_ens.values.shape == (1, 1, 721, 1440)
