@@ -883,3 +883,69 @@ fn read_ecmwf_ifs_oper_surface() {
     let data = tcc.data().unwrap();
     assert!((data[0] - 0.109375).abs() < 0.001, "tcc data[0]");
 }
+
+#[test]
+fn read_percentile_and_probability_templates() {
+    // Subset with PDTs 9 (probability), 10 (percentile), and 12 (derived ensemble).
+    // Tests that percentile and probability messages are parsed with unique keys
+    // and correct metadata.
+    // Fixture: 8 messages with constant data, 0.5° global grid.
+    let grib_data = read_grib_messages("../test-data/s2s-pdt9-pdt10-pdt12.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    assert_eq!(messages.len(), 8, "Expected 8 messages in subset");
+
+    // --- PDT 12: Derived ensemble (messages 0, 1) ---
+    let msg_0 = &messages[0];
+    assert_eq!(msg_0.variable_abbrev().unwrap(), "TMP");
+    assert_eq!(msg_0.product_template_id().unwrap(), 12);
+    assert_eq!(msg_0.grid_dimensions().unwrap(), (361, 720));
+    assert_eq!(msg_0.percentile_value().unwrap(), None);
+    assert_eq!(msg_0.probability_type().unwrap(), None);
+    let data = msg_0.data().unwrap();
+    assert_eq!(data.len(), 259920);
+    // Constant-value packing: all data points are identical
+    assert!(data.iter().all(|&v| (v - data[0]).abs() < 0.001), "All data should be constant");
+
+    // --- PDT 10: Percentile (messages 2, 3, 4) ---
+    let pctl_1 = &messages[2];
+    assert_eq!(pctl_1.product_template_id().unwrap(), 10);
+    assert_eq!(pctl_1.percentile_value().unwrap(), Some(1));
+
+    let pctl_50 = &messages[3];
+    assert_eq!(pctl_50.product_template_id().unwrap(), 10);
+    assert_eq!(pctl_50.percentile_value().unwrap(), Some(50));
+
+    let pctl_99 = &messages[4];
+    assert_eq!(pctl_99.product_template_id().unwrap(), 10);
+    assert_eq!(pctl_99.percentile_value().unwrap(), Some(99));
+
+    // --- PDT 9: Probability (messages 5, 6, 7) ---
+    let prob_above = &messages[5];
+    assert_eq!(prob_above.product_template_id().unwrap(), 9);
+    assert!(prob_above.probability_type().unwrap().is_some());
+    assert!(prob_above.forecast_probability_number().unwrap().is_some());
+
+    let prob_avg = &messages[6];
+    assert_eq!(prob_avg.product_template_id().unwrap(), 9);
+
+    let prob_limits = &messages[7];
+    assert_eq!(prob_limits.product_template_id().unwrap(), 9);
+    // This message has probability type 10 (between limits inclusive)
+    // with lower=1, upper=10
+    assert!(prob_limits.probability_lower_limit().unwrap().is_some());
+    assert!(prob_limits.probability_upper_limit().unwrap().is_some());
+
+    // --- All 8 messages should have unique keys ---
+    let mut keys = Vec::new();
+    let mut dups = Vec::new();
+    for message in &messages {
+        let key = message.key().unwrap();
+        if keys.contains(&key) {
+            dups.push(key);
+        } else {
+            keys.push(key);
+        }
+    }
+    assert_eq!(dups.len(), 0, "Found {} duplicate keys: {:?}", dups.len(), dups);
+}
