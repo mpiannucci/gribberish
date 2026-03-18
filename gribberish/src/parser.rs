@@ -324,6 +324,9 @@ fn grib1_to_metadata(message: &Grib1Message) -> Result<MessageMetadata, Gribberi
         perturbation_number: None, // GRIB1 ensemble support not implemented
         number_of_ensemble_members: None,
         derived_forecast_type: None,
+        percentile_value: None,
+        probability_type: None,
+        forecast_probability_number: None,
     })
 }
 

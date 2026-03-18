@@ -6,7 +6,7 @@ use crate::{
     error::GribberishError,
     message::{Message, MessageIterator},
     templates::product::tables::{
-        DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit,
+        DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit,
         TypeOfStatisticalProcessing,
     },
     utils::iter::projection::LatLngProjection,
@@ -48,6 +48,9 @@ pub struct MessageMetadata {
     pub perturbation_number: Option<u8>,
     pub number_of_ensemble_members: Option<u8>,
     pub derived_forecast_type: Option<DerivedForecastType>,
+    pub percentile_value: Option<u8>,
+    pub probability_type: Option<ProbabilityType>,
+    pub forecast_probability_number: Option<u8>,
 }
 
 impl MessageMetadata {
@@ -165,6 +168,9 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             perturbation_number: message.perturbation_number()?,
             number_of_ensemble_members: message.number_of_ensemble_members()?,
             derived_forecast_type: message.derived_forecast_type()?,
+            percentile_value: message.percentile_value()?,
+            probability_type: message.probability_type()?,
+            forecast_probability_number: message.forecast_probability_number()?,
         })
     }
 }

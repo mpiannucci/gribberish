@@ -160,4 +160,8 @@ impl ProductTemplate for PercentileHorizontalTimeIntervalTemplate {
     fn statistical_process_type(&self) -> Option<TypeOfStatisticalProcessing> {
         Some(self.statistical_process())
     }
+
+    fn percentile_value(&self) -> Option<u8> {
+        Some(self.data[34])
+    }
 }

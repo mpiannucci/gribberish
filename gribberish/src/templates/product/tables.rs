@@ -462,6 +462,18 @@ pub enum ProbabilityType {
     AboveLowerLimit = 3,
     #[description = "Probability of event below upper limit"]
     BelowUpperLimit = 4,
+    #[description = "Probability of event equal to lower limit"]
+    EqualToLowerLimit = 5,
+    #[description = "Probability of event in above normal category"]
+    AboveNormalCategory = 6,
+    #[description = "Probability of event in near normal category"]
+    NearNormalCategory = 7,
+    #[description = "Probability of event in below normal category"]
+    BelowNormalCategory = 8,
+    #[description = "Probability of event occurring in the next time interval"]
+    NextTimeInterval = 9,
+    #[description = "Probability of event between lower and upper limits inclusive"]
+    BetweenLimitsInclusive = 10,
     #[description = "Missing"]
     Missing = 255,
 }
