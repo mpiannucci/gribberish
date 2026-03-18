@@ -905,7 +905,10 @@ fn read_percentile_and_probability_templates() {
     let data = msg_0.data().unwrap();
     assert_eq!(data.len(), 259920);
     // Constant-value packing: all data points are identical
-    assert!(data.iter().all(|&v| (v - data[0]).abs() < 0.001), "All data should be constant");
+    assert!(
+        data.iter().all(|&v| (v - data[0]).abs() < 0.001),
+        "All data should be constant"
+    );
 
     // --- PDT 10: Percentile (messages 2, 3, 4) ---
     let pctl_1 = &messages[2];
@@ -947,5 +950,11 @@ fn read_percentile_and_probability_templates() {
             keys.push(key);
         }
     }
-    assert_eq!(dups.len(), 0, "Found {} duplicate keys: {:?}", dups.len(), dups);
+    assert_eq!(
+        dups.len(),
+        0,
+        "Found {} duplicate keys: {:?}",
+        dups.len(),
+        dups
+    );
 }

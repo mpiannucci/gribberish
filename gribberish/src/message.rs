@@ -4,7 +4,8 @@ use crate::sections::{indicator::Discipline, section::Section, section::SectionI
 use crate::templates::grid_definition::GridDefinitionTemplate;
 use crate::templates::product::product_template::ProductTemplate;
 use crate::templates::product::tables::{
-    DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit, TypeOfStatisticalProcessing,
+    DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit,
+    TypeOfStatisticalProcessing,
 };
 use crate::utils::iter::projection::LatLngProjection;
 use bitvec::view::BitView;
@@ -215,9 +216,13 @@ impl<'a> Message<'a> {
 
         let probability = match self.probability_type().unwrap_or(None) {
             Some(pt) => {
-                let lower = self.probability_lower_limit().unwrap_or(None)
+                let lower = self
+                    .probability_lower_limit()
+                    .unwrap_or(None)
                     .map_or("".to_string(), |v| format!("_{v:.0}"));
-                let upper = self.probability_upper_limit().unwrap_or(None)
+                let upper = self
+                    .probability_upper_limit()
+                    .unwrap_or(None)
                     .map_or("".to_string(), |v| format!("_{v:.0}"));
                 format!(":probt{}{lower}{upper}", pt as u8)
             }

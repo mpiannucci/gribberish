@@ -3,7 +3,9 @@ use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use chrono::{prelude::*, Duration};
 
 use super::product_template::ProductTemplate;
-use super::tables::{FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit, TypeOfStatisticalProcessing};
+use super::tables::{
+    FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit, TypeOfStatisticalProcessing,
+};
 use super::HorizontalAnalysisForecastTemplate;
 
 /// Product Definition Template 4.9
