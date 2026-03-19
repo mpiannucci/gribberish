@@ -549,6 +549,84 @@ pub fn parse_grib_dataset<'py>(
         coords.set_item(name, percentile).unwrap();
     }
 
+    // Threshold dims (for probability variables with varying limits)
+    let mut threshold_map: HashMap<String, Vec<f64>> = HashMap::new();
+    let mut threshold_dim_map: HashMap<String, Vec<String>> = HashMap::new();
+    for (var, v) in var_mapping.iter() {
+        let mut thresholds = HashSet::new();
+        let mut has_probability = false;
+        for k in v.iter() {
+            let meta = &mapping.get(k).unwrap().2;
+            if meta.probability_type.is_some() {
+                has_probability = true;
+                // Use lower_limit for below-type, upper_limit for above-type,
+                // or lower_limit as primary for between-type
+                let threshold = meta
+                    .probability_lower_limit
+                    .or(meta.probability_upper_limit);
+                if let Some(t) = threshold {
+                    thresholds.insert(format!("{:.5}", t));
+                }
+            }
+        }
+
+        if !has_probability || thresholds.len() < 2 {
+            continue;
+        }
+
+        let mut thresholds = thresholds
+            .into_iter()
+            .map(|f| f.parse::<f64>().unwrap())
+            .collect::<Vec<_>>();
+        thresholds.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        let threshold_key = thresholds
+            .iter()
+            .map(|t| format!("{:.5}", t))
+            .collect::<Vec<_>>()
+            .join("_");
+
+        if threshold_dim_map.contains_key(&threshold_key) {
+            threshold_dim_map
+                .get_mut(&threshold_key)
+                .unwrap()
+                .push(var.clone());
+        } else {
+            threshold_dim_map.insert(threshold_key.clone(), vec![var.clone()]);
+        }
+        threshold_map.insert(threshold_key, thresholds);
+    }
+
+    for (threshold_index, (threshold_key, thresholds)) in threshold_map.iter().enumerate() {
+        let name = if threshold_map.len() == 1 || threshold_index == 0 {
+            "threshold".to_string()
+        } else {
+            format!("threshold_{threshold_index}")
+        };
+
+        let thresholds_array = PyArray1::from_vec(py, thresholds.clone());
+
+        threshold_dim_map[threshold_key]
+            .iter()
+            .for_each(|v: &String| {
+                var_dims.get_mut(v).unwrap().push(name.clone());
+                var_shape.get_mut(v).unwrap().push(thresholds.len());
+            });
+
+        let threshold = PyDict::new(py);
+        let threshold_metadata = PyDict::new(py);
+        threshold_metadata
+            .set_item("standard_name", "threshold")
+            .unwrap();
+        threshold_metadata
+            .set_item("long_name", "probability threshold")
+            .unwrap();
+        threshold.set_item("values", thresholds_array).unwrap();
+        threshold.set_item("attrs", threshold_metadata).unwrap();
+        threshold.set_item("dims", vec![name.clone()]).unwrap();
+        coords.set_item(name, threshold).unwrap();
+    }
+
     // Lastly the spatial coords
     let latitude = PyDict::new(py);
     let latitude_metadata = PyDict::new(py);
