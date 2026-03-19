@@ -882,15 +882,21 @@ pub fn parse_grib_dataset<'py>(
         v_sorted.sort_by(|a, b| {
             let a = mapping.get(a).unwrap();
             let b = mapping.get(b).unwrap();
+            let a_threshold = a.2.probability_lower_limit.or(a.2.probability_upper_limit).unwrap_or(0.0);
+            let b_threshold = b.2.probability_lower_limit.or(b.2.probability_upper_limit).unwrap_or(0.0);
             (
                 a.2.forecast_date,
                 a.2.first_fixed_surface_value.unwrap_or(0.0),
                 a.2.perturbation_number.unwrap_or(0),
+                a.2.percentile_value.unwrap_or(0),
+                format!("{:.5}", a_threshold),
             )
                 .partial_cmp(&(
                     b.2.forecast_date,
                     b.2.first_fixed_surface_value.unwrap_or(0.0),
                     b.2.perturbation_number.unwrap_or(0),
+                    b.2.percentile_value.unwrap_or(0),
+                    format!("{:.5}", b_threshold),
                 ))
                 .unwrap()
         });
