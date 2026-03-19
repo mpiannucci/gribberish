@@ -51,6 +51,8 @@ pub struct MessageMetadata {
     pub percentile_value: Option<u8>,
     pub probability_type: Option<ProbabilityType>,
     pub forecast_probability_number: Option<u8>,
+    pub probability_lower_limit: Option<f64>,
+    pub probability_upper_limit: Option<f64>,
 }
 
 impl MessageMetadata {
@@ -171,6 +173,8 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             percentile_value: message.percentile_value()?,
             probability_type: message.probability_type()?,
             forecast_probability_number: message.forecast_probability_number()?,
+            probability_lower_limit: message.probability_lower_limit()?,
+            probability_upper_limit: message.probability_upper_limit()?,
         })
     }
 }
