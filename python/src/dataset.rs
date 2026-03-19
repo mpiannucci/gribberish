@@ -133,8 +133,14 @@ pub fn parse_grib_dataset<'py>(
                 .as_ref()
                 .map(|d| d.abbv())
                 .unwrap_or_default();
+        let prob_type = v
+            .2
+            .probability_type
+            .as_ref()
+            .map(|p| p.abbv())
+            .unwrap_or_default();
         let hash = format!(
-            "{surf}_{stat}{gen}{accum_period}{derived}",
+            "{surf}_{stat}{gen}{accum_period}{derived}{prob_type}",
             surf = v.2.first_fixed_surface_type.coordinate_name(),
             stat =
                 v.2.statistical_process
