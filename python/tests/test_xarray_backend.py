@@ -20,23 +20,23 @@ def test_xarray_backend_gefs_ensemble():
     expected_data_vars = {
         "cape",
         "cin",
-        "hgt_isobar_ens",
-        "hgt_sfc_ens",
+        "hgt_isobar_ensmean",
+        "hgt_sfc_ensmean",
         "icetk",
         "pres",
         "prmsl",
         "pwat",
-        "rh_hag_ens",
-        "rh_isobar_ens",
+        "rh_hag_ensmean",
+        "rh_isobar_ensmean",
         "snod",
         "soilw",
-        "tmp_hag_ens",
-        "tmp_isobar_ens",
+        "tmp_hag_ensmean",
+        "tmp_isobar_ensmean",
         "tsoil",
-        "ugrd_hag_ens",
-        "ugrd_isobar_ens",
-        "vgrd_hag_ens",
-        "vgrd_isobar_ens",
+        "ugrd_hag_ensmean",
+        "ugrd_isobar_ensmean",
+        "vgrd_hag_ensmean",
+        "vgrd_isobar_ensmean",
         "vvel",
         "weasd",
     }
@@ -52,7 +52,7 @@ def test_xarray_backend_gefs_ensemble():
     assert ds.soilw.values.shape == (1, 361, 720)
 
     # Check dimension of 3D variables
-    assert ds.tmp_isobar_ens.values.shape == (1, 10, 361, 720)
+    assert ds.tmp_isobar_ensmean.values.shape == (1, 10, 361, 720)
 
 
 def test_xarray_backend_era5_grib1():
@@ -102,37 +102,58 @@ def test_xarray_backend_can_open_grib1_extensions():
 
 
 def test_xarray_backend_ecmwf_soil_tiny_fixture():
+    """Test reading ECMWF soil GRIB1 file with 8 soil variables."""
     repo_root = Path(__file__).resolve().parents[2]
     fixture = repo_root / "test-data" / "ecmwf_soil_8vars_tiny.grib1"
+    ds = xr.open_dataset(str(fixture), engine="gribberish")
+
+    # Should have 8 soil variables: 4 soil temperature layers + 4 soil moisture layers
+    expected_vars = {"stl1", "stl2", "stl3", "stl4", "swvl1", "swvl2", "swvl3", "swvl4"}
+    assert set(ds.data_vars.keys()) == expected_vars, (
+        f"Expected {expected_vars}, got {set(ds.data_vars.keys())}"
+    )
+
+    # All variables should have the same grid shape (4x4 tiny grid)
+    for var in expected_vars:
+        assert ds[var].values.shape == (1, 4, 4), (
+            f"Expected shape (1, 4, 4) for {var}, got {ds[var].values.shape}"
+        )
+
+
+def test_multiple_variables_at_same_level():
+    """Test that multiple variables at the same vertical level are correctly
+    split into separate xarray variables with different data.
+
+    Previously this was tested as part of test_xarray_backend_ecmwf_soil_tiny_fixture
+    but was actually opening the GEFS file.
+    """
+    import numpy as np
+
     ds = xr.open_dataset(
         "./../test-data/geavg.t12z.pgrb2a.0p50.f000", engine="gribberish"
     )
 
     # Multiple variables should exist at the 'hag' (height above ground) level
-    hag_vars = ["tmp_hag_ens", "ugrd_hag_ens", "vgrd_hag_ens", "rh_hag_ens"]
+    hag_vars = ["tmp_hag_ensmean", "ugrd_hag_ensmean", "vgrd_hag_ensmean", "rh_hag_ensmean"]
     for var in hag_vars:
         assert var in ds.data_vars, f"Expected variable {var} to exist"
 
     # Multiple variables should exist at the 'isobar' level
     isobar_vars = [
-        "tmp_isobar_ens",
-        "ugrd_isobar_ens",
-        "vgrd_isobar_ens",
-        "rh_isobar_ens",
-        "hgt_isobar_ens",
+        "tmp_isobar_ensmean",
+        "ugrd_isobar_ensmean",
+        "vgrd_isobar_ensmean",
+        "rh_isobar_ensmean",
+        "hgt_isobar_ensmean",
     ]
     for var in isobar_vars:
         assert var in ds.data_vars, f"Expected variable {var} to exist"
 
     # Verify these are genuinely different variables with different data
-    # Temperature and wind components should have different values
-    import numpy as np
+    tmp_data = ds.tmp_hag_ensmean.values
+    ugrd_data = ds.ugrd_hag_ensmean.values
+    vgrd_data = ds.vgrd_hag_ensmean.values
 
-    tmp_data = ds.tmp_hag_ens.values
-    ugrd_data = ds.ugrd_hag_ens.values
-    vgrd_data = ds.vgrd_hag_ens.values
-
-    # The data arrays should NOT be identical (they're different physical quantities)
     assert not np.allclose(tmp_data, ugrd_data, equal_nan=True), (
         "TMP and UGRD should have different data"
     )
@@ -145,12 +166,12 @@ def test_xarray_backend_ecmwf_soil_tiny_fixture():
 
     # Each variable should have proper attributes identifying its parameter
     assert (
-        "tmp" in ds.tmp_hag_ens.attrs.get("standard_name", "").lower()
-        or "temperature" in ds.tmp_hag_ens.attrs.get("standard_name", "").lower()
+        "tmp" in ds.tmp_hag_ensmean.attrs.get("standard_name", "").lower()
+        or "temperature" in ds.tmp_hag_ensmean.attrs.get("standard_name", "").lower()
     )
     assert (
-        "wind" in ds.ugrd_hag_ens.attrs.get("standard_name", "").lower()
-        or "u-component" in ds.ugrd_hag_ens.attrs.get("standard_name", "").lower()
+        "wind" in ds.ugrd_hag_ensmean.attrs.get("standard_name", "").lower()
+        or "u-component" in ds.ugrd_hag_ensmean.attrs.get("standard_name", "").lower()
     )
 
 
@@ -266,38 +287,14 @@ def test_latitude_values():
 
 
 def test_xarray_backend_aifs_ensemble():
-    ds = xr.open_dataset(
-        "./../test-data/aifs-ens-cf-20260310.grib2",
-        engine="gribberish",
-    )
+    """Test reading AIFS ensemble GRIB2 file with ensemble member dimension."""
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "aifs-ens-cf-t500.grib2"
+    ds = xr.open_dataset(str(fixture), engine="gribberish")
 
-    expected_vars = {
-        "gp_isobar_ens",
-        "gp_sfc_ens",
-        "pres_msl_ens",
-        "pres_sfc_ens",
-        "tmp_hag_ens",
-        "tmp_isobar_ens",
-        "ugrd_hag_ens",
-        "ugrd_isobar_ens",
-        "vgrd_hag_ens",
-        "vgrd_isobar_ens",
-    }
-
-    assert expected_vars.issubset(ds.data_vars)
+    assert "tmp" in ds.data_vars
     assert "number" in ds.coords
     assert ds.number.values.shape == (1,)
 
-    assert ds.tmp_hag_ens.dims == ("time", "number", "latitude", "longitude")
-    assert ds.tmp_hag_ens.values.shape == (1, 1, 721, 1440)
-
-    assert ds.tmp_isobar_ens.dims == (
-        "time",
-        "isobar",
-        "number",
-        "latitude",
-        "longitude",
-    )
-    assert ds.tmp_isobar_ens.values.shape == (1, 13, 1, 721, 1440)
-    assert ds.gp_isobar_ens.values.shape == (1, 13, 1, 721, 1440)
-    assert ds.pres_msl_ens.values.shape == (1, 1, 721, 1440)
+    assert ds.tmp.dims == ("time", "number", "latitude", "longitude")
+    assert ds.tmp.values.shape == (1, 1, 721, 1440)

@@ -145,6 +145,22 @@ jobs:
           name: wheels-macos-${{ matrix.platform.target }}
           path: python/dist
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install package and test dependencies
+        working-directory: python
+        run: pip install '.[xarray]' pytest
+      - name: Run tests
+        working-directory: python
+        run: pytest tests/test_xarray_backend.py -v
+
   sdist:
     runs-on: ubuntu-latest
     steps:
