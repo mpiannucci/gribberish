@@ -133,12 +133,11 @@ pub fn parse_grib_dataset<'py>(
                 .as_ref()
                 .map(|d| d.abbv())
                 .unwrap_or_default();
-        let prob_type = v
-            .2
-            .probability_type
-            .as_ref()
-            .map(|p| p.abbv())
-            .unwrap_or_default();
+        let prob_type =
+            v.2.probability_type
+                .as_ref()
+                .map(|p| p.abbv())
+                .unwrap_or_default();
         let hash = format!(
             "{surf}_{stat}{gen}{accum_period}{derived}{prob_type}",
             surf = v.2.first_fixed_surface_type.coordinate_name(),
@@ -893,8 +892,14 @@ pub fn parse_grib_dataset<'py>(
         v_sorted.sort_by(|a, b| {
             let a = mapping.get(a).unwrap();
             let b = mapping.get(b).unwrap();
-            let a_threshold = a.2.probability_lower_limit.or(a.2.probability_upper_limit).unwrap_or(0.0);
-            let b_threshold = b.2.probability_lower_limit.or(b.2.probability_upper_limit).unwrap_or(0.0);
+            let a_threshold =
+                a.2.probability_lower_limit
+                    .or(a.2.probability_upper_limit)
+                    .unwrap_or(0.0);
+            let b_threshold =
+                b.2.probability_lower_limit
+                    .or(b.2.probability_upper_limit)
+                    .unwrap_or(0.0);
             (
                 a.2.forecast_date,
                 a.2.first_fixed_surface_value.unwrap_or(0.0),
