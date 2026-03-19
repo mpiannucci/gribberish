@@ -477,3 +477,22 @@ pub enum ProbabilityType {
     #[description = "Missing"]
     Missing = 255,
 }
+
+impl ProbabilityType {
+    pub fn abbv(&self) -> String {
+        match self {
+            ProbabilityType::BelowLowerLimit => "prob_below".to_string(),
+            ProbabilityType::AboveUpperLimit => "prob_above".to_string(),
+            ProbabilityType::BetweenLimits => "prob_between".to_string(),
+            ProbabilityType::AboveLowerLimit => "prob_above_lower".to_string(),
+            ProbabilityType::BelowUpperLimit => "prob_below_upper".to_string(),
+            ProbabilityType::EqualToLowerLimit => "prob_equal".to_string(),
+            ProbabilityType::AboveNormalCategory => "prob_abnorm".to_string(),
+            ProbabilityType::NearNormalCategory => "prob_nnorm".to_string(),
+            ProbabilityType::BelowNormalCategory => "prob_bnorm".to_string(),
+            ProbabilityType::NextTimeInterval => "prob_next".to_string(),
+            ProbabilityType::BetweenLimitsInclusive => "prob_between_inc".to_string(),
+            ProbabilityType::Missing => "".to_string(),
+        }
+    }
+}
