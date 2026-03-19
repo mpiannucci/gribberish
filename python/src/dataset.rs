@@ -823,6 +823,17 @@ pub fn parse_grib_dataset<'py>(
                     .unwrap_or("".to_string()),
             )
             .unwrap();
+        var_metadata
+            .set_item(
+                "probability_type",
+                first
+                    .2
+                    .probability_type
+                    .as_ref()
+                    .map(|p| p.to_string())
+                    .unwrap_or("".to_string()),
+            )
+            .unwrap();
 
         let proj_params = PyDict::new(py);
         proj_params
