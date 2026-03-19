@@ -889,11 +889,11 @@ fn read_percentile_and_probability_templates() {
     // Subset with PDTs 9 (probability), 10 (percentile), and 12 (derived ensemble).
     // Tests that percentile and probability messages are parsed with unique keys
     // and correct metadata.
-    // Fixture: 8 messages with constant data, 0.5° global grid.
+    // Fixture: 10 messages with constant data, 0.5° global grid.
     let grib_data = read_grib_messages("../test-data/s2s-pdt9-pdt10-pdt12.grib2");
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
 
-    assert_eq!(messages.len(), 8, "Expected 8 messages in subset");
+    assert_eq!(messages.len(), 10, "Expected 10 messages in subset");
 
     // --- PDT 12: Derived ensemble (messages 0, 1) ---
     let msg_0 = &messages[0];
@@ -936,10 +936,29 @@ fn read_percentile_and_probability_templates() {
     assert_eq!(prob_limits.product_template_id().unwrap(), 9);
     // This message has probability type 10 (between limits inclusive)
     // with lower=1, upper=10
-    assert!(prob_limits.probability_lower_limit().unwrap().is_some());
-    assert!(prob_limits.probability_upper_limit().unwrap().is_some());
+    assert_eq!(prob_limits.probability_lower_limit().unwrap(), Some(1.0));
+    assert_eq!(prob_limits.probability_upper_limit().unwrap(), Some(10.0));
 
-    // --- All 8 messages should have unique keys ---
+    // --- PDT 9: Probability with varying thresholds (messages 8, 9) ---
+    // Same variable and probability type as message 7, but different limits.
+    // These exercise the threshold coordinate dimension.
+    let prob_thresh_3 = &messages[8];
+    assert_eq!(prob_thresh_3.product_template_id().unwrap(), 9);
+    assert_eq!(prob_thresh_3.probability_lower_limit().unwrap(), Some(3.0));
+    assert_eq!(prob_thresh_3.probability_upper_limit().unwrap(), Some(3.0));
+
+    let prob_thresh_10 = &messages[9];
+    assert_eq!(prob_thresh_10.product_template_id().unwrap(), 9);
+    assert_eq!(
+        prob_thresh_10.probability_lower_limit().unwrap(),
+        Some(10.0)
+    );
+    assert_eq!(
+        prob_thresh_10.probability_upper_limit().unwrap(),
+        Some(10.0)
+    );
+
+    // --- All 10 messages should have unique keys ---
     let mut keys = Vec::new();
     let mut dups = Vec::new();
     for message in &messages {

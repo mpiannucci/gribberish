@@ -351,3 +351,25 @@ def test_xarray_backend_s2s_percentile_probability():
         assert "percentile" not in ds[var_name].dims, (
             f"Probability variable {var_name} should not have percentile dimension"
         )
+
+    # Check that threshold coordinate exists (from PDT 9 messages with
+    # same probability type but different lower/upper limits)
+    assert "threshold" in ds.coords, (
+        f"Expected 'threshold' coordinate, got coords: {list(ds.coords.keys())}"
+    )
+
+    # Threshold values should be [1, 3, 10]
+    threshold_values = ds.threshold.values
+    np.testing.assert_array_equal(
+        sorted(threshold_values), [1.0, 3.0, 10.0],
+        err_msg=f"Expected threshold values [1, 3, 10], got {threshold_values}"
+    )
+
+    # Find a variable that has the threshold dimension
+    threshold_vars = [
+        name for name in ds.data_vars
+        if "threshold" in ds[name].dims
+    ]
+    assert len(threshold_vars) > 0, (
+        f"Expected at least one variable with 'threshold' dim, vars: {list(ds.data_vars.keys())}"
+    )
