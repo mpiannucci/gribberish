@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use gribberish::{
-    message::Message, message_metadata::scan_message_metadata,
-    templates::product::tables::FixedSurfaceType,
+    message::Message,
+    message_metadata::scan_message_metadata,
+    templates::product::tables::{FixedSurfaceType, ProbabilityType},
 };
 use numpy::{
     datetime::{units::Seconds, Datetime},
@@ -138,8 +139,25 @@ pub fn parse_grib_dataset<'py>(
                 .as_ref()
                 .map(|p| p.abbv())
                 .unwrap_or_default();
+        // For probability types that use both limits (between, between_inclusive),
+        // include both limits in the hash so each unique (lower, upper) pair
+        // becomes a separate variable. This avoids collisions in the threshold
+        // dimension where different (lower, upper) pairs share the same lower_limit.
+        let prob_limits = match &v.2.probability_type {
+            Some(ProbabilityType::BetweenLimits)
+            | Some(ProbabilityType::BetweenLimitsInclusive) => {
+                if let (Some(lower), Some(upper)) =
+                    (v.2.probability_lower_limit, v.2.probability_upper_limit)
+                {
+                    format!("_{lower:.0}_{upper:.0}")
+                } else {
+                    "".to_string()
+                }
+            }
+            _ => "".to_string(),
+        };
         let hash = format!(
-            "{surf}_{stat}{gen}{accum_period}{derived}{prob_type}",
+            "{surf}_{stat}{gen}{accum_period}{derived}{prob_type}{prob_limits}",
             surf = v.2.first_fixed_surface_type.coordinate_name(),
             stat =
                 v.2.statistical_process
@@ -558,11 +576,16 @@ pub fn parse_grib_dataset<'py>(
             let meta = &mapping.get(k).unwrap().2;
             if meta.probability_type.is_some() {
                 has_probability = true;
-                // Use lower_limit for below-type, upper_limit for above-type,
-                // or lower_limit as primary for between-type
-                let threshold = meta
-                    .probability_lower_limit
-                    .or(meta.probability_upper_limit);
+                // Only create a threshold dimension for single-limit types
+                // (e.g., P(X < threshold)). Between-type probabilities are
+                // already split into separate variables via the hash.
+                let threshold = match &meta.probability_type {
+                    Some(ProbabilityType::BetweenLimits)
+                    | Some(ProbabilityType::BetweenLimitsInclusive) => None,
+                    _ => meta
+                        .probability_lower_limit
+                        .or(meta.probability_upper_limit),
+                };
                 if let Some(t) = threshold {
                     thresholds.insert(format!("{:.5}", t));
                 }
