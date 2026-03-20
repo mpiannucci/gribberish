@@ -39,6 +39,10 @@ pub enum TemperatureProduct {
     #[abbrev = "LAPR"]
     #[unit = "Km-1"]
     LapseRate = 8,
+    #[description = "temperature anomaly"]
+    #[abbrev = "TMPA"]
+    #[unit = "K"]
+    TemperatureAnomaly = 9,
     #[description = "latent heat net flux"]
     #[abbrev = "LHTFL"]
     #[unit = "Wm-2"]
@@ -677,6 +681,10 @@ pub enum MassProduct {
     #[abbrev = "HGT"]
     #[unit = "gpm"]
     GeopotentialHeight = 5,
+    #[description = "geopotential height anomaly"]
+    #[abbrev = "GPA"]
+    #[unit = "gpm"]
+    GeopotentialHeightAnomaly = 9,
     #[description = "density"]
     #[abbrev = "DEN"]
     #[unit = "kgm-3"]
