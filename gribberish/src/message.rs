@@ -4,7 +4,8 @@ use crate::sections::{indicator::Discipline, section::Section, section::SectionI
 use crate::templates::grid_definition::GridDefinitionTemplate;
 use crate::templates::product::product_template::ProductTemplate;
 use crate::templates::product::tables::{
-    DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
+    DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit,
+    TypeOfStatisticalProcessing,
 };
 use crate::utils::iter::projection::LatLngProjection;
 use bitvec::view::BitView;
@@ -208,8 +209,28 @@ impl<'a> Message<'a> {
             .unwrap_or(None)
             .map_or("".to_string(), |p| format!(":ens{p}"));
 
+        let percentile = self
+            .percentile_value()
+            .unwrap_or(None)
+            .map_or("".to_string(), |p| format!(":pctl{p}"));
+
+        let probability = match self.probability_type().unwrap_or(None) {
+            Some(pt) => {
+                let lower = self
+                    .probability_lower_limit()
+                    .unwrap_or(None)
+                    .map_or("".to_string(), |v| format!("_{v:.0}"));
+                let upper = self
+                    .probability_upper_limit()
+                    .unwrap_or(None)
+                    .map_or("".to_string(), |v| format!("_{v:.0}"));
+                format!(":probt{}{lower}{upper}", pt as u8)
+            }
+            None => "".to_string(),
+        };
+
         Ok(format!(
-            "{var}{time}{first_level}{second_level}{perturbation}:{statistical_process}{generating_process}{derived_forecast_type}"
+            "{var}{time}{first_level}{second_level}{perturbation}{percentile}{probability}:{statistical_process}{generating_process}{derived_forecast_type}"
         ))
     }
 
@@ -539,6 +560,56 @@ impl<'a> Message<'a> {
             Message::Grib2 { .. } => {
                 let product_template = self.product_template()?;
                 Ok(product_template.statistical_process_type())
+            }
+        }
+    }
+
+    pub fn percentile_value(&self) -> Result<Option<u8>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.percentile_value())
+            }
+        }
+    }
+
+    pub fn probability_type(&self) -> Result<Option<ProbabilityType>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.probability_type())
+            }
+        }
+    }
+
+    pub fn forecast_probability_number(&self) -> Result<Option<u8>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.forecast_probability_number())
+            }
+        }
+    }
+
+    pub fn probability_lower_limit(&self) -> Result<Option<f64>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.probability_lower_limit())
+            }
+        }
+    }
+
+    pub fn probability_upper_limit(&self) -> Result<Option<f64>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.probability_upper_limit())
             }
         }
     }

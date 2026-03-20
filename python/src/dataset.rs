@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use gribberish::{
-    message::Message, message_metadata::scan_message_metadata,
-    templates::product::tables::FixedSurfaceType,
+    message::Message,
+    message_metadata::scan_message_metadata,
+    templates::product::tables::{FixedSurfaceType, ProbabilityType},
 };
 use numpy::{
     datetime::{units::Seconds, Datetime},
@@ -133,8 +134,30 @@ pub fn parse_grib_dataset<'py>(
                 .as_ref()
                 .map(|d| d.abbv())
                 .unwrap_or_default();
+        let prob_type =
+            v.2.probability_type
+                .as_ref()
+                .map(|p| p.abbv())
+                .unwrap_or_default();
+        // For probability types that use both limits (between, between_inclusive),
+        // include both limits in the hash so each unique (lower, upper) pair
+        // becomes a separate variable. This avoids collisions in the threshold
+        // dimension where different (lower, upper) pairs share the same lower_limit.
+        let prob_limits = match &v.2.probability_type {
+            Some(ProbabilityType::BetweenLimits)
+            | Some(ProbabilityType::BetweenLimitsInclusive) => {
+                if let (Some(lower), Some(upper)) =
+                    (v.2.probability_lower_limit, v.2.probability_upper_limit)
+                {
+                    format!("_{lower:.0}_{upper:.0}")
+                } else {
+                    "".to_string()
+                }
+            }
+            _ => "".to_string(),
+        };
         let hash = format!(
-            "{surf}_{stat}{gen}{accum_period}{derived}",
+            "{surf}_{stat}{gen}{accum_period}{derived}{prob_type}{prob_limits}",
             surf = v.2.first_fixed_surface_type.coordinate_name(),
             stat =
                 v.2.statistical_process
@@ -476,6 +499,156 @@ pub fn parse_grib_dataset<'py>(
         coords.set_item(name, member).unwrap();
     }
 
+    // Percentile dims
+    let mut percentile_map = HashMap::new();
+    let mut percentile_dim_map: HashMap<String, Vec<String>> = HashMap::new();
+    for (var, v) in var_mapping.iter() {
+        let mut percentiles = HashSet::new();
+        for k in v.iter() {
+            if let Some(percentile_value) = mapping.get(k).unwrap().2.percentile_value {
+                percentiles.insert(percentile_value);
+            }
+        }
+
+        if !perserve_dims.contains(&"percentile".to_string()) && percentiles.len() < 2 {
+            continue;
+        }
+
+        let mut percentiles = percentiles.into_iter().collect::<Vec<_>>();
+        percentiles.sort();
+
+        let percentile_key: String = percentiles
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>()
+            .join("_");
+
+        if percentile_dim_map.contains_key(&percentile_key) {
+            percentile_dim_map
+                .get_mut(&percentile_key)
+                .unwrap()
+                .push(var.clone());
+        } else {
+            percentile_dim_map.insert(percentile_key.clone(), vec![var.clone()]);
+        }
+        percentile_map.insert(percentile_key, percentiles);
+    }
+
+    for (percentile_index, (percentile_key, percentiles)) in percentile_map.iter().enumerate() {
+        let name = if percentile_map.len() == 1 || percentile_index == 0 {
+            "percentile".to_string()
+        } else {
+            format!("percentile_{percentile_index}")
+        };
+
+        let percentiles_i64 = percentiles.iter().map(|p| *p as i64).collect::<Vec<_>>();
+        let percentiles_array = PyArray1::from_vec(py, percentiles_i64);
+
+        percentile_dim_map[percentile_key]
+            .iter()
+            .for_each(|v: &String| {
+                var_dims.get_mut(v).unwrap().push(name.clone());
+                var_shape.get_mut(v).unwrap().push(percentiles.len());
+            });
+
+        let percentile = PyDict::new(py);
+        let percentile_metadata = PyDict::new(py);
+        percentile_metadata
+            .set_item("standard_name", "percentile")
+            .unwrap();
+        percentile_metadata
+            .set_item("long_name", "percentile")
+            .unwrap();
+        percentile_metadata.set_item("unit", "%").unwrap();
+        percentile.set_item("values", percentiles_array).unwrap();
+        percentile.set_item("attrs", percentile_metadata).unwrap();
+        percentile.set_item("dims", vec![name.clone()]).unwrap();
+        coords.set_item(name, percentile).unwrap();
+    }
+
+    // Threshold dims (for probability variables with varying limits)
+    let mut threshold_map: HashMap<String, Vec<f64>> = HashMap::new();
+    let mut threshold_dim_map: HashMap<String, Vec<String>> = HashMap::new();
+    for (var, v) in var_mapping.iter() {
+        let mut thresholds = HashSet::new();
+        let mut has_probability = false;
+        for k in v.iter() {
+            let meta = &mapping.get(k).unwrap().2;
+            if meta.probability_type.is_some() {
+                has_probability = true;
+                // Only create a threshold dimension for single-limit types
+                // (e.g., P(X < threshold)). Between-type probabilities are
+                // already split into separate variables via the hash.
+                let threshold = match &meta.probability_type {
+                    Some(ProbabilityType::BetweenLimits)
+                    | Some(ProbabilityType::BetweenLimitsInclusive) => None,
+                    _ => meta
+                        .probability_lower_limit
+                        .or(meta.probability_upper_limit),
+                };
+                if let Some(t) = threshold {
+                    thresholds.insert(format!("{:.5}", t));
+                }
+            }
+        }
+
+        if !has_probability || thresholds.len() < 2 {
+            continue;
+        }
+
+        let mut thresholds = thresholds
+            .into_iter()
+            .map(|f| f.parse::<f64>().unwrap())
+            .collect::<Vec<_>>();
+        thresholds.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        let threshold_key = thresholds
+            .iter()
+            .map(|t| format!("{:.5}", t))
+            .collect::<Vec<_>>()
+            .join("_");
+
+        if threshold_dim_map.contains_key(&threshold_key) {
+            threshold_dim_map
+                .get_mut(&threshold_key)
+                .unwrap()
+                .push(var.clone());
+        } else {
+            threshold_dim_map.insert(threshold_key.clone(), vec![var.clone()]);
+        }
+        threshold_map.insert(threshold_key, thresholds);
+    }
+
+    for (threshold_index, (threshold_key, thresholds)) in threshold_map.iter().enumerate() {
+        let name = if threshold_map.len() == 1 || threshold_index == 0 {
+            "threshold".to_string()
+        } else {
+            format!("threshold_{threshold_index}")
+        };
+
+        let thresholds_array = PyArray1::from_vec(py, thresholds.clone());
+
+        threshold_dim_map[threshold_key]
+            .iter()
+            .for_each(|v: &String| {
+                var_dims.get_mut(v).unwrap().push(name.clone());
+                var_shape.get_mut(v).unwrap().push(thresholds.len());
+            });
+
+        let threshold = PyDict::new(py);
+        let threshold_metadata = PyDict::new(py);
+        threshold_metadata
+            .set_item("standard_name", "threshold")
+            .unwrap();
+        threshold_metadata
+            .set_item("long_name", "probability threshold")
+            .unwrap();
+        threshold.set_item("values", thresholds_array).unwrap();
+        threshold.set_item("attrs", threshold_metadata).unwrap();
+        threshold.set_item("dims", vec![name.clone()]).unwrap();
+        coords.set_item(name, threshold).unwrap();
+    }
+
     // Lastly the spatial coords
     let latitude = PyDict::new(py);
     let latitude_metadata = PyDict::new(py);
@@ -672,6 +845,17 @@ pub fn parse_grib_dataset<'py>(
                     .unwrap_or("".to_string()),
             )
             .unwrap();
+        var_metadata
+            .set_item(
+                "probability_type",
+                first
+                    .2
+                    .probability_type
+                    .as_ref()
+                    .map(|p| p.to_string())
+                    .unwrap_or("".to_string()),
+            )
+            .unwrap();
 
         let proj_params = PyDict::new(py);
         proj_params
@@ -731,15 +915,27 @@ pub fn parse_grib_dataset<'py>(
         v_sorted.sort_by(|a, b| {
             let a = mapping.get(a).unwrap();
             let b = mapping.get(b).unwrap();
+            let a_threshold =
+                a.2.probability_lower_limit
+                    .or(a.2.probability_upper_limit)
+                    .unwrap_or(0.0);
+            let b_threshold =
+                b.2.probability_lower_limit
+                    .or(b.2.probability_upper_limit)
+                    .unwrap_or(0.0);
             (
                 a.2.forecast_date,
                 a.2.first_fixed_surface_value.unwrap_or(0.0),
                 a.2.perturbation_number.unwrap_or(0),
+                a.2.percentile_value.unwrap_or(0),
+                format!("{:.5}", a_threshold),
             )
                 .partial_cmp(&(
                     b.2.forecast_date,
                     b.2.first_fixed_surface_value.unwrap_or(0.0),
                     b.2.perturbation_number.unwrap_or(0),
+                    b.2.percentile_value.unwrap_or(0),
+                    format!("{:.5}", b_threshold),
                 ))
                 .unwrap()
         });

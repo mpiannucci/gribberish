@@ -4,7 +4,7 @@ use gribberish_types::Parameter;
 use super::{
     parameters::{category, parameter},
     tables::{
-        DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit,
+        DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit,
         TypeOfStatisticalProcessing,
     },
 };
@@ -36,6 +36,26 @@ pub trait ProductTemplate {
     /// Returns the total number of ensemble members for ensemble forecast templates.
     /// Returns None for non-ensemble templates.
     fn number_of_ensemble_members(&self) -> Option<u8> {
+        None
+    }
+
+    fn percentile_value(&self) -> Option<u8> {
+        None
+    }
+
+    fn probability_type(&self) -> Option<ProbabilityType> {
+        None
+    }
+
+    fn forecast_probability_number(&self) -> Option<u8> {
+        None
+    }
+
+    fn probability_lower_limit(&self) -> Option<f64> {
+        None
+    }
+
+    fn probability_upper_limit(&self) -> Option<f64> {
         None
     }
 

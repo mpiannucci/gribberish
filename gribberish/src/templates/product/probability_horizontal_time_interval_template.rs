@@ -3,7 +3,9 @@ use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
 use chrono::{prelude::*, Duration};
 
 use super::product_template::ProductTemplate;
-use super::tables::{FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing};
+use super::tables::{
+    FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit, TypeOfStatisticalProcessing,
+};
 use super::HorizontalAnalysisForecastTemplate;
 
 /// Product Definition Template 4.9
@@ -85,6 +87,44 @@ impl ProbabilityHorizontalTimeIntervalTemplate {
     pub fn statistical_process(&self) -> TypeOfStatisticalProcessing {
         self.data().get(59).copied().unwrap_or(255).into()
     }
+
+    pub fn forecast_probability_number(&self) -> u8 {
+        self.data[34]
+    }
+
+    pub fn probability_type(&self) -> ProbabilityType {
+        self.data[36].into()
+    }
+
+    pub fn lower_limit_scale_factor(&self) -> i8 {
+        as_signed!(self.data[37], 8, i8)
+    }
+
+    pub fn lower_limit_scaled_value(&self) -> i32 {
+        as_signed!(read_u32_from_bytes(&self.data, 38).unwrap_or(0), 32, i32)
+    }
+
+    pub fn upper_limit_scale_factor(&self) -> i8 {
+        as_signed!(self.data[42], 8, i8)
+    }
+
+    pub fn upper_limit_scaled_value(&self) -> i32 {
+        as_signed!(read_u32_from_bytes(&self.data, 43).unwrap_or(0), 32, i32)
+    }
+
+    pub fn lower_limit(&self) -> Option<f64> {
+        HorizontalAnalysisForecastTemplate::scale_value(
+            self.lower_limit_scale_factor(),
+            self.lower_limit_scaled_value(),
+        )
+    }
+
+    pub fn upper_limit(&self) -> Option<f64> {
+        HorizontalAnalysisForecastTemplate::scale_value(
+            self.upper_limit_scale_factor(),
+            self.upper_limit_scaled_value(),
+        )
+    }
 }
 
 impl ProductTemplate for ProbabilityHorizontalTimeIntervalTemplate {
@@ -161,5 +201,21 @@ impl ProductTemplate for ProbabilityHorizontalTimeIntervalTemplate {
 
     fn statistical_process_type(&self) -> Option<TypeOfStatisticalProcessing> {
         Some(self.statistical_process())
+    }
+
+    fn probability_type(&self) -> Option<ProbabilityType> {
+        Some(self.data[36].into())
+    }
+
+    fn forecast_probability_number(&self) -> Option<u8> {
+        Some(self.data[34])
+    }
+
+    fn probability_lower_limit(&self) -> Option<f64> {
+        self.lower_limit()
+    }
+
+    fn probability_upper_limit(&self) -> Option<f64> {
+        self.upper_limit()
     }
 }

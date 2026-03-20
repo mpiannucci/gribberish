@@ -298,3 +298,66 @@ def test_xarray_backend_aifs_ensemble():
 
     assert ds.tmp.dims == ("time", "number", "latitude", "longitude")
     assert ds.tmp.values.shape == (1, 1, 721, 1440)
+
+
+def test_xarray_backend_s2s_percentile_probability():
+    """Test that S2S GRIB2 files with PDT 9/10/12 produce correct dimensions.
+
+    PDT 10 (percentile) messages should be joined along a 'percentile' dimension.
+    PDT 9 (probability) messages should be split by probability type into separate
+    variables, each with a probability_type attribute.
+    PDT 12 (derived ensemble) messages should be handled normally.
+    """
+    import numpy as np
+
+    ds = xr.open_dataset(
+        "./../test-data/s2s-pdt9-pdt10-pdt12.grib2", engine="gribberish"
+    )
+
+    assert ds is not None
+
+    # Check that percentile coordinate exists
+    assert "percentile" in ds.coords, (
+        f"Expected 'percentile' coordinate, got coords: {list(ds.coords.keys())}"
+    )
+
+    # Percentile values should be [1, 50, 99]
+    percentile_values = ds.percentile.values
+    np.testing.assert_array_equal(
+        sorted(percentile_values), [1, 50, 99],
+        err_msg=f"Expected percentile values [1, 50, 99], got {percentile_values}"
+    )
+
+    # Find a variable that has the percentile dimension
+    percentile_vars = [
+        name for name in ds.data_vars
+        if "percentile" in ds[name].dims
+    ]
+    assert len(percentile_vars) > 0, (
+        f"Expected at least one variable with 'percentile' dim, vars: {list(ds.data_vars.keys())}"
+    )
+
+    # Probability variables should have probability_type attribute
+    prob_vars = [
+        name for name in ds.data_vars
+        if ds[name].attrs.get("probability_type", "") != ""
+    ]
+    assert len(prob_vars) > 0, (
+        f"Expected at least one variable with probability_type attr, vars: {list(ds.data_vars.keys())}"
+    )
+
+    # Each probability variable should NOT have 'percentile' in its dims
+    for var_name in prob_vars:
+        assert "percentile" not in ds[var_name].dims, (
+            f"Probability variable {var_name} should not have percentile dimension"
+        )
+
+    # Between-type probability messages with different (lower, upper) pairs
+    # should be split into separate variables (not grouped on a threshold dim)
+    between_vars = [
+        name for name in ds.data_vars
+        if "prob_between_inc" in name
+    ]
+    assert len(between_vars) == 3, (
+        f"Expected 3 between_inc variables (one per limit pair), got {between_vars}"
+    )
