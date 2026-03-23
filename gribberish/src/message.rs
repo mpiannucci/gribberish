@@ -896,8 +896,17 @@ impl<'a> Message<'a> {
                     scaled_unpacked_data
                 };
 
-                let shape = self.grid_dimensions()?;
-                let count = shape.0 * shape.1;
+                let count = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::GridDefinition(grid_definition) => {
+                            Some(grid_definition.data_point_count())
+                        }
+                        _ => None,
+                    }),
+                    GribberishError::MessageError(
+                        "Grid definition section not found when reading message data".into()
+                    )
+                );
                 data.resize(count, 0.0);
                 Ok(data)
             }

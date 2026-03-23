@@ -84,8 +84,8 @@ impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate
             .step_by(bits_per_val)
             .filter_map(|i| {
                 let mut i_end_index = i + bits_per_val;
-                if i_end_index >= bits.len() {
-                    i_end_index = bits.len() - 1;
+                if i_end_index > bits.len() {
+                    i_end_index = bits.len();
                 }
 
                 let relevent_bits = &bits[i..i_end_index];
