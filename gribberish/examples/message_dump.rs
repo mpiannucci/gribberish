@@ -47,10 +47,10 @@ fn main() {
     println!("------------------------------------------------------------------------------------------------------------");
 
     message_iter.enumerate().for_each(|(idx, m)| {
-        let bbox = m
-            .latlng_projector()
-            .expect("Failed to get message projection")
-            .bbox();
+        let bbox = match m.latlng_projector() {
+            Ok(p) => format!("{:?}", p.bbox()),
+            Err(_) => "--".into(),
+        };
 
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
@@ -98,7 +98,7 @@ fn main() {
                 Ok(d) => format!("{d}"),
                 Err(_) => "--".into(),
             },
-            format!("{:?}", bbox),
+            bbox,
             match m.grid_dimensions() {
                 Ok(r) => format!("{:?}", r),
                 Err(_) => "--".into(),
