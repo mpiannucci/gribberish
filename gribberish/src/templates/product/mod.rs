@@ -1,4 +1,5 @@
 pub mod average_accumulation_extreme_horizontal_analysis_template;
+pub mod derived_ensemble_forecast_time_interval_reference_template;
 pub mod derived_ensemble_horizontal_analysis_template;
 pub mod derived_ensemble_horizontal_forecast_time_interval_template;
 pub mod ensemble_forecast_time_interval_template;
@@ -12,6 +13,7 @@ pub mod product_template;
 pub mod tables;
 
 pub use average_accumulation_extreme_horizontal_analysis_template::AverageAccumulationExtremeHorizontalAnalysisForecastTemplate;
+pub use derived_ensemble_forecast_time_interval_reference_template::DerivedEnsembleForecastTimeIntervalReferenceTemplate;
 pub use derived_ensemble_horizontal_analysis_template::DerivedEnsembleHorizontalAnalysisForecastTemplate;
 pub use ensemble_forecast_time_interval_template::EnsembleForecastTimeIntervalTemplate;
 pub use horizontal_analysis_template::HorizontalAnalysisForecastTemplate;

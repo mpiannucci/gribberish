@@ -59,6 +59,10 @@ pub trait ProductTemplate {
         None
     }
 
+    fn is_anomaly(&self) -> bool {
+        false
+    }
+
     fn category(&self) -> &'static str {
         category(self.discipline(), self.category_value())
     }

@@ -1,6 +1,7 @@
 extern crate gribberish;
 
 use gribberish::message::{read_messages, Message};
+use gribberish::templates::product::tables::{DerivedForecastType, TypeOfStatisticalProcessing};
 use std::time::Instant;
 use std::vec::Vec;
 
@@ -975,5 +976,91 @@ fn read_percentile_and_probability_templates() {
         "Found {} duplicate keys: {:?}",
         dups.len(),
         dups
+    );
+}
+
+#[test]
+fn read_pdt107_anomaly_with_reference() {
+    // Fixture: 4 messages with zeroed data, 0.5° global grid.
+    // Messages 0-1: PDT 12 (derived ensemble time interval)
+    // Messages 2-3: PDT 107 (same, with reference to normal — anomaly)
+    // Messages 0 and 2 share the same variable/level/stat/derived type
+    // and would collide without the :anom key suffix.
+    let grib_data = read_grib_messages("../test-data/s2s-pdt12-pdt107-anomaly.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    assert_eq!(messages.len(), 4, "Expected 4 messages in fixture");
+
+    // --- PDT 12: TMP 2m Max UnweightedMean ---
+    let pdt12_max = &messages[0];
+    assert_eq!(pdt12_max.product_template_id().unwrap(), 12);
+    assert_eq!(pdt12_max.variable_abbrev().unwrap(), "TMP");
+    assert!(!pdt12_max.is_anomaly().unwrap());
+
+    // --- PDT 12: TMP 2m Avg UnweightedMean ---
+    let pdt12_avg = &messages[1];
+    assert_eq!(pdt12_avg.product_template_id().unwrap(), 12);
+    assert_eq!(pdt12_avg.variable_abbrev().unwrap(), "TMP");
+    assert!(!pdt12_avg.is_anomaly().unwrap());
+
+    // --- PDT 107: TMP 2m Max UnweightedMean (anomaly) ---
+    let pdt107_max = &messages[2];
+    assert_eq!(pdt107_max.product_template_id().unwrap(), 107);
+    assert_eq!(pdt107_max.variable_abbrev().unwrap(), "TMP");
+    assert!(pdt107_max.is_anomaly().unwrap());
+    assert_eq!(
+        pdt107_max.derived_forecast_type().unwrap(),
+        Some(DerivedForecastType::UnweightedMean)
+    );
+    assert_eq!(
+        pdt107_max.statistical_process_type().unwrap(),
+        Some(TypeOfStatisticalProcessing::Maximum)
+    );
+    let data = pdt107_max.data().unwrap();
+    assert_eq!(data.len(), 259920);
+
+    // --- PDT 107: TMP 1000hPa Avg UnweightedMean (anomaly) ---
+    let pdt107_avg = &messages[3];
+    assert_eq!(pdt107_avg.product_template_id().unwrap(), 107);
+    assert_eq!(pdt107_avg.variable_abbrev().unwrap(), "TMP");
+    assert!(pdt107_avg.is_anomaly().unwrap());
+    assert_eq!(
+        pdt107_avg.derived_forecast_type().unwrap(),
+        Some(DerivedForecastType::UnweightedMean)
+    );
+    assert_eq!(
+        pdt107_avg.statistical_process_type().unwrap(),
+        Some(TypeOfStatisticalProcessing::Average)
+    );
+
+    // --- All 4 messages should have unique keys ---
+    let mut keys = Vec::new();
+    let mut dups = Vec::new();
+    for message in &messages {
+        let key = message.key().unwrap();
+        if keys.contains(&key) {
+            dups.push(key);
+        } else {
+            keys.push(key);
+        }
+    }
+    assert_eq!(
+        dups.len(),
+        0,
+        "Found {} duplicate keys: {:?}",
+        dups.len(),
+        dups
+    );
+
+    // Verify the anomaly key contains :anom and the non-anomaly does not
+    let pdt12_key = pdt12_max.key().unwrap();
+    let pdt107_key = pdt107_max.key().unwrap();
+    assert!(
+        !pdt12_key.contains(":anom"),
+        "PDT 12 key should not contain :anom"
+    );
+    assert!(
+        pdt107_key.contains(":anom"),
+        "PDT 107 key should contain :anom"
     );
 }
