@@ -329,6 +329,7 @@ fn grib1_to_metadata(message: &Grib1Message) -> Result<MessageMetadata, Gribberi
         forecast_probability_number: None,
         probability_lower_limit: None,
         probability_upper_limit: None,
+        is_anomaly: false,
     })
 }
 

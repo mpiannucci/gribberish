@@ -1,6 +1,7 @@
 use super::grib_section::GribSection;
 use crate::{
     templates::product::{
+        derived_ensemble_forecast_time_interval_reference_template::DerivedEnsembleForecastTimeIntervalReferenceTemplate,
         derived_ensemble_horizontal_forecast_time_interval_template::DerivedEnsembleHorizontalForecastTimeIntervalTemplate,
         product_template::ProductTemplate,
         AverageAccumulationExtremeHorizontalAnalysisForecastTemplate,
@@ -69,6 +70,12 @@ impl<'a> ProductDefinitionSection<'a> {
             ))),
             12 => Some(Box::new(
                 DerivedEnsembleHorizontalForecastTimeIntervalTemplate::new(
+                    self.data.to_vec(),
+                    discipline,
+                ),
+            )),
+            107 => Some(Box::new(
+                DerivedEnsembleForecastTimeIntervalReferenceTemplate::new(
                     self.data.to_vec(),
                     discipline,
                 ),

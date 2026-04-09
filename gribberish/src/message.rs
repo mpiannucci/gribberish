@@ -229,8 +229,14 @@ impl<'a> Message<'a> {
             None => "".to_string(),
         };
 
+        let anomaly = if self.is_anomaly().unwrap_or(false) {
+            ":anom"
+        } else {
+            ""
+        };
+
         Ok(format!(
-            "{var}{time}{first_level}{second_level}{perturbation}{percentile}{probability}:{statistical_process}{generating_process}{derived_forecast_type}"
+            "{var}{time}{first_level}{second_level}{perturbation}{percentile}{probability}{anomaly}:{statistical_process}{generating_process}{derived_forecast_type}"
         ))
     }
 
@@ -528,6 +534,16 @@ impl<'a> Message<'a> {
             Message::Grib2 { .. } => {
                 let product_template = self.product_template()?;
                 Ok(product_template.derived_forecast_type())
+            }
+        }
+    }
+
+    pub fn is_anomaly(&self) -> Result<bool, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(false),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.is_anomaly())
             }
         }
     }

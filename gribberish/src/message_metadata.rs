@@ -53,6 +53,7 @@ pub struct MessageMetadata {
     pub forecast_probability_number: Option<u8>,
     pub probability_lower_limit: Option<f64>,
     pub probability_upper_limit: Option<f64>,
+    pub is_anomaly: bool,
 }
 
 impl MessageMetadata {
@@ -175,6 +176,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             forecast_probability_number: message.forecast_probability_number()?,
             probability_lower_limit: message.probability_lower_limit()?,
             probability_upper_limit: message.probability_upper_limit()?,
+            is_anomaly: message.is_anomaly()?,
         })
     }
 }

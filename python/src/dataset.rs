@@ -156,8 +156,9 @@ pub fn parse_grib_dataset<'py>(
             }
             _ => "".to_string(),
         };
+        let anom = if v.2.is_anomaly { "_anom" } else { "" };
         let hash = format!(
-            "{surf}_{stat}{gen}{accum_period}{derived}{prob_type}{prob_limits}",
+            "{surf}_{stat}{gen}{accum_period}{derived}{prob_type}{prob_limits}{anom}",
             surf = v.2.first_fixed_surface_type.coordinate_name(),
             stat =
                 v.2.statistical_process
