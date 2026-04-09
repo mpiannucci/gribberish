@@ -6,8 +6,8 @@ zarr = pytest.importorskip("zarr")
 
 
 @pytest.mark.parametrize(
-    'dtype_str',
-    ['float64', 'float32'],
+    "dtype_str",
+    ["float64", "float32"],
 )
 async def test_decode_data_var_gribberish(dtype_str):
     from gribberish.zarr.codec import GribberishCodec
@@ -16,7 +16,7 @@ async def test_decode_data_var_gribberish(dtype_str):
     from zarr.dtype import parse_dtype
     from zarr.buffer.cpu import buffer_prototype
 
-    with open("./../gribberish/tests/data/hrrr.t06z.wrfsfcf01-UGRD.grib2", "rb") as f:
+    with open("./../test-data/hrrr.t06z.wrfsfcf01-UGRD.grib2", "rb") as f:
         raw_data = f.read()
 
     buffer = default_buffer_prototype().buffer.from_bytes(raw_data)
@@ -28,7 +28,7 @@ async def test_decode_data_var_gribberish(dtype_str):
             dtype=parse_dtype(dtype_str, zarr_format=3),
             fill_value=0,
             prototype=buffer_prototype,
-            config=ArrayConfig(order='C', write_empty_chunks=False),
+            config=ArrayConfig(order="C", write_empty_chunks=False),
         ),
     )
 

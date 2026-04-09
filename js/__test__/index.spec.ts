@@ -6,7 +6,7 @@ import test from 'ava'
 
 import { GribMessage, GribMessageFactory, GribMessageMetadataFactory, parseMessagesFromBuffer } from '../index'
 
-const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../gribberish/tests/data')
+const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../test-data')
 
 test('parseMessagesFromBuffer reads HRRR GRIB2 messages', (t) => {
   const data = readFileSync(join(DATA_DIR, 'hrrr.t06z.wrfsfcf01-TMP.grib2'))
