@@ -193,6 +193,29 @@ fn read_ccsds_with_libaec_should_work() {
     );
 }
 
+#[cfg(feature = "libaec")]
+#[test]
+fn read_ccsds_libaec_8bit_preprocessed_should_work() {
+    let read_data = read_grib_messages("../test-data/meteofrance.arome-TCDC.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop();
+    assert!(message.is_some());
+    let message = message.unwrap();
+
+    let start = Instant::now();
+    let data = message.data();
+    let end = Instant::now();
+    assert!(data.is_ok());
+    let data = data.unwrap();
+    println!(
+        "ccsds unpacking data() took {:?} for {} data points",
+        end.duration_since(start),
+        data.len()
+    );
+}
+
 #[test]
 fn read_ensemble_average() {
     let grib_data = read_grib_messages("../test-data/geavg.t12z.pgrb2a.0p50.f000");
