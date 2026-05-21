@@ -60,6 +60,11 @@ impl GribMessageMetadata {
     }
 
     #[getter]
+    fn perturbation_number(&self) -> Option<u8> {
+        self.inner.perturbation_number
+    }
+
+    #[getter]
     fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDateTime>> {
         PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
     }
