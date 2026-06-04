@@ -401,9 +401,12 @@ fn read_grib1_era5_levels_members() {
         "Message 0 grid dimensions"
     );
 
-    // Validate key format
+    // Validate key format (message 0 is ensemble member 0)
     let key = msg_0.key().unwrap();
-    assert_eq!(key, "z:201701010000:500 in mb:forecast", "Message 0 key");
+    assert_eq!(
+        key, "z:201701010000:500 in mb:ens0:forecast",
+        "Message 0 key"
+    );
 
     // Validate data at multiple points
     let data_0 = msg_0.data().unwrap();
@@ -469,7 +472,8 @@ fn test_iterator_scans_past_padding() {
         "Expected 160 messages in ERA5 GRIB1 file (iterator should scan past padding)"
     );
 
-    // Verify we have 16 unique variable/time/level combinations
+    // Every message has a unique key: the ensemble member number is part of
+    // the key, so the 10 members no longer collide.
     let mut unique_keys = std::collections::HashSet::new();
     for message in &messages {
         let key = message.key().unwrap();
@@ -478,8 +482,8 @@ fn test_iterator_scans_past_padding() {
 
     assert_eq!(
         unique_keys.len(),
-        16,
-        "Expected 16 unique keys (2 vars x 4 times x 2 levels)"
+        160,
+        "Expected 160 unique keys (2 vars x 4 times x 2 levels x 10 members)"
     );
 }
 

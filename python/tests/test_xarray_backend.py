@@ -72,6 +72,22 @@ def test_xarray_backend_era5_grib1():
     assert not np.all(np.isnan(data)), "Data should not be all NaNs"
 
 
+def test_xarray_backend_era5_grib1_ensemble():
+    """ERA5 GRIB1 EDA file exposes its 10 ensemble members as a 'number' dim."""
+    import numpy as np
+
+    ds = xr.open_dataset(
+        "./../test-data/era5-levels-members.grib", engine="gribberish"
+    )
+
+    # 10 ensemble members decoded from the ECMWF GRIB1 PDS local extension
+    assert "number" in ds.coords
+    assert ds.sizes["number"] == 10
+    np.testing.assert_array_equal(ds.number.values, np.arange(10))
+    # No conflict -> members are a dimension, not a group
+    assert "number" in ds.t.dims
+
+
 def test_xarray_backend_can_open_grib1_extensions():
     backend = GribberishBackend()
     assert backend.guess_can_open("example.grib1")

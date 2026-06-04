@@ -25,19 +25,21 @@ def _store_for(filename, **kwargs):
 
 
 def test_no_conflict_single_root_dataset():
-    """A conflict-free file becomes a single virtual dataset, levels as dims."""
+    """A conflict-free file becomes a single virtual dataset, levels and ensemble
+    members as dimensions (this ERA5 EDA file has 10 GRIB1 members)."""
     store = _store_for("era5-levels-members.grib")
     vds = store.to_virtual_dataset()
 
     assert dict(vds.sizes) == {
         "time": 4,
         "isobar": 2,
+        "number": 10,
         "latitude": 61,
         "longitude": 120,
     }
-    assert {"time", "isobar", "latitude", "longitude"}.issubset(set(vds.coords))
+    assert {"time", "isobar", "number", "latitude", "longitude"}.issubset(set(vds.coords))
     assert {"t", "z"}.issubset(set(vds.data_vars))
-    assert vds["t"].dims == ("time", "isobar", "latitude", "longitude")
+    assert vds["t"].dims == ("time", "isobar", "number", "latitude", "longitude")
 
 
 def test_conflict_produces_datatree_groups():
@@ -73,7 +75,7 @@ def test_decoded_values_match_direct_parse():
     store = _store_for(fname)
     z = zarr.open(store, mode="r")
 
-    chunk = np.asarray(z["t"][0, 0])  # (time0, isobar0) -> (lat, lon)
+    chunk = np.asarray(z["t"][0, 0, 0])  # (time0, isobar0, number0) -> (lat, lon)
     assert chunk.shape == (61, 120)
 
     with open(TEST_DATA / fname, "rb") as f:
