@@ -16,13 +16,14 @@ dependencies = ["numpy >= 2"]
 
 [project.optional-dependencies]
 xarray = ["xarray", "fsspec"]
-kerchunk = ["kerchunk", "zarr", "numcodecs", "fsspec"]
 zarr = ["zarr>=3.1.1"]
+virtualizarr = ["virtualizarr>=2", "zarr>=3.1.1", "obstore"]
 dev = [
     "matplotlib",
     "cf_xarray",
     "zarr>=3.1.1",
-    "numcodecs",
+    "virtualizarr>=2",
+    "obstore",
     "fsspec",
     "ujson",
     "dask[complete]",
@@ -32,15 +33,14 @@ dev = [
     "s3fs",
     "cfgrib",
     "pyproj",
+    "xoak",
+    "scikit-learn",
     "pytest",
     "pytest-asyncio",
 ]
 
 [project.entry-points."xarray.backends"]
 gribberish = "gribberish.gribberish_backend:GribberishBackend"
-
-[project.entry-points."numcodecs.codecs"]
-gribberish = "gribberish.kerchunk:GribberishCodec"
 
 [project.entry-points."zarr.codecs"]
 gribberish = "gribberish.zarr:GribberishCodec"
