@@ -315,8 +315,7 @@ mod tests {
     #[test]
     fn test_ecmwf_non_ensemble_mars_labelling() {
         // Local definition 1 with total == 0 is plain MARS data, not an ensemble.
-        let pds =
-            Grib1ProductDefinitionSection::from_data(&ecmwf_pds_with_local(1, 0, 0)).unwrap();
+        let pds = Grib1ProductDefinitionSection::from_data(&ecmwf_pds_with_local(1, 0, 0)).unwrap();
         assert_eq!(pds.ensemble_number(), None);
         assert_eq!(pds.number_of_ensemble_members(), None);
     }

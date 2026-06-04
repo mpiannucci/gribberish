@@ -26,7 +26,9 @@ fn message_kind(meta: &MessageMetadata) -> String {
         let mut token = stat.abbv();
         // Distinguish accumulation/averaging windows (e.g. 1h vs 6h precip).
         if let Some(end_date) = meta.forecast_end_date {
-            let hours = end_date.signed_duration_since(meta.forecast_date).num_hours();
+            let hours = end_date
+                .signed_duration_since(meta.forecast_date)
+                .num_hours();
             if hours > 0 {
                 token = format!("{token}{hours}h");
             }
