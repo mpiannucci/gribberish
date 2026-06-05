@@ -122,6 +122,26 @@ def test_xarray_open_datatree_can_guess_gribberish_engine():
     assert set(dt.to_dataset().data_vars) == {"tmp"}
 
 
+def test_xarray_backend_complex_packing_missing_values():
+    """Complex packing with 2nd-order spatial differencing AND primary missing
+    values (GFS temperature on the potential-vorticity surface). Regression test:
+    the all-ones missing groups used to be decoded as real data, blowing the
+    second-order reconstruction up to ~2e8 across 99% of the grid. Values and
+    NaN mask validated against cfgrib/eccodes."""
+    import numpy as np
+
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "gfs.t12z.pgrb2.0p25.f023-PV-TMP-missing.grib2"
+    ds = xr.open_dataset(str(fixture), engine="gribberish")
+
+    arr = np.asarray(ds["tmp"].values)
+    finite = np.isfinite(arr)
+    assert int(finite.sum()) == 629160
+    assert int((~finite).sum()) == 409080
+    assert 184.0 < float(np.nanmin(arr)) < 186.0
+    assert 289.0 < float(np.nanmax(arr)) < 290.0
+
+
 def test_xarray_backend_ecmwf_soil_tiny_fixture():
     """Test reading ECMWF soil GRIB1 file with 8 soil variables."""
     repo_root = Path(__file__).resolve().parents[2]

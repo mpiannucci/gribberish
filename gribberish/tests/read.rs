@@ -103,6 +103,35 @@ fn read_spatial_differenced_complex() {
 }
 
 #[test]
+fn read_spatial_differenced_complex_with_missing() {
+    // GFS temperature on the potential-vorticity surface: complex packing with
+    // 2nd-order spatial differencing AND primary missing values (large regions
+    // of the grid are missing). Validated against cfgrib/eccodes. Regression
+    // test for the missing-value handling -- previously the all-ones group
+    // references were decoded as real data and the second-order reconstruction
+    // diverged into ~2^31 garbage across 99% of the grid.
+    let read_data =
+        read_grib_messages("../test-data/gfs.t12z.pgrb2.0p25.f023-PV-TMP-missing.grib2");
+    let message = read_messages(read_data.as_slice())
+        .next()
+        .expect("a message");
+    let data = message.data().expect("decode");
+
+    assert_eq!(data.len(), 1038240);
+    let defined: Vec<f64> = data.iter().copied().filter(|v| v.is_finite()).collect();
+    let missing = data.len() - defined.len();
+    assert_eq!(defined.len(), 629160, "defined value count");
+    assert_eq!(missing, 409080, "missing (NaN) value count");
+
+    let min = defined.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max = defined.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    assert!((min - 184.98).abs() < 0.01, "min was {min}");
+    assert!((max - 289.58).abs() < 0.01, "max was {max}");
+    // first row is fully defined and constant in this message
+    assert!((data[0] - 248.6795898).abs() < 1e-4, "data[0] was {}", data[0]);
+}
+
+#[test]
 fn read_simple_zerod() {
     let read_data = read_grib_messages("../test-data/hrrr.t06z.wrfsfcf01-CFRZR.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
