@@ -70,6 +70,22 @@ fn message_kind(meta: &MessageMetadata) -> String {
     }
 }
 
+fn process_kind(meta: &MessageMetadata) -> String {
+    let member_kind = if meta.perturbation_number.is_some() {
+        "ens"
+    } else {
+        "det"
+    };
+    format!("{}_{member_kind}", meta.generating_process.abbv())
+}
+
+fn node_has_data_vars(node: &Bound<'_, PyDict>) -> PyResult<bool> {
+    let Some(data_vars) = node.get_item("data_vars")? else {
+        return Ok(false);
+    };
+    Ok(data_vars.cast::<PyDict>()?.len() > 0)
+}
+
 #[pyfunction]
 #[pyo3(signature = (data, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
 #[allow(clippy::too_many_arguments)]
@@ -147,30 +163,52 @@ pub fn parse_grib_dataset<'py>(
     // actually spans more than one of its values; otherwise the corresponding
     // coordinate stays a dimension and everything lands in a single root dataset.
     let mut var_levels: HashMap<String, HashSet<String>> = HashMap::new();
-    let mut var_level_kinds: HashMap<(String, String), HashSet<String>> = HashMap::new();
-    let mut msg_info: HashMap<String, (String, String, String)> = HashMap::new();
+    let mut kind_processes: HashMap<(String, String, String), HashSet<String>> = HashMap::new();
+    let mut msg_info: HashMap<String, (String, String, String, String)> = HashMap::new();
     for (k, v) in mapping.iter() {
         let meta = &v.2;
         let var = meta.var.to_lowercase();
+        if (only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var))
+            || drop_variables.contains(&var)
+        {
+            continue;
+        }
         let level = meta.first_fixed_surface_type.coordinate_name().to_string();
         let kind = message_kind(meta);
+        let process = process_kind(meta);
         var_levels
             .entry(var.clone())
             .or_default()
             .insert(level.clone());
-        var_level_kinds
-            .entry((var.clone(), level.clone()))
+        kind_processes
+            .entry((var.clone(), level.clone(), kind.clone()))
             .or_default()
-            .insert(kind.clone());
-        msg_info.insert(k.clone(), (var, level, kind));
+            .insert(process.clone());
+        msg_info.insert(k.clone(), (var, level, kind, process));
     }
 
     let partition_by_level = var_levels.values().any(|levels| levels.len() > 1);
+    let mut var_level_kinds: HashMap<(String, String), HashSet<String>> = HashMap::new();
+    for (var, level, kind, process) in msg_info.values() {
+        let process_conflict = kind_processes
+            .get(&(var.clone(), level.clone(), kind.clone()))
+            .map(|processes| processes.len() > 1)
+            .unwrap_or(false);
+        let path_kind = if process_conflict {
+            format!("{kind}_{process}")
+        } else {
+            kind.clone()
+        };
+        var_level_kinds
+            .entry((var.clone(), level.clone()))
+            .or_default()
+            .insert(path_kind);
+    }
     let partition_by_kind = var_level_kinds.values().any(|kinds| kinds.len() > 1);
 
     // group path (0, 1 or 2 segments) -> variable short name -> message keys
     let mut groups: BTreeMap<Vec<String>, HashMap<String, Vec<String>>> = BTreeMap::new();
-    for (k, (var, level, kind)) in msg_info.iter() {
+    for (k, (var, level, kind, process)) in msg_info.iter() {
         if (only_variables.is_some() && !only_variables.as_ref().unwrap().contains(var))
             || drop_variables.contains(var)
         {
@@ -182,7 +220,15 @@ pub fn parse_grib_dataset<'py>(
             path.push(level.clone());
         }
         if partition_by_kind {
-            path.push(kind.clone());
+            let process_conflict = kind_processes
+                .get(&(var.clone(), level.clone(), kind.clone()))
+                .map(|processes| processes.len() > 1)
+                .unwrap_or(false);
+            if process_conflict {
+                path.push(format!("{kind}_{process}"));
+            } else {
+                path.push(kind.clone());
+            }
         }
 
         groups
@@ -200,7 +246,7 @@ pub fn parse_grib_dataset<'py>(
     // No conflicts: a single root dataset, with levels expressed as dimensions.
     if groups.len() == 1 && groups.keys().next().unwrap().is_empty() {
         let (_, var_mapping) = groups.into_iter().next().unwrap();
-        return build_group(
+        let node = build_group(
             py,
             &mapping,
             &var_mapping,
@@ -209,7 +255,11 @@ pub fn parse_grib_dataset<'py>(
             &filter_by_variable_attrs,
             filter_by_variable_attrs_defined,
             encode_coords,
-        );
+        )?;
+        if !node_has_data_vars(&node)? {
+            return Err(PyValueError::new_err("No variables remain after filtering"));
+        }
+        return Ok(node);
     }
 
     // Conflicts: build a tree of standalone group datasets.
@@ -223,6 +273,8 @@ pub fn parse_grib_dataset<'py>(
     let groups_dict = PyDict::new(py);
     // first path segment -> the "groups" sub-dict of its intermediate node
     let mut intermediates: HashMap<String, Bound<'py, PyDict>> = HashMap::new();
+    let mut leaf_count = 0usize;
+    let mut single_leaf: Option<Bound<'py, PyDict>> = None;
     for (path, var_mapping) in groups.iter() {
         let node = build_group(
             py,
@@ -234,6 +286,16 @@ pub fn parse_grib_dataset<'py>(
             filter_by_variable_attrs_defined,
             encode_coords,
         )?;
+        if !node_has_data_vars(&node)? {
+            continue;
+        }
+
+        leaf_count += 1;
+        if leaf_count == 1 {
+            single_leaf = Some(node.clone());
+        } else {
+            single_leaf = None;
+        }
 
         match path.as_slice() {
             [segment] => {
@@ -260,6 +322,13 @@ pub fn parse_grib_dataset<'py>(
             _ => {}
         }
     }
+    if leaf_count == 0 {
+        return Err(PyValueError::new_err("No variables remain after filtering"));
+    }
+    if let Some(node) = single_leaf {
+        return Ok(node);
+    }
+
     root.set_item("groups", groups_dict)?;
 
     Ok(root)

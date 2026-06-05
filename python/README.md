@@ -81,7 +81,7 @@ This package can build virtual datasets with [`VirtualiZarr`](https://virtualiza
 ```python
 import virtualizarr as vz
 from obstore.store import LocalStore
-from obstore_utils.registry import ObjectStoreRegistry
+from obspec_utils.registry import ObjectStoreRegistry
 from gribberish.virtualizarr import GribberishParser
 
 registry = ObjectStoreRegistry({"file://": LocalStore()})

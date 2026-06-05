@@ -34,6 +34,24 @@ def test_xarray_backend_gefs_ensemble():
     assert cape.cape.values.shape == (1, 361, 720)
 
 
+def test_xarray_filters_collapse_single_remaining_group():
+    """Variable/attribute filters can resolve conflicting hypercubes."""
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "geavg.t12z.pgrb2a.0p50.f000"
+
+    ds = xr.open_dataset(str(fixture), engine="gribberish", only_variables=["prmsl"])
+    assert set(ds.data_vars) == {"prmsl"}
+    assert tuple(ds.prmsl.shape) == (1, 361, 720)
+
+    ds = xr.open_dataset(
+        str(fixture),
+        engine="gribberish",
+        filter_by_attrs={"fixed_surface_type": "mean sea level"},
+    )
+    assert set(ds.data_vars) == {"prmsl"}
+    assert tuple(ds.prmsl.shape) == (1, 361, 720)
+
+
 def test_xarray_backend_era5_grib1():
     """Test reading ERA5 GRIB1 file with levels and members using xarray backend"""
     # Open the ERA5 GRIB1 file using the gribberish backend
@@ -94,6 +112,14 @@ def test_xarray_backend_can_open_grib1_extensions():
     assert backend.guess_can_open("example.GRIB1")
     assert backend.guess_can_open("example.grib")
     assert backend.guess_can_open("example.grib2")
+
+
+def test_xarray_open_datatree_can_guess_gribberish_engine():
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "hrrr.t06z.wrfsfcf01-TMP.grib2"
+
+    dt = xr.open_datatree(str(fixture))
+    assert set(dt.to_dataset().data_vars) == {"tmp"}
 
 
 def test_xarray_backend_ecmwf_soil_tiny_fixture():

@@ -75,6 +75,8 @@ def _group_error(tree, requested=None):
 
 
 class GribberishBackend(BackendEntrypoint):
+    supports_groups = True
+
     '''
     Custom backend for xarray
 
