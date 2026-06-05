@@ -1,8 +1,10 @@
 import os
-import fsspec
+from pathlib import Path
 
 import numpy as np
+import obstore
 import xarray as xr
+from obstore.store import from_url
 from xarray.backends.common import BackendEntrypoint, BackendArray
 from xarray.core import indexing
 
@@ -10,6 +12,21 @@ from gribberish import parse_grib_dataset, parse_grib_array
 
 
 DATA_VAR_LOCK = xr.backends.locks.SerializableLock()
+
+
+def _store_and_path(filename_or_obj, storage_options):
+    """Resolve a path or URL to an obstore store rooted at its parent and the
+    object name within it.
+
+    A bare local path becomes a ``file://`` URI; remote URLs (``s3://``,
+    ``gs://``, ``https://`` …) are passed through. ``storage_options`` are
+    forwarded to :func:`obstore.store.from_url` as backend configuration.
+    """
+    path = os.fspath(filename_or_obj)
+    if "://" not in path:
+        path = Path(path).resolve().as_uri()
+    base, _, name = path.rpartition("/")
+    return from_url(base, **storage_options), name
 
 
 def _iter_leaf_groups(node, prefix=""):
@@ -92,8 +109,8 @@ class GribberishBackend(BackendEntrypoint):
     def _parse(self, filename_or_obj, storage_options, drop_variables,
                only_variables, perserve_dims, filter_by_attrs,
                filter_by_variable_attrs):
-        with fsspec.open(filename_or_obj, 'rb', **storage_options) as f:
-            raw_data = f.read()
+        store, path = _store_and_path(filename_or_obj, storage_options)
+        raw_data = obstore.get(store, path).bytes().to_bytes()
         return parse_grib_dataset(
             raw_data,
             drop_variables=drop_variables,
@@ -214,18 +231,19 @@ class GribberishBackendArray(BackendArray):
 
     def _raw_indexing_method(self, key: tuple) -> np.typing.ArrayLike:
         # thread safe method that access to data on disk
-        arrs = []
         with self.lock:
-            with fsspec.open(self.filename_or_obj, 'rb', **self.storage_options) as f:
-                for offset, size in self.offsets:
-                    f.seek(offset, 0)
-                    raw_data = f.read(size)
+            store, path = _store_and_path(self.filename_or_obj, self.storage_options)
+            # One ranged read per GRIB message; obstore fetches them in
+            # parallel and coalesces nearby ranges into single requests.
+            chunks = obstore.get_ranges(
+                store,
+                path,
+                starts=[offset for offset, _ in self.offsets],
+                lengths=[size for _, size in self.offsets],
+            )
 
-                    # Current offset is the beginning of the raw data chunk
-                    # The shape is the shape of the spatial portion of the
-                    # data chunk
-                    chunk_data = parse_grib_array(raw_data, 0)
-                    arrs.append(chunk_data)
+        # Each chunk is the raw bytes of one message; decode the spatial slab.
+        arrs = [parse_grib_array(bytes(chunk), 0) for chunk in chunks]
 
         # Concatentate the flattened arrays, the reshape to the target shape
         data = np.concatenate(arrs)
