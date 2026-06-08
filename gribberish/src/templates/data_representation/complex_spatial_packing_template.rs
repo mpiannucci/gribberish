@@ -233,8 +233,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
             }
         };
 
-        let second_order =
-            self.spatial_differencing_order() == SpatialDifferencingOrder::Second;
+        let second_order = self.spatial_differencing_order() == SpatialDifferencingOrder::Second;
         let bscale = 2_f64.powi(self.binary_scale_factor() as i32);
         let dscale = 10_f64.powi(-(self.decimal_scale_factor() as i32));
         let reference_value = self.reference_value() as f64;

@@ -128,7 +128,11 @@ fn read_spatial_differenced_complex_with_missing() {
     assert!((min - 184.98).abs() < 0.01, "min was {min}");
     assert!((max - 289.58).abs() < 0.01, "max was {max}");
     // first row is fully defined and constant in this message
-    assert!((data[0] - 248.6795898).abs() < 1e-4, "data[0] was {}", data[0]);
+    assert!(
+        (data[0] - 248.6795898).abs() < 1e-4,
+        "data[0] was {}",
+        data[0]
+    );
 }
 
 #[test]
