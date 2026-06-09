@@ -234,6 +234,16 @@ impl Grib1Message {
     pub fn is_ecmwf(&self) -> bool {
         self.center_id() == 98
     }
+
+    /// Ensemble member number, if this is an ECMWF ensemble product.
+    pub fn ensemble_number(&self) -> Option<u8> {
+        self.pds.ensemble_number()
+    }
+
+    /// Total number of forecasts in the ensemble, if applicable.
+    pub fn number_of_ensemble_members(&self) -> Option<u8> {
+        self.pds.number_of_ensemble_members()
+    }
 }
 
 /// Helper to read 24-bit unsigned integer

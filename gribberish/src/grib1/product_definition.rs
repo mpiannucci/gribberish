@@ -10,6 +10,12 @@ use crate::utils::convert::{
 /// - Center and process IDs
 use chrono::{DateTime, Duration, TimeZone, Utc};
 
+/// ECMWF local definition numbers (PDS octet 41) that use the standard MARS
+/// ensemble labelling, where octet 50 holds the member number and octet 51 the
+/// total ensemble size. Covers operational ENS (1), monthly/seasonal (11, 26),
+/// variable-resolution (30) and the long-window EDA (36) used by ERA5.
+const ENSEMBLE_LOCAL_DEFINITIONS: &[u8] = &[1, 11, 26, 30, 36];
+
 #[derive(Debug, Clone)]
 pub struct Grib1ProductDefinitionSection {
     data: Vec<u8>,
@@ -214,6 +220,45 @@ impl Grib1ProductDefinitionSection {
             0
         }
     }
+
+    /// ECMWF local definition number (octet 41), if a local extension is present.
+    pub fn local_definition_number(&self) -> Option<u8> {
+        if self.center_id() == 98 && self.data.len() > 40 {
+            Some(self.data[40])
+        } else {
+            None
+        }
+    }
+
+    /// Whether this PDS carries the standard ECMWF MARS ensemble labelling.
+    ///
+    /// Local definition 1 in particular is also used for plain (non-ensemble)
+    /// MARS data, which stores a total ensemble size of 0, so require a non-zero
+    /// total to avoid attaching a spurious member dimension to such fields.
+    fn has_ensemble_labelling(&self) -> bool {
+        matches!(self.local_definition_number(), Some(ld) if ENSEMBLE_LOCAL_DEFINITIONS.contains(&ld))
+            && self.data.len() > 50
+            && self.data[50] > 0
+    }
+
+    /// Ensemble member number ("perturbationNumber", octet 50) for ECMWF
+    /// MARS-labelled ensemble products.
+    pub fn ensemble_number(&self) -> Option<u8> {
+        if self.has_ensemble_labelling() {
+            Some(self.data[49])
+        } else {
+            None
+        }
+    }
+
+    /// Total number of forecasts in the ensemble (octet 51).
+    pub fn number_of_ensemble_members(&self) -> Option<u8> {
+        if self.has_ensemble_labelling() {
+            Some(self.data[50])
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -245,5 +290,33 @@ mod tests {
         assert_eq!(pds.parameter(), 11);
         assert_eq!(pds.level_type(), 100);
         assert_eq!(pds.level_value(), 0x0232);
+    }
+
+    fn ecmwf_pds_with_local(local_def: u8, number: u8, total: u8) -> Vec<u8> {
+        let mut data = vec![0u8; 56];
+        data[0..3].copy_from_slice(&[0x00, 0x00, 0x38]); // Length = 56
+        data[4] = 98; // ECMWF
+        data[40] = local_def; // octet 41: local definition number
+        data[49] = number; // octet 50: ensemble member number
+        data[50] = total; // octet 51: total forecasts in ensemble
+        data
+    }
+
+    #[test]
+    fn test_ecmwf_ensemble_member() {
+        // Long-window EDA (local definition 36), member 7 of 10, like ERA5.
+        let pds =
+            Grib1ProductDefinitionSection::from_data(&ecmwf_pds_with_local(36, 7, 10)).unwrap();
+        assert_eq!(pds.local_definition_number(), Some(36));
+        assert_eq!(pds.ensemble_number(), Some(7));
+        assert_eq!(pds.number_of_ensemble_members(), Some(10));
+    }
+
+    #[test]
+    fn test_ecmwf_non_ensemble_mars_labelling() {
+        // Local definition 1 with total == 0 is plain MARS data, not an ensemble.
+        let pds = Grib1ProductDefinitionSection::from_data(&ecmwf_pds_with_local(1, 0, 0)).unwrap();
+        assert_eq!(pds.ensemble_number(), None);
+        assert_eq!(pds.number_of_ensemble_members(), None);
     }
 }

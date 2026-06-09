@@ -2,7 +2,7 @@
 
 Read [GRIB 2](https://en.wikipedia.org/wiki/GRIB) files with Python. This package is a Python wrapper around the Rust library [gribberish](https://crates.io/crates/gribberish).
 
-There is support for `xarray` and `kerchunk` integration, as well as just reading the data directly into `numpy` arrays.
+There is support for `xarray` and [`VirtualiZarr`](https://virtualizarr.readthedocs.io/) integration, as well as just reading the data directly into `numpy` arrays.
 
 ## Installing
 
@@ -24,16 +24,16 @@ With optional `xarray` support:
 pip install "gribberish[xarray]"
 ```
 
-With optional `kerchunk` support:
-
-```bash
-pip install "gribberish[kerchunk]"
-```
-
 With optional `zarr` support:
 
 ```bash
 pip install "gribberish[zarr]"
+```
+
+With optional [`VirtualiZarr`](https://virtualizarr.readthedocs.io/) support:
+
+```bash
+pip install "gribberish[virtualizarr]"
 ```
 
 ### Manually
@@ -74,15 +74,26 @@ Some examples are provided:
 - [`gfs.ipynb`](./examples/gfs.ipynb) shows how to load a single GFS grib2 output file.
 - [`read_radar.ipynb`](./examples/read_radar.ipynb) shows how to load a single radar file from a single uncompressed [`MRMS`](https://www.nssl.noaa.gov/projects/mrms/) grib2 file.
 
-### `kerchunk`
+### `VirtualiZarr`
 
-This package also supports building virtual datasets with [`kerchunk`](https://github.com/fsspec/kerchunk). Two examples are provided:
+This package can build virtual datasets with [`VirtualiZarr`](https://virtualizarr.readthedocs.io/) using the `GribberishParser`. Conflicting hypercubes (e.g. the same variable at different level types, or instantaneous vs. accumulated fields) are split into nested groups, matching the way `cfgrib` breaks a file into multiple datasets:
 
-- [`kerchunk_gefs_wave.ipynb`](./examples/kerchunk_gefs_wave.ipynb) shows how to build a single virtual dataset from an entire GEFS Wave Ensemble model run (30 ensemble members, 384 hour time horizon)
-- [`kerchunk_hrrr_subhourly.ipynb`](./examples/kerchunk_hrrr_subhourly.ipynb) shows how to build a single virtual dataset from an entire HRRR subhourly surface model run. This results in a virtual dataset with data at 15 minute time intervals over the following 18 hours.
+```python
+import virtualizarr as vz
+from obstore.store import LocalStore
+from obspec_utils.registry import ObjectStoreRegistry
+from gribberish.virtualizarr import GribberishParser
+
+registry = ObjectStoreRegistry({"file://": LocalStore()})
+store = GribberishParser()("file:///path/to/file.grib2", registry)
+
+# A single, conflict-free file opens directly:
+vds = store.to_virtual_dataset()
+
+# A file with conflicting hypercubes opens as a tree of groups:
+vdt = store.to_virtual_datatree()
+```
 
 ### `zarr`
 
-This package also supports use with `zarr` for reading unmodified GRIB2 messages (arrays) as chunks using the `gribberish.zarr.GribberishCodec` codec. This usually will not be used directly, but with [`VirtualiZarr`](https://virtualizarr.readthedocs.io/en/latest/) or [`kerchunk`](https://github.com/fsspec/kerchunk)
-
-Examples to come soon.
+This package also supports use with `zarr` for reading unmodified GRIB2 messages (arrays) as chunks using the `gribberish.zarr.GribberishCodec` codec. This is what decodes chunks at read time and is usually used indirectly via [`VirtualiZarr`](https://virtualizarr.readthedocs.io/); the codec must be importable in the environment that reads the data.

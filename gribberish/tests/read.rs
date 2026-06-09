@@ -103,6 +103,39 @@ fn read_spatial_differenced_complex() {
 }
 
 #[test]
+fn read_spatial_differenced_complex_with_missing() {
+    // GFS temperature on the potential-vorticity surface: complex packing with
+    // 2nd-order spatial differencing AND primary missing values (large regions
+    // of the grid are missing). Validated against cfgrib/eccodes. Regression
+    // test for the missing-value handling -- previously the all-ones group
+    // references were decoded as real data and the second-order reconstruction
+    // diverged into ~2^31 garbage across 99% of the grid.
+    let read_data =
+        read_grib_messages("../test-data/gfs.t12z.pgrb2.0p25.f023-PV-TMP-missing.grib2");
+    let message = read_messages(read_data.as_slice())
+        .next()
+        .expect("a message");
+    let data = message.data().expect("decode");
+
+    assert_eq!(data.len(), 1038240);
+    let defined: Vec<f64> = data.iter().copied().filter(|v| v.is_finite()).collect();
+    let missing = data.len() - defined.len();
+    assert_eq!(defined.len(), 629160, "defined value count");
+    assert_eq!(missing, 409080, "missing (NaN) value count");
+
+    let min = defined.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max = defined.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    assert!((min - 184.98).abs() < 0.01, "min was {min}");
+    assert!((max - 289.58).abs() < 0.01, "max was {max}");
+    // first row is fully defined and constant in this message
+    assert!(
+        (data[0] - 248.6795898).abs() < 1e-4,
+        "data[0] was {}",
+        data[0]
+    );
+}
+
+#[test]
 fn read_simple_zerod() {
     let read_data = read_grib_messages("../test-data/hrrr.t06z.wrfsfcf01-CFRZR.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
@@ -401,9 +434,12 @@ fn read_grib1_era5_levels_members() {
         "Message 0 grid dimensions"
     );
 
-    // Validate key format
+    // Validate key format (message 0 is ensemble member 0)
     let key = msg_0.key().unwrap();
-    assert_eq!(key, "z:201701010000:500 in mb:forecast", "Message 0 key");
+    assert_eq!(
+        key, "z:201701010000:500 in mb:ens0:forecast",
+        "Message 0 key"
+    );
 
     // Validate data at multiple points
     let data_0 = msg_0.data().unwrap();
@@ -469,7 +505,8 @@ fn test_iterator_scans_past_padding() {
         "Expected 160 messages in ERA5 GRIB1 file (iterator should scan past padding)"
     );
 
-    // Verify we have 16 unique variable/time/level combinations
+    // Every message has a unique key: the ensemble member number is part of
+    // the key, so the 10 members no longer collide.
     let mut unique_keys = std::collections::HashSet::new();
     for message in &messages {
         let key = message.key().unwrap();
@@ -478,8 +515,8 @@ fn test_iterator_scans_past_padding() {
 
     assert_eq!(
         unique_keys.len(),
-        16,
-        "Expected 16 unique keys (2 vars x 4 times x 2 levels)"
+        160,
+        "Expected 160 unique keys (2 vars x 4 times x 2 levels x 10 members)"
     );
 }
 

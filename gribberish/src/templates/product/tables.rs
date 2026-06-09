@@ -64,6 +64,8 @@ pub enum FixedSurfaceType {
     DepthBelowLandSurface = 106,
     #[description = "level at specified pressure difference from ground to level"]
     LevelAtSpecifiedPressureDifferenceFromGroundToLevel = 108,
+    #[description = "potential vorticity surface"]
+    PotentialVorticitySurface = 109,
     #[description = "eta level"]
     EtaLevel = 111,
     #[description = "snow level"]
@@ -86,6 +88,10 @@ pub enum FixedSurfaceType {
     HighestTroposphericFreezingLevel = 204,
     #[description = "boundary layer cloud layer"]
     BoundaryLayerCloudLayer = 211,
+    #[description = "low cloud bottom level"]
+    LowCloudBottomLevel = 212,
+    #[description = "low cloud top level"]
+    LowCloudTopLevel = 213,
     #[description = "low cloud layer"]
     LowCloudLayer = 214,
     #[name = "cloud ceiling"]
@@ -94,10 +100,24 @@ pub enum FixedSurfaceType {
     #[name = "planetary boundary layer"]
     #[description = "planetary boundary layer"]
     PlanetaryBoundaryLayer = 220,
+    #[description = "middle cloud bottom level"]
+    MiddleCloudBottomLevel = 222,
+    #[description = "middle cloud top level"]
+    MiddleCloudTopLevel = 223,
     #[description = "middle cloud layer"]
     MiddleCloudLayer = 224,
+    #[description = "high cloud bottom level"]
+    HighCloudBottomLevel = 232,
+    #[description = "high cloud top level"]
+    HighCloudTopLevel = 233,
     #[description = "high cloud layer"]
     HighCloudLayer = 234,
+    #[description = "convective cloud bottom level"]
+    ConvectiveCloudBottomLevel = 242,
+    #[description = "convective cloud top level"]
+    ConvectiveCloudTopLevel = 243,
+    #[description = "convective cloud layer"]
+    ConvectiveCloudLayer = 244,
     #[name = "sequence"]
     #[description = "ordered Sequence of Data"]
     OrderedSequence = 241,
@@ -174,6 +194,16 @@ impl FixedSurfaceType {
             FixedSurfaceType::IsobaricSurface => "isobar",
             FixedSurfaceType::LevelAtSpecifiedPressureDifferenceFromGroundToLevel => "pres_diff",
             FixedSurfaceType::PlanetaryBoundaryLayer => "pbl",
+            FixedSurfaceType::PotentialVorticitySurface => "pv",
+            FixedSurfaceType::LowCloudBottomLevel => "lcl_bot",
+            FixedSurfaceType::LowCloudTopLevel => "lcl_top",
+            FixedSurfaceType::MiddleCloudBottomLevel => "mcl_bot",
+            FixedSurfaceType::MiddleCloudTopLevel => "mcl_top",
+            FixedSurfaceType::HighCloudBottomLevel => "hcl_bot",
+            FixedSurfaceType::HighCloudTopLevel => "hcl_top",
+            FixedSurfaceType::ConvectiveCloudBottomLevel => "ccl_bot",
+            FixedSurfaceType::ConvectiveCloudTopLevel => "ccl_top",
+            FixedSurfaceType::ConvectiveCloudLayer => "ccl",
         }
     }
 }
