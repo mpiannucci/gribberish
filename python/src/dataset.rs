@@ -424,7 +424,8 @@ fn build_group<'py>(
     let mut vertical_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     let mut vertical_attr_map: HashMap<String, FixedSurfaceType> = HashMap::new();
     for (var, v) in var_mapping.iter() {
-        let mut verticals = HashSet::new();
+        let mut first_verticals = HashSet::new();
+        let mut second_verticals = HashSet::new();
         let mut vertical_name = String::new();
         for k in v.iter() {
             if vertical_name.is_empty() {
@@ -437,9 +438,23 @@ fn build_group<'py>(
                     .to_string();
             }
             if let Some(vertical_value) = mapping.get(k).unwrap().2.first_fixed_surface_value {
-                verticals.insert(format!("{:.5}", vertical_value));
+                first_verticals.insert(format!("{:.5}", vertical_value));
+            }
+            if let Some(vertical_value) = mapping.get(k).unwrap().2.second_fixed_surface_value {
+                second_verticals.insert(format!("{:.5}", vertical_value));
             }
         }
+
+        // Normally the first (bottom) fixed surface defines the vertical
+        // coordinate. For layer quantities whose bottom is constant while the
+        // top varies (e.g. 0-1000m vs 0-6000m wind shear), the first surface
+        // can't tell the messages apart and they would collapse into one chunk
+        // slot, so fall back to the second (top) surface as the coordinate.
+        let verticals = if first_verticals.len() < 2 && second_verticals.len() >= 2 {
+            second_verticals
+        } else {
+            first_verticals
+        };
 
         if !perserve_dims.contains(&vertical_name.to_lowercase()) && verticals.len() < 2 {
             continue;
@@ -1060,6 +1075,7 @@ fn build_group<'py>(
             (
                 a.2.forecast_date,
                 a.2.first_fixed_surface_value.unwrap_or(0.0),
+                a.2.second_fixed_surface_value.unwrap_or(0.0),
                 a.2.perturbation_number.unwrap_or(0),
                 a.2.percentile_value.unwrap_or(0),
                 format!("{:.5}", a_threshold),
@@ -1067,6 +1083,7 @@ fn build_group<'py>(
                 .partial_cmp(&(
                     b.2.forecast_date,
                     b.2.first_fixed_surface_value.unwrap_or(0.0),
+                    b.2.second_fixed_surface_value.unwrap_or(0.0),
                     b.2.perturbation_number.unwrap_or(0),
                     b.2.percentile_value.unwrap_or(0),
                     format!("{:.5}", b_threshold),
