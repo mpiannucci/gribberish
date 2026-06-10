@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use gribberish::{
     message_metadata::{scan_message_metadata, MessageMetadata},
@@ -358,8 +358,11 @@ fn build_group<'py>(
 
     let coords = PyDict::new(py);
 
-    // Temporal dims
-    let mut time_map = HashMap::new();
+    // Temporal dims. BTreeMap keyed by the joined value string so that
+    // suffix indices (time, time_1, ...) depend only on the value sets
+    // present, never on HashMap iteration order or message order — files
+    // with the same schema always produce the same dimension names.
+    let mut time_map = BTreeMap::new();
     let mut time_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut times = HashSet::new();
@@ -420,7 +423,9 @@ fn build_group<'py>(
 
     // Vertical dims
     let mut vertical_map = HashMap::new();
-    let mut vertical_dim_name_map: HashMap<String, HashSet<String>> = HashMap::new();
+    // Ordered so that the isobar_0/isobar_1/... suffixes map to the same
+    // level set on every parse of any file with the same schema.
+    let mut vertical_dim_name_map: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut vertical_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     let mut vertical_attr_map: HashMap<String, FixedSurfaceType> = HashMap::new();
     for (var, v) in var_mapping.iter() {
@@ -473,7 +478,7 @@ fn build_group<'py>(
                 .unwrap()
                 .insert(vertical_key.clone());
         } else {
-            let mut vertical_key_set = HashSet::new();
+            let mut vertical_key_set = BTreeSet::new();
             vertical_key_set.insert(vertical_key.clone());
             vertical_dim_name_map.insert(vertical_name.clone(), vertical_key_set);
         }
@@ -562,8 +567,8 @@ fn build_group<'py>(
         }
     }
 
-    // Ensemble member dims
-    let mut member_map = HashMap::new();
+    // Ensemble member dims, ordered for deterministic suffix assignment.
+    let mut member_map = BTreeMap::new();
     let mut member_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut members = HashSet::new();
@@ -627,8 +632,8 @@ fn build_group<'py>(
         coords.set_item(name, member).unwrap();
     }
 
-    // Percentile dims
-    let mut percentile_map = HashMap::new();
+    // Percentile dims, ordered for deterministic suffix assignment.
+    let mut percentile_map = BTreeMap::new();
     let mut percentile_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut percentiles = HashSet::new();
@@ -694,8 +699,9 @@ fn build_group<'py>(
         coords.set_item(name, percentile).unwrap();
     }
 
-    // Threshold dims (for probability variables with varying limits)
-    let mut threshold_map: HashMap<String, Vec<f64>> = HashMap::new();
+    // Threshold dims (for probability variables with varying limits),
+    // ordered for deterministic suffix assignment.
+    let mut threshold_map: BTreeMap<String, Vec<f64>> = BTreeMap::new();
     let mut threshold_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut thresholds = HashSet::new();
