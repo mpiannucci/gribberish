@@ -66,6 +66,29 @@ zarr.codecs.register_codec(GribberishCodec)
 # (typically used with VirtualiZarr or kerchunk)
 ```
 
+## Dimension Naming
+
+When variables in the same group span different sets of values along a shared
+coordinate type (vertical levels, valid times, ensemble members, percentiles,
+probability thresholds), each distinct value set becomes its own dimension
+with an index suffix: `isobar_0`, `isobar_1`, `time_1`, `number_1`, and so on.
+
+The suffix depends only on the collection of value sets in the file:
+re-reading a file, or reading another file with the same schema, produces
+identical names, so same-schema datasets can be joined. Names are **not
+stable across schema changes** — if a model upgrade adds a field with a new
+level set, suffixes can shift to different value sets even for variables that
+did not change. Avoid hardcoding suffixed names; instead, discover the
+dimension from the variable and select by coordinate value:
+```python
+level_dim = next(d for d in ds["tmp"].dims if d.startswith("isobar"))
+ds["tmp"].sel({level_dim: 50000})  # 500 hPa
+```
+
+Filtering to variables that share a single value set (e.g. with
+`only_variables`) removes the conflict, and the dimension takes the plain,
+stable name (`isobar`).
+
 ## Performance Tips
 
 1. **Use chunks** - When working with large files, use dask chunks:

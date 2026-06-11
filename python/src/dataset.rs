@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use gribberish::{
     message_metadata::{scan_message_metadata, MessageMetadata},
@@ -84,6 +84,69 @@ fn node_has_data_vars(node: &Bound<'_, PyDict>) -> PyResult<bool> {
         return Ok(false);
     };
     Ok(data_vars.cast::<PyDict>()?.len() > 0)
+}
+
+/// Build the CF grid-mapping attributes for a projection, suitable for a
+/// `spatial_ref`-style scalar coordinate. Returns `None` for projections we
+/// don't have a CF name for, in which case no grid_mapping is emitted.
+///
+/// These attributes let geospatial tooling (rioxarray, cartopy, MetPy,
+/// cf_xarray) reconstruct the CRS via `pyproj.CRS.from_cf`, instead of callers
+/// hand-parsing the proj4 `crs` string. The existing per-variable `crs`/
+/// `proj_params` attrs are left untouched.
+fn cf_grid_mapping<'py>(
+    py: Python<'py>,
+    proj_name: &str,
+    params: &HashMap<String, f64>,
+) -> Option<Bound<'py, PyDict>> {
+    let attrs = PyDict::new(py);
+
+    // Earth shape: spherical -> earth_radius, otherwise the semi-axes.
+    let set_earth = |attrs: &Bound<'py, PyDict>| match (params.get("a"), params.get("b")) {
+        (Some(&a), Some(&b)) if (a - b).abs() < 1e-3 => {
+            attrs.set_item("earth_radius", a).unwrap();
+        }
+        (Some(&a), Some(&b)) => {
+            attrs.set_item("semi_major_axis", a).unwrap();
+            attrs.set_item("semi_minor_axis", b).unwrap();
+        }
+        _ => {}
+    };
+
+    match proj_name {
+        "latlon" => {
+            attrs
+                .set_item("grid_mapping_name", "latitude_longitude")
+                .unwrap();
+            set_earth(&attrs);
+        }
+        "lcc" => {
+            attrs
+                .set_item("grid_mapping_name", "lambert_conformal_conic")
+                .unwrap();
+            if let (Some(&lat_1), Some(&lat_2)) = (params.get("lat_1"), params.get("lat_2")) {
+                attrs
+                    .set_item("standard_parallel", vec![lat_1, lat_2])
+                    .unwrap();
+            }
+            if let Some(&lon_0) = params.get("lon_0") {
+                attrs
+                    .set_item("longitude_of_central_meridian", lon_0)
+                    .unwrap();
+            }
+            if let Some(&lat_0) = params.get("lat_0") {
+                attrs
+                    .set_item("latitude_of_projection_origin", lat_0)
+                    .unwrap();
+            }
+            attrs.set_item("false_easting", 0.0).unwrap();
+            attrs.set_item("false_northing", 0.0).unwrap();
+            set_earth(&attrs);
+        }
+        _ => return None,
+    }
+
+    Some(attrs)
 }
 
 #[pyfunction]
@@ -358,8 +421,11 @@ fn build_group<'py>(
 
     let coords = PyDict::new(py);
 
-    // Temporal dims
-    let mut time_map = HashMap::new();
+    // Temporal dims. BTreeMap keyed by the joined value string so that
+    // suffix indices (time, time_1, ...) depend only on the value sets
+    // present, never on HashMap iteration order or message order — files
+    // with the same schema always produce the same dimension names.
+    let mut time_map = BTreeMap::new();
     let mut time_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut times = HashSet::new();
@@ -420,11 +486,14 @@ fn build_group<'py>(
 
     // Vertical dims
     let mut vertical_map = HashMap::new();
-    let mut vertical_dim_name_map: HashMap<String, HashSet<String>> = HashMap::new();
+    // Ordered so that the isobar_0/isobar_1/... suffixes map to the same
+    // level set on every parse of any file with the same schema.
+    let mut vertical_dim_name_map: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut vertical_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     let mut vertical_attr_map: HashMap<String, FixedSurfaceType> = HashMap::new();
     for (var, v) in var_mapping.iter() {
-        let mut verticals = HashSet::new();
+        let mut first_verticals = HashSet::new();
+        let mut second_verticals = HashSet::new();
         let mut vertical_name = String::new();
         for k in v.iter() {
             if vertical_name.is_empty() {
@@ -437,9 +506,23 @@ fn build_group<'py>(
                     .to_string();
             }
             if let Some(vertical_value) = mapping.get(k).unwrap().2.first_fixed_surface_value {
-                verticals.insert(format!("{:.5}", vertical_value));
+                first_verticals.insert(format!("{:.5}", vertical_value));
+            }
+            if let Some(vertical_value) = mapping.get(k).unwrap().2.second_fixed_surface_value {
+                second_verticals.insert(format!("{:.5}", vertical_value));
             }
         }
+
+        // Normally the first (bottom) fixed surface defines the vertical
+        // coordinate. For layer quantities whose bottom is constant while the
+        // top varies (e.g. 0-1000m vs 0-6000m wind shear), the first surface
+        // can't tell the messages apart and they would collapse into one chunk
+        // slot, so fall back to the second (top) surface as the coordinate.
+        let verticals = if first_verticals.len() < 2 && second_verticals.len() >= 2 {
+            second_verticals
+        } else {
+            first_verticals
+        };
 
         if !perserve_dims.contains(&vertical_name.to_lowercase()) && verticals.len() < 2 {
             continue;
@@ -473,7 +556,7 @@ fn build_group<'py>(
                 .unwrap()
                 .insert(vertical_key.clone());
         } else {
-            let mut vertical_key_set = HashSet::new();
+            let mut vertical_key_set = BTreeSet::new();
             vertical_key_set.insert(vertical_key.clone());
             vertical_dim_name_map.insert(vertical_name.clone(), vertical_key_set);
         }
@@ -562,8 +645,8 @@ fn build_group<'py>(
         }
     }
 
-    // Ensemble member dims
-    let mut member_map = HashMap::new();
+    // Ensemble member dims, ordered for deterministic suffix assignment.
+    let mut member_map = BTreeMap::new();
     let mut member_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut members = HashSet::new();
@@ -627,8 +710,8 @@ fn build_group<'py>(
         coords.set_item(name, member).unwrap();
     }
 
-    // Percentile dims
-    let mut percentile_map = HashMap::new();
+    // Percentile dims, ordered for deterministic suffix assignment.
+    let mut percentile_map = BTreeMap::new();
     let mut percentile_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut percentiles = HashSet::new();
@@ -694,8 +777,9 @@ fn build_group<'py>(
         coords.set_item(name, percentile).unwrap();
     }
 
-    // Threshold dims (for probability variables with varying limits)
-    let mut threshold_map: HashMap<String, Vec<f64>> = HashMap::new();
+    // Threshold dims (for probability variables with varying limits),
+    // ordered for deterministic suffix assignment.
+    let mut threshold_map: BTreeMap<String, Vec<f64>> = BTreeMap::new();
     let mut threshold_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut thresholds = HashSet::new();
@@ -900,6 +984,25 @@ fn build_group<'py>(
     coords.set_item("latitude", latitude).unwrap();
     coords.set_item("longitude", longitude).unwrap();
 
+    // CF grid mapping: a scalar `spatial_ref` coordinate carrying the CRS in a
+    // form geospatial tooling can auto-detect. Variables reference it via a
+    // `grid_mapping` attribute below.
+    let proj_name = first.2.projector.proj_name();
+    let proj_params = first.2.projector.proj_params();
+    let has_grid_mapping = if let Some(gm_attrs) = cf_grid_mapping(py, &proj_name, &proj_params) {
+        // Keep the proj4 string around for tools that prefer it over CF attrs.
+        gm_attrs.set_item("proj4", first.2.proj.clone()).unwrap();
+
+        let spatial_ref = PyDict::new(py);
+        spatial_ref.set_item("attrs", gm_attrs).unwrap();
+        spatial_ref.set_item("dims", Vec::<String>::new()).unwrap();
+        spatial_ref.set_item("values", 0i32).unwrap();
+        coords.set_item("spatial_ref", spatial_ref).unwrap();
+        true
+    } else {
+        false
+    };
+
     // Vars
     let data_vars = PyDict::new(py);
     for (var, v) in var_mapping.iter() {
@@ -1002,6 +1105,13 @@ fn build_group<'py>(
 
         var_metadata.set_item("crs", first.2.proj.clone()).unwrap();
 
+        // Link the variable to the scalar `spatial_ref` grid-mapping coordinate.
+        if has_grid_mapping {
+            var_metadata
+                .set_item("grid_mapping", "spatial_ref")
+                .unwrap();
+        }
+
         let mut filtered = false;
         if filter_by_variable_attrs_defined {
             if let Ok(Some(filter_by_variable_attrs)) = filter_by_variable_attrs.get_item(var) {
@@ -1060,6 +1170,7 @@ fn build_group<'py>(
             (
                 a.2.forecast_date,
                 a.2.first_fixed_surface_value.unwrap_or(0.0),
+                a.2.second_fixed_surface_value.unwrap_or(0.0),
                 a.2.perturbation_number.unwrap_or(0),
                 a.2.percentile_value.unwrap_or(0),
                 format!("{:.5}", a_threshold),
@@ -1067,6 +1178,7 @@ fn build_group<'py>(
                 .partial_cmp(&(
                     b.2.forecast_date,
                     b.2.first_fixed_surface_value.unwrap_or(0.0),
+                    b.2.second_fixed_surface_value.unwrap_or(0.0),
                     b.2.perturbation_number.unwrap_or(0),
                     b.2.percentile_value.unwrap_or(0),
                     format!("{:.5}", b_threshold),

@@ -104,6 +104,17 @@ class GribberishBackend(BackendEntrypoint):
     separate groups, mirroring the way ``cfgrib`` breaks a file into multiple
     datasets. Use ``group=`` to select one, or ``xarray.open_datatree`` /
     ``xarray.open_groups`` to get them all. A conflict-free file opens directly.
+
+    Within a group, variables spanning different value sets of the same
+    coordinate type get index-suffixed dimensions (``isobar_0``, ``isobar_1``,
+    ``time_1``, ``number_1``, ...). The suffix depends only on the value sets
+    present in the file — stable across reads and across same-schema files,
+    but not across schema changes (e.g. a model upgrade adding a field with a
+    new level set). Discover the dimension from the variable
+    (``next(d for d in ds[v].dims if d.startswith("isobar"))``) and select by
+    coordinate value rather than hardcoding suffixed names; or filter with
+    ``only_variables=`` so a single value set remains and the dimension takes
+    the plain, suffix-free name.
     '''
 
     def _parse(self, filename_or_obj, storage_options, drop_variables,
