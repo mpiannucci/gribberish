@@ -130,10 +130,18 @@ def _inline_coord_array(name: str, coord: dict[str, Any]) -> ManifestArray:
         attrs.setdefault("units", "seconds since 1970-01-01 00:00:00")
         attrs.setdefault("calendar", "proleptic_gregorian")
 
-    arr = np.ascontiguousarray(arr)
+    # Capture the shape before making the buffer contiguous:
+    # np.ascontiguousarray promotes 0-d arrays to ndim >= 1, which would turn a
+    # scalar grid-mapping coordinate's () shape into (1,).
     shape = tuple(int(s) for s in arr.shape)
-    grid_shape = tuple([1] * len(shape)) if shape else (1,)
-    index = tuple([0] * len(grid_shape))
+    data = np.ascontiguousarray(arr).tobytes()
+
+    # One chunk covers the whole array, so the chunk grid mirrors the array's
+    # dimensionality: () for a scalar (e.g. the grid-mapping coordinate), and
+    # (1, 1, ...) otherwise. zarr requires the chunk grid and shape to share a
+    # rank, so a scalar must stay 0-d rather than being padded to (1,).
+    grid_shape = tuple([1] * len(shape))
+    index = tuple([0] * len(shape))
 
     paths = np.full(grid_shape, INLINED_CHUNK_PATH, dtype=np.dtypes.StringDType())
     offsets = np.zeros(grid_shape, dtype=np.uint64)
@@ -143,12 +151,12 @@ def _inline_coord_array(name: str, coord: dict[str, Any]) -> ManifestArray:
         paths=paths,
         offsets=offsets,
         lengths=lengths,
-        inlined={index: arr.tobytes()},
+        inlined={index: data},
     )
     metadata = create_v3_array_metadata(
         shape=shape,
         data_type=arr.dtype,
-        chunk_shape=shape if shape else (1,),
+        chunk_shape=shape,
         fill_value=None,
         codecs=[_BYTES_CODEC],
         attributes=attrs,

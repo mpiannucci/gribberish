@@ -115,6 +115,36 @@ def test_projected_grid_latlon_are_references():
     assert np.isfinite(lat).all()
 
 
+def test_cf_grid_mapping_scalar_coordinate():
+    """A scalar `spatial_ref` coordinate carries the CF grid mapping, and every
+    data variable links to it via a `grid_mapping` attribute. The 0-d coordinate
+    must round-trip through the manifest without being padded to shape (1,)."""
+    pyproj = pytest.importorskip("pyproj")
+
+    # Lambert conformal (HRRR) and a plain lat/lon grid (GFS).
+    cases = {
+        "hrrr.t06z.wrfsfcf01-TMP.grib2": "lambert_conformal_conic",
+        "gfs.t18z.pgrb2.0p25.f186-RH.grib2": "latitude_longitude",
+    }
+    for fname, grid_mapping_name in cases.items():
+        store = _store_for(fname)
+        vds = store.to_virtual_dataset()
+
+        assert "spatial_ref" in vds.coords
+        assert vds["spatial_ref"].shape == ()
+        assert vds["spatial_ref"].attrs["grid_mapping_name"] == grid_mapping_name
+
+        data_vars = [v for v in vds.data_vars if v != "spatial_ref"]
+        assert data_vars
+        for name in data_vars:
+            assert vds[name].attrs["grid_mapping"] == "spatial_ref"
+
+        # CF attributes reconstruct the same CRS as the proj4 string.
+        attrs = vds["spatial_ref"].attrs
+        cf = {k: v for k, v in attrs.items() if k != "proj4"}
+        assert pyproj.CRS.from_cf(cf) == pyproj.CRS.from_proj4(attrs["proj4"])
+
+
 def test_ensemble_member_dimension():
     """Ensemble member number is a dimension, not a group."""
     store = _store_for("aifs-ens-cf-t500.grib2")
@@ -128,3 +158,21 @@ def test_drop_and_only_variables():
     store = _store_for("ecmwf-ifs-oper-surface.grib2", only_variables=["tcc"])
     vds = store.to_virtual_dataset()
     assert set(vds.data_vars) == {"tcc"}
+
+
+def test_layer_variable_distinguished_by_second_surface():
+    """Layer quantities whose bottom surface is constant but top varies (HRRR
+    0-1000m vs 0-6000m wind shear) must not collapse into a single chunk slot.
+    The second (top) fixed surface becomes the vertical coordinate so each
+    layer maps to its own message."""
+    store = _store_for("hrrr.t01z.wrfsfcf01-VVCSH-VUCSH.grib2")
+    vds = store.to_virtual_dataset()
+
+    assert {"vvcsh", "vucsh"}.issubset(set(vds.data_vars))
+    # one vertical dimension of length 2, the layer tops 1000 m and 6000 m
+    (vert_dim,) = [d for d in vds["vvcsh"].dims if d not in ("time", "y", "x")]
+    assert vds.sizes[vert_dim] == 2
+    np.testing.assert_array_equal(
+        np.asarray(vds.coords[vert_dim].values), [1000.0, 6000.0]
+    )
+    assert vds["vvcsh"].shape == (1, 2, 1059, 1799)
