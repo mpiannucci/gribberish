@@ -86,6 +86,69 @@ fn node_has_data_vars(node: &Bound<'_, PyDict>) -> PyResult<bool> {
     Ok(data_vars.cast::<PyDict>()?.len() > 0)
 }
 
+/// Build the CF grid-mapping attributes for a projection, suitable for a
+/// `spatial_ref`-style scalar coordinate. Returns `None` for projections we
+/// don't have a CF name for, in which case no grid_mapping is emitted.
+///
+/// These attributes let geospatial tooling (rioxarray, cartopy, MetPy,
+/// cf_xarray) reconstruct the CRS via `pyproj.CRS.from_cf`, instead of callers
+/// hand-parsing the proj4 `crs` string. The existing per-variable `crs`/
+/// `proj_params` attrs are left untouched.
+fn cf_grid_mapping<'py>(
+    py: Python<'py>,
+    proj_name: &str,
+    params: &HashMap<String, f64>,
+) -> Option<Bound<'py, PyDict>> {
+    let attrs = PyDict::new(py);
+
+    // Earth shape: spherical -> earth_radius, otherwise the semi-axes.
+    let set_earth = |attrs: &Bound<'py, PyDict>| match (params.get("a"), params.get("b")) {
+        (Some(&a), Some(&b)) if (a - b).abs() < 1e-3 => {
+            attrs.set_item("earth_radius", a).unwrap();
+        }
+        (Some(&a), Some(&b)) => {
+            attrs.set_item("semi_major_axis", a).unwrap();
+            attrs.set_item("semi_minor_axis", b).unwrap();
+        }
+        _ => {}
+    };
+
+    match proj_name {
+        "latlon" => {
+            attrs
+                .set_item("grid_mapping_name", "latitude_longitude")
+                .unwrap();
+            set_earth(&attrs);
+        }
+        "lcc" => {
+            attrs
+                .set_item("grid_mapping_name", "lambert_conformal_conic")
+                .unwrap();
+            if let (Some(&lat_1), Some(&lat_2)) = (params.get("lat_1"), params.get("lat_2")) {
+                attrs
+                    .set_item("standard_parallel", vec![lat_1, lat_2])
+                    .unwrap();
+            }
+            if let Some(&lon_0) = params.get("lon_0") {
+                attrs
+                    .set_item("longitude_of_central_meridian", lon_0)
+                    .unwrap();
+            }
+            if let Some(&lat_0) = params.get("lat_0") {
+                attrs
+                    .set_item("latitude_of_projection_origin", lat_0)
+                    .unwrap();
+            }
+            attrs.set_item("false_easting", 0.0).unwrap();
+            attrs.set_item("false_northing", 0.0).unwrap();
+            set_earth(&attrs);
+        }
+        _ => return None,
+    }
+
+    Some(attrs)
+}
+
 #[pyfunction]
 #[pyo3(signature = (data, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
 #[allow(clippy::too_many_arguments)]
@@ -915,6 +978,25 @@ fn build_group<'py>(
     coords.set_item("latitude", latitude).unwrap();
     coords.set_item("longitude", longitude).unwrap();
 
+    // CF grid mapping: a scalar `spatial_ref` coordinate carrying the CRS in a
+    // form geospatial tooling can auto-detect. Variables reference it via a
+    // `grid_mapping` attribute below.
+    let proj_name = first.2.projector.proj_name();
+    let proj_params = first.2.projector.proj_params();
+    let has_grid_mapping = if let Some(gm_attrs) = cf_grid_mapping(py, &proj_name, &proj_params) {
+        // Keep the proj4 string around for tools that prefer it over CF attrs.
+        gm_attrs.set_item("proj4", first.2.proj.clone()).unwrap();
+
+        let spatial_ref = PyDict::new(py);
+        spatial_ref.set_item("attrs", gm_attrs).unwrap();
+        spatial_ref.set_item("dims", Vec::<String>::new()).unwrap();
+        spatial_ref.set_item("values", 0i32).unwrap();
+        coords.set_item("spatial_ref", spatial_ref).unwrap();
+        true
+    } else {
+        false
+    };
+
     // Vars
     let data_vars = PyDict::new(py);
     for (var, v) in var_mapping.iter() {
@@ -1016,6 +1098,11 @@ fn build_group<'py>(
         var_metadata.set_item("proj_params", proj_params).unwrap();
 
         var_metadata.set_item("crs", first.2.proj.clone()).unwrap();
+
+        // Link the variable to the scalar `spatial_ref` grid-mapping coordinate.
+        if has_grid_mapping {
+            var_metadata.set_item("grid_mapping", "spatial_ref").unwrap();
+        }
 
         let mut filtered = false;
         if filter_by_variable_attrs_defined {
