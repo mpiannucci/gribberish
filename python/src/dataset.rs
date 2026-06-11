@@ -1107,7 +1107,9 @@ fn build_group<'py>(
 
         // Link the variable to the scalar `spatial_ref` grid-mapping coordinate.
         if has_grid_mapping {
-            var_metadata.set_item("grid_mapping", "spatial_ref").unwrap();
+            var_metadata
+                .set_item("grid_mapping", "spatial_ref")
+                .unwrap();
         }
 
         let mut filtered = false;
