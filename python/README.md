@@ -66,48 +66,6 @@ import xarray as xr
 ds = xr.open_dataset('gfswave.20210826.t12z.atlocn.0p16.f000.grib2', engine='gribberish')
 ```
 
-#### Dimension naming when variables disagree
-
-Within a group, variables that share a coordinate type (vertical level, valid
-time, ensemble member, percentile, probability threshold) but span *different
-value sets* each get their own dimension, disambiguated with an index suffix:
-`isobar_0`, `isobar_1`, `time_1`, `number_1`, …. For example, GEFS `pgrb2a`
-files carry isobaric variables on 10-, 11- and 12-level sets, which surface as
-three coordinates `isobar_0`/`isobar_1`/`isobar_2`.
-
-The suffix is **deterministic but positional**. Names depend only on the
-collection of value sets present in the file, so re-reading a file — or
-reading another file with the same schema, even with its messages stored in a
-different order — always produces identical names, and datasets from
-same-schema files can be joined (e.g. `xr.concat` across forecast hours).
-Names are *not* stable across schema changes, however: if a model upgrade
-adds a field with a new set of pressure levels, or changes the levels of an
-existing field, suffixes can shift to different value sets, including for
-variables that did not change.
-
-To stay robust against schema changes:
-
-- Never hardcode suffixed dimension names. Discover the dimension from the
-  variable and select by coordinate *value*:
-
-  ```python
-  level_dim = next(d for d in ds["tmp"].dims if d.startswith("isobar"))
-  ds["tmp"].sel({level_dim: 50000})  # 500 hPa
-  ```
-
-- Filter down to variables that share one value set — when a single set
-  remains, the dimension takes the plain, stable name (no suffix):
-
-  ```python
-  ds = xr.open_dataset(path, engine="gribberish",
-                       only_variables=["tmp"], group="isobar")
-  ds.tmp.sel(isobar=50000)
-  ```
-
-- For pipelines that persist a schema (zarr templates, validation, archival),
-  key on the coordinate values attached to each variable rather than on
-  dimension names, or process variables one at a time via `only_variables`.
-
 Some examples are provided:
 
 - [`xarray_usage.ipynb`](./examples/xarray_usage.ipynb) shows how to load a single GFS Wave model grib2 file
