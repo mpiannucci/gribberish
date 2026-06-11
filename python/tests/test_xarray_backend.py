@@ -351,3 +351,27 @@ def test_xarray_backend_s2s_percentile_probability():
     for gname in (g for g in groups if "prob" in g):
         prob = xr.open_dataset(path, engine="gribberish", group=gname)
         assert "percentile" not in prob.tmp.dims
+
+
+def test_cf_grid_mapping_metadata():
+    """The backend emits a scalar `spatial_ref` grid-mapping coordinate and
+    links each variable to it, so geospatial tooling can recover the CRS."""
+    pyproj = pytest.importorskip("pyproj")
+
+    cases = {
+        "./../test-data/hrrr.t06z.wrfsfcf01-TMP.grib2": "lambert_conformal_conic",
+        "./../test-data/gfs.t18z.pgrb2.0p25.f186-RH.grib2": "latitude_longitude",
+    }
+    for path, grid_mapping_name in cases.items():
+        ds = xr.open_dataset(path, engine="gribberish")
+
+        assert "spatial_ref" in ds.coords
+        assert ds["spatial_ref"].shape == ()
+        assert ds["spatial_ref"].attrs["grid_mapping_name"] == grid_mapping_name
+
+        for name in ds.data_vars:
+            assert ds[name].attrs["grid_mapping"] == "spatial_ref"
+
+        attrs = ds["spatial_ref"].attrs
+        cf = {k: v for k, v in attrs.items() if k != "proj4"}
+        assert pyproj.CRS.from_cf(cf) == pyproj.CRS.from_proj4(attrs["proj4"])
