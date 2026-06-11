@@ -158,3 +158,21 @@ def test_drop_and_only_variables():
     store = _store_for("ecmwf-ifs-oper-surface.grib2", only_variables=["tcc"])
     vds = store.to_virtual_dataset()
     assert set(vds.data_vars) == {"tcc"}
+
+
+def test_layer_variable_distinguished_by_second_surface():
+    """Layer quantities whose bottom surface is constant but top varies (HRRR
+    0-1000m vs 0-6000m wind shear) must not collapse into a single chunk slot.
+    The second (top) fixed surface becomes the vertical coordinate so each
+    layer maps to its own message."""
+    store = _store_for("hrrr.t01z.wrfsfcf01-VVCSH-VUCSH.grib2")
+    vds = store.to_virtual_dataset()
+
+    assert {"vvcsh", "vucsh"}.issubset(set(vds.data_vars))
+    # one vertical dimension of length 2, the layer tops 1000 m and 6000 m
+    (vert_dim,) = [d for d in vds["vvcsh"].dims if d not in ("time", "y", "x")]
+    assert vds.sizes[vert_dim] == 2
+    np.testing.assert_array_equal(
+        np.asarray(vds.coords[vert_dim].values), [1000.0, 6000.0]
+    )
+    assert vds["vvcsh"].shape == (1, 2, 1059, 1799)
