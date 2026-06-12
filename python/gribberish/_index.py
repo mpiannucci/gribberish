@@ -65,18 +65,48 @@ def index_candidates(path):
     return candidates
 
 
-def fetch_index_entries(store, path):
+def resolve_candidates(path, use_index):
+    """Index names to probe for a ``use_index`` setting: every known
+    convention for ``"auto"``, or the two compositions of an explicit suffix
+    (NOAA appends to the file name, ECMWF replaces the extension — ordered by
+    which convention the suffix belongs to)."""
+    if use_index == "auto":
+        return index_candidates(path)
+    if not isinstance(use_index, str) or not use_index.startswith("."):
+        raise ValueError(
+            f"use_index must be False, 'auto', or an index suffix like '.idx',"
+            f" got {use_index!r}"
+        )
+    stem, dot, _ = path.rpartition(".")
+    candidates = [f"{path}{use_index}"]
+    if dot:
+        replaced = f"{stem}{use_index}"
+        # ECMWF open data replaces the extension; NOAA appends.
+        if use_index == ".index":
+            candidates.insert(0, replaced)
+        else:
+            candidates.append(replaced)
+    return candidates
+
+
+def fetch_index_entries(store, path, use_index="auto"):
     """Fetch and parse the sidecar index for ``path``, trying each candidate
     name. Raises FileNotFoundError when no index exists."""
-    for candidate in index_candidates(path):
+    candidates = resolve_candidates(path, use_index)
+    for candidate in candidates:
         try:
             text = obstore.get(store, candidate).bytes().to_bytes().decode()
         except FileNotFoundError:
             continue
-        file_size = obstore.head(store, path)["size"]
+        # Only NOAA indexes need the file size (to length the final entry);
+        # ECMWF indexes carry explicit lengths, so skip the head request.
+        if text.lstrip().startswith("{"):
+            file_size = None
+        else:
+            file_size = obstore.head(store, path)["size"]
         return parse_grib_index(text, file_size=file_size)
     raise FileNotFoundError(
-        f"No index file found for {path!r} (tried {index_candidates(path)})"
+        f"No index file found for {path!r} (tried {candidates})"
     )
 
 

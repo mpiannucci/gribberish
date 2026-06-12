@@ -24,11 +24,14 @@ def test_use_index_matches_full_scan():
 
     kwargs = dict(engine="gribberish", only_variables=["wind", "htsgw"])
     full = xr.open_dataset(str(GRIB), **kwargs)
-    via_index = xr.open_dataset(str(GRIB), use_index=True, **kwargs)
+    via_index = xr.open_dataset(str(GRIB), use_index=".idx", **kwargs)
     xr.testing.assert_identical(full, via_index)
 
-    # Without a sidecar: use_index=True demands one, "auto" falls back.
+    # Without a sidecar: an explicit suffix demands one, "auto" falls back,
+    # and anything else (e.g. True) is rejected.
     no_idx = GRIB.with_name("multi_1.at_10m.t12z.f147.grib2")
     with pytest.raises(FileNotFoundError, match="No index file"):
-        xr.open_dataset(str(no_idx), engine="gribberish", use_index=True)
+        xr.open_dataset(str(no_idx), engine="gribberish", use_index=".idx")
     xr.open_dataset(str(no_idx), engine="gribberish", use_index="auto")
+    with pytest.raises(ValueError, match="use_index must be"):
+        xr.open_dataset(str(no_idx), engine="gribberish", use_index=True)

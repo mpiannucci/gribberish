@@ -167,7 +167,7 @@ def test_use_index_matches_full_scan():
     identical decoded values."""
     fname = "gfswave.t18z.atlocn.0p16.f001.grib2"
     full = _store_for(fname).to_virtual_dataset()
-    via_index = _store_for(fname, use_index=True).to_virtual_dataset()
+    via_index = _store_for(fname, use_index=".idx").to_virtual_dataset()
 
     assert dict(via_index.sizes) == dict(full.sizes)
     assert set(via_index.data_vars) == set(full.data_vars)
@@ -175,7 +175,7 @@ def test_use_index_matches_full_scan():
         assert via_index[name].data.manifest == full[name].data.manifest
 
     z_full = zarr.open(_store_for(fname), mode="r")
-    z_index = zarr.open(_store_for(fname, use_index=True), mode="r")
+    z_index = zarr.open(_store_for(fname, use_index=".idx"), mode="r")
     np.testing.assert_array_equal(
         np.asarray(z_index["wind"][0]), np.asarray(z_full["wind"][0])
     )

@@ -99,7 +99,7 @@ def _read_grib_bytes(store, path, use_index, only_variables, drop_variables):
     # pickled .idx caches) — "auto" falls back to reading the whole file.
     # Anything else is a real error and propagates regardless of mode.
     try:
-        entries = fetch_index_entries(store, path)
+        entries = fetch_index_entries(store, path, use_index)
     except (FileNotFoundError, ValueError):
         if use_index == "auto":
             return obstore.get(store, path).bytes().to_bytes(), None
@@ -169,9 +169,11 @@ class GribberishBackend(BackendEntrypoint):
     ``use_index=`` reads a sidecar index (NOAA wgrib2 ``.idx`` or ECMWF
     open-data ``.index``) instead of downloading the whole file: only the
     messages that may survive the variable filters are fetched, by byte
-    range. ``True`` requires an index to exist; ``"auto"`` silently falls
-    back to a full read when none is found. (cfgrib's pickled ``*.idx``
-    cache files are an unrelated format and are not supported.)
+    range. ``"auto"`` probes the known index names and silently falls back
+    to a full read when none is found; an explicit suffix (``".idx"``,
+    ``".index"``, ``".inv"``, ...) probes only that name and raises when it
+    is missing. (cfgrib's pickled ``*.idx`` cache files are an unrelated
+    format and are not supported.)
     '''
 
     def _parse(self, filename_or_obj, storage_options, drop_variables,

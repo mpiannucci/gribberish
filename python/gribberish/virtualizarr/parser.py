@@ -226,9 +226,10 @@ class GribberishParser:
         open-data ``.index``) instead of downloading the whole GRIB file: the
         index locates every message, and only each message's leading header
         bytes are fetched (by range) for metadata — data sections are never
-        read, since manifest chunks point back at the file. ``True`` requires
-        an index to exist; ``"auto"`` silently falls back to a full read when
-        none is found.
+        read, since manifest chunks point back at the file. ``"auto"`` probes
+        the known index names and silently falls back to a full read when none
+        is found; an explicit suffix (``".idx"``, ``".index"``, ``".inv"``,
+        ...) probes only that name and raises when it is missing.
     """
 
     def __init__(
@@ -292,7 +293,7 @@ class GribberishParser:
             # Missing index (FileNotFoundError) or unparseable index
             # (ValueError) — "auto" falls back to reading the whole file.
             try:
-                entries = fetch_index_entries(store, path_in_store)
+                entries = fetch_index_entries(store, path_in_store, self.use_index)
             except (FileNotFoundError, ValueError):
                 if self.use_index != "auto":
                     raise
