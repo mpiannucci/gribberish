@@ -9,6 +9,12 @@ from xarray.backends.common import BackendEntrypoint, BackendArray
 from xarray.core import indexing
 
 from gribberish import parse_grib_dataset, parse_grib_array
+from gribberish._index import (
+    HEADER_BYTES,
+    fetch_index_entries,
+    get_ranges_batched,
+    select_ranges,
+)
 
 
 DATA_VAR_LOCK = xr.backends.locks.SerializableLock()
@@ -80,6 +86,50 @@ def _node_to_dataset(node, filename_or_obj, storage_options):
     )
 
 
+def _read_grib_bytes(store, path, use_index, only_variables, drop_variables):
+    """Read the whole file, or — via a sidecar index — only the byte ranges of
+    messages the variable filters might keep. Returns the bytes plus a map of
+    buffer offset -> offset in the real file (None when the file was read
+    whole and offsets already match)."""
+    if not use_index:
+        return obstore.get(store, path).bytes().to_bytes(), None
+
+    # Missing index (FileNotFoundError) or unparseable index (ValueError,
+    # including UnicodeDecodeError for non-text impostors like cfgrib's
+    # pickled .idx caches) — "auto" falls back to reading the whole file.
+    # Anything else is a real error and propagates regardless of mode.
+    try:
+        entries = fetch_index_entries(store, path, use_index)
+    except (FileNotFoundError, ValueError):
+        if use_index == "auto":
+            return obstore.get(store, path).bytes().to_bytes(), None
+        raise
+
+    ranges = select_ranges(entries, only_variables, drop_variables)
+    # Small coalesce so the gaps between kept messages — the messages we
+    # filtered out — don't get transferred anyway.
+    chunks = get_ranges_batched(
+        store, path, list(ranges), list(ranges.values()), coalesce=HEADER_BYTES
+    )
+    file_offsets = {}
+    buffer = bytearray()
+    for file_offset, chunk in zip(ranges, chunks):
+        file_offsets[len(buffer)] = file_offset
+        buffer.extend(chunk)
+    return bytes(buffer), file_offsets
+
+
+def _remap_offsets(tree, file_offsets):
+    """Rewrite message offsets parsed from the fetched buffer back into
+    offsets in the real file, so lazy loading range-reads the right bytes."""
+    for _, node in _iter_all_nodes(tree):
+        for var in node.get("data_vars", {}).values():
+            var["values"]["offsets"] = [
+                (file_offsets[offset], size)
+                for offset, size in var["values"]["offsets"]
+            ]
+
+
 def _group_error(tree, requested=None):
     available = "\n  - ".join(_iter_leaf_groups(tree))
     if requested is None:
@@ -115,14 +165,25 @@ class GribberishBackend(BackendEntrypoint):
     coordinate value rather than hardcoding suffixed names; or filter with
     ``only_variables=`` so a single value set remains and the dimension takes
     the plain, suffix-free name.
+
+    ``use_index=`` reads a sidecar index (NOAA wgrib2 ``.idx`` or ECMWF
+    open-data ``.index``) instead of downloading the whole file: only the
+    messages that may survive the variable filters are fetched, by byte
+    range. ``"auto"`` probes the known index names and silently falls back
+    to a full read when none is found; an explicit suffix (``".idx"``,
+    ``".index"``, ``".inv"``, ...) probes only that name and raises when it
+    is missing. (cfgrib's pickled ``*.idx`` cache files are an unrelated
+    format and are not supported.)
     '''
 
     def _parse(self, filename_or_obj, storage_options, drop_variables,
                only_variables, perserve_dims, filter_by_attrs,
-               filter_by_variable_attrs):
+               filter_by_variable_attrs, use_index):
         store, path = _store_and_path(filename_or_obj, storage_options)
-        raw_data = obstore.get(store, path).bytes().to_bytes()
-        return parse_grib_dataset(
+        raw_data, file_offsets = _read_grib_bytes(
+            store, path, use_index, only_variables, drop_variables
+        )
+        tree = parse_grib_dataset(
             raw_data,
             drop_variables=drop_variables,
             only_variables=only_variables,
@@ -130,6 +191,9 @@ class GribberishBackend(BackendEntrypoint):
             filter_by_attrs=filter_by_attrs,
             filter_by_variable_attrs=filter_by_variable_attrs,
         )
+        if file_offsets is not None:
+            _remap_offsets(tree, file_offsets)
+        return tree
 
     def open_dataset(
         self,
@@ -142,11 +206,12 @@ class GribberishBackend(BackendEntrypoint):
         perserve_dims=None,
         filter_by_attrs=None,
         filter_by_variable_attrs=None,
+        use_index=False,
     ):
         storage_options = storage_options or {}
         tree = self._parse(
             filename_or_obj, storage_options, drop_variables, only_variables,
-            perserve_dims, filter_by_attrs, filter_by_variable_attrs,
+            perserve_dims, filter_by_attrs, filter_by_variable_attrs, use_index,
         )
 
         has_groups = bool(tree.get("groups"))
@@ -171,11 +236,12 @@ class GribberishBackend(BackendEntrypoint):
         perserve_dims=None,
         filter_by_attrs=None,
         filter_by_variable_attrs=None,
+        use_index=False,
     ):
         storage_options = storage_options or {}
         tree = self._parse(
             filename_or_obj, storage_options, drop_variables, only_variables,
-            perserve_dims, filter_by_attrs, filter_by_variable_attrs,
+            perserve_dims, filter_by_attrs, filter_by_variable_attrs, use_index,
         )
         return {
             path: _node_to_dataset(node, filename_or_obj, storage_options)
@@ -195,6 +261,7 @@ class GribberishBackend(BackendEntrypoint):
         "perserve_dims",
         "filter_by_attrs",
         "filter_by_variable_attrs",
+        "use_index",
         "storage_options",
     ]
 

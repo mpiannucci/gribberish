@@ -18,7 +18,13 @@ import numpy as np
 # is what decodes each chunk at read time (and is required for zarr to validate
 # the codec pipeline when the array metadata is constructed below).
 from gribberish.zarr.codec import GribberishCodec  # noqa: F401
-from gribberish import parse_grib_dataset
+from gribberish import parse_grib_dataset, parse_grib_dataset_from_headers
+from gribberish._index import (
+    HEADER_BYTES,
+    fetch_index_entries,
+    get_ranges_batched,
+    select_ranges,
+)
 
 from virtualizarr.manifests import (
     ChunkManifest,
@@ -215,6 +221,15 @@ class GribberishParser:
         Keep only variables whose attributes match these values.
     filter_by_variable_attrs
         Per-variable attribute filter (takes precedence over ``filter_by_attrs``).
+    use_index
+        Build the manifest from a sidecar index (NOAA wgrib2 ``.idx`` or ECMWF
+        open-data ``.index``) instead of downloading the whole GRIB file: the
+        index locates every message, and only each message's leading header
+        bytes are fetched (by range) for metadata — data sections are never
+        read, since manifest chunks point back at the file. ``"auto"`` probes
+        the known index names and silently falls back to a full read when none
+        is found; an explicit suffix (``".idx"``, ``".index"``, ``".inv"``,
+        ...) probes only that name and raises when it is missing.
     """
 
     def __init__(
@@ -224,19 +239,17 @@ class GribberishParser:
         perserve_dims: list[str] | None = None,
         filter_by_attrs: dict[str, Any] | None = None,
         filter_by_variable_attrs: dict[str, Any] | None = None,
+        use_index: bool | str = False,
     ) -> None:
         self.drop_variables = drop_variables
         self.only_variables = only_variables
         self.perserve_dims = perserve_dims
         self.filter_by_attrs = filter_by_attrs
         self.filter_by_variable_attrs = filter_by_variable_attrs
+        self.use_index = use_index
 
-    def __call__(self, url: str, registry) -> ManifestStore:
-        store, path_in_store = registry.resolve(url)
-        data = _read_all(store, path_in_store)
-
-        dataset = parse_grib_dataset(
-            data,
+    def _filter_kwargs(self) -> dict[str, Any]:
+        return dict(
             drop_variables=self.drop_variables,
             only_variables=self.only_variables,
             perserve_dims=self.perserve_dims,
@@ -245,6 +258,51 @@ class GribberishParser:
             # Keep projected lat/lon as references rather than materializing them.
             encode_coords=True,
         )
+
+    def _parse_via_index(self, store, path: str, entries) -> dict[str, Any]:
+        ranges = select_ranges(entries, self.only_variables, self.drop_variables)
+        starts, sizes = list(ranges), list(ranges.values())
+
+        # Header windows carry all the metadata (sections 0-5). A window can
+        # fall short (oversized grid definition, GRIB1) — retry with the whole
+        # messages, still only the ones the filters keep.
+        for fetch_lengths in ([min(s, HEADER_BYTES) for s in sizes], sizes):
+            # Small coalesce: merging only (near-)contiguous windows, so the
+            # data sections we're skipping never get transferred.
+            chunks = get_ranges_batched(
+                store, path, starts, fetch_lengths, coalesce=HEADER_BYTES
+            )
+            messages = [
+                (offset, size, bytes(chunk))
+                for offset, size, chunk in zip(starts, sizes, chunks)
+            ]
+            try:
+                return parse_grib_dataset_from_headers(
+                    messages, **self._filter_kwargs()
+                )
+            except ValueError as err:
+                if "message header" not in str(err):
+                    raise
+        raise ValueError(f"failed to parse messages of {path!r} located by its index")
+
+    def __call__(self, url: str, registry) -> ManifestStore:
+        store, path_in_store = registry.resolve(url)
+
+        dataset = None
+        if self.use_index:
+            # Missing index (FileNotFoundError) or unparseable index
+            # (ValueError) — "auto" falls back to reading the whole file.
+            try:
+                entries = fetch_index_entries(store, path_in_store, self.use_index)
+            except (FileNotFoundError, ValueError):
+                if self.use_index != "auto":
+                    raise
+            else:
+                dataset = self._parse_via_index(store, path_in_store, entries)
+
+        if dataset is None:
+            data = _read_all(store, path_in_store)
+            dataset = parse_grib_dataset(data, **self._filter_kwargs())
 
         group = _manifest_group(url, dataset)
         return ManifestStore(group, registry=registry)

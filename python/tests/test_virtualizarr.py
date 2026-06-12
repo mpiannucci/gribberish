@@ -160,6 +160,27 @@ def test_drop_and_only_variables():
     assert set(vds.data_vars) == {"tcc"}
 
 
+def test_use_index_matches_full_scan():
+    """Building through the sidecar .idx — header-only range reads, no data
+    sections fetched — produces the same virtual store as scanning the whole
+    file: identical structure, identical chunk manifests (real file offsets),
+    identical decoded values."""
+    fname = "gfswave.t18z.atlocn.0p16.f001.grib2"
+    full = _store_for(fname).to_virtual_dataset()
+    via_index = _store_for(fname, use_index=".idx").to_virtual_dataset()
+
+    assert dict(via_index.sizes) == dict(full.sizes)
+    assert set(via_index.data_vars) == set(full.data_vars)
+    for name in full.data_vars:
+        assert via_index[name].data.manifest == full[name].data.manifest
+
+    z_full = zarr.open(_store_for(fname), mode="r")
+    z_index = zarr.open(_store_for(fname, use_index=".idx"), mode="r")
+    np.testing.assert_array_equal(
+        np.asarray(z_index["wind"][0]), np.asarray(z_full["wind"][0])
+    )
+
+
 def test_layer_variable_distinguished_by_second_surface():
     """Layer quantities whose bottom surface is constant but top varies (HRRR
     0-1000m vs 0-6000m wind shear) must not collapse into a single chunk slot.

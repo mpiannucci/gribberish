@@ -10,6 +10,8 @@ pub enum GribberishError {
     JpegError(String),
     #[error("Error reading message: `{0}`")]
     MessageError(String),
+    #[error("Error parsing index: `{0}`")]
+    IndexError(String),
     #[error("Unknown time unit: `{0}`")]
     TimeUnitError(String),
 }

@@ -59,4 +59,5 @@ export default __napiModule.exports
 export const GribMessage = __napiModule.exports.GribMessage
 export const GribMessageFactory = __napiModule.exports.GribMessageFactory
 export const GribMessageMetadataFactory = __napiModule.exports.GribMessageMetadataFactory
+export const parseGribIndex = __napiModule.exports.parseGribIndex
 export const parseMessagesFromBuffer = __napiModule.exports.parseMessagesFromBuffer
