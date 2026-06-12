@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use gribberish::{
   data_message::DataMessage,
+  index::parse_index,
   message::{read_message, read_messages, scan_messages},
   message_metadata::{MessageMetadata, scan_message_metadata},
 };
@@ -130,6 +131,66 @@ impl GribMessage {
   pub fn data(&self) -> Vec<f64> {
     self.inner.data.clone()
   }
+}
+
+/// One entry of a GRIB sidecar index file (NOAA wgrib2 `.idx` or ECMWF
+/// open-data `.index`), locating a single message inside a GRIB file. Use the
+/// offset/length as an HTTP Range request, then parse the fetched bytes with
+/// `GribMessage.parseFromBuffer(bytes, 0)` — no full-file download needed.
+#[napi(object)]
+pub struct GribIndexEntry {
+  /// 1-based message number (the line number for ECMWF indexes).
+  pub message_number: u32,
+  /// GRIB2 submessage number for NOAA `msg.submsg` lines; submessages share
+  /// their parent message's byte range.
+  pub submessage: Option<u32>,
+  /// Byte offset of the message start within the GRIB file.
+  pub offset: i64,
+  /// Message size in bytes. Explicit in ECMWF indexes; inferred from the next
+  /// entry's offset in NOAA indexes, so undefined for the final entry unless
+  /// the GRIB file size is supplied.
+  pub length: Option<i64>,
+  /// Model reference (initialization) time.
+  pub reference_date: Option<chrono::DateTime<chrono::Utc>>,
+  /// Variable identifier: NOAA abbreviation ("TMP") or ECMWF MARS param ("2t").
+  pub var: Option<String>,
+  /// Level, verbatim ("2 m above ground", or ECMWF levelist).
+  pub level: Option<String>,
+  /// Forecast time, verbatim ("3 hour fcst", "anl", or ECMWF step).
+  pub forecast_time: Option<String>,
+  /// Trailing NOAA fields verbatim ("ENS=+5", probability info, ...).
+  pub extra: Vec<String>,
+  /// ECMWF MARS keys verbatim (levtype, stream, number, ...).
+  pub keys: HashMap<String, String>,
+}
+
+/// Parse a GRIB sidecar index file (NOAA wgrib2 `.idx` or ECMWF open-data
+/// `.index`, auto-detected) into entries locating each message. `fileSize`
+/// (if known) sizes the final entry of a NOAA index.
+#[napi]
+pub fn parse_grib_index(
+  data: String,
+  file_size: Option<i64>,
+) -> napi::Result<Vec<GribIndexEntry>> {
+  let entries = parse_index(&data, file_size.map(|s| s as u64))
+    .map_err(|e| napi::Error::from_reason(e.to_string()))?;
+  Ok(
+    entries
+      .into_iter()
+      .map(|entry| GribIndexEntry {
+        message_number: entry.message_number as u32,
+        submessage: entry.submessage.map(|s| s as u32),
+        offset: entry.offset as i64,
+        length: entry.length.map(|l| l as i64),
+        reference_date: entry.reference_date,
+        var: entry.var,
+        level: entry.level,
+        forecast_time: entry.forecast_time,
+        extra: entry.extra,
+        keys: entry.keys.into_iter().collect(),
+      })
+      .collect(),
+  )
 }
 
 #[napi]

@@ -32,6 +32,42 @@ export declare class GribMessageMetadataFactory {
   getMessage(key: string): GribMessage
 }
 
+/**
+ * One entry of a GRIB sidecar index file (NOAA wgrib2 `.idx` or ECMWF
+ * open-data `.index`), locating a single message inside a GRIB file. Use the
+ * offset/length as an HTTP Range request, then parse the fetched bytes with
+ * `GribMessage.parseFromBuffer(bytes, 0)` — no full-file download needed.
+ */
+export interface GribIndexEntry {
+  /** 1-based message number (the line number for ECMWF indexes). */
+  messageNumber: number
+  /**
+   * GRIB2 submessage number for NOAA `msg.submsg` lines; submessages share
+   * their parent message's byte range.
+   */
+  submessage?: number
+  /** Byte offset of the message start within the GRIB file. */
+  offset: number
+  /**
+   * Message size in bytes. Explicit in ECMWF indexes; inferred from the next
+   * entry's offset in NOAA indexes, so undefined for the final entry unless
+   * the GRIB file size is supplied.
+   */
+  length?: number
+  /** Model reference (initialization) time. */
+  referenceDate?: Date
+  /** Variable identifier: NOAA abbreviation ("TMP") or ECMWF MARS param ("2t"). */
+  var?: string
+  /** Level, verbatim ("2 m above ground", or ECMWF levelist). */
+  level?: string
+  /** Forecast time, verbatim ("3 hour fcst", "anl", or ECMWF step). */
+  forecastTime?: string
+  /** Trailing NOAA fields verbatim ("ENS=+5", probability info, ...). */
+  extra: Array<string>
+  /** ECMWF MARS keys verbatim (levtype, stream, number, ...). */
+  keys: Record<string, string>
+}
+
 export interface GridShape {
   rows: number
   cols: number
@@ -41,5 +77,12 @@ export interface LatLng {
   latitude: Array<number>
   longitude: Array<number>
 }
+
+/**
+ * Parse a GRIB sidecar index file (NOAA wgrib2 `.idx` or ECMWF open-data
+ * `.index`, auto-detected) into entries locating each message. `fileSize`
+ * (if known) sizes the final entry of a NOAA index.
+ */
+export declare function parseGribIndex(data: string, fileSize?: number | undefined | null): Array<GribIndexEntry>
 
 export declare function parseMessagesFromBuffer(buffer: Uint8Array): Array<GribMessage>

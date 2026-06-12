@@ -4,7 +4,7 @@ import { join, dirname } from 'node:path'
 
 import test from 'ava'
 
-import { GribMessage, GribMessageFactory, GribMessageMetadataFactory, parseMessagesFromBuffer } from '../index'
+import { GribMessage, GribMessageFactory, GribMessageMetadataFactory, parseGribIndex, parseMessagesFromBuffer } from '../index'
 
 const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../test-data')
 
@@ -79,6 +79,28 @@ test('GribMessageMetadataFactory lists and retrieves messages efficiently', (t) 
   const msg = factory.getMessage(firstKey)
   t.truthy(msg.varName)
   t.true(msg.data.length > 0)
+})
+
+test('parseGribIndex locates messages for ranged reads', (t) => {
+  // NOAA .idx: entries carry byte ranges, and a range sliced out of the file
+  // parses as a standalone message — the fetch + Range-header pattern.
+  const idxText = readFileSync(join(DATA_DIR, 'gfswave.t18z.atlocn.0p16.f001.grib2.idx'), 'utf8')
+  const grib = readFileSync(join(DATA_DIR, 'gfswave.t18z.atlocn.0p16.f001.grib2'))
+  const entries = parseGribIndex(idxText, grib.length)
+
+  t.is(entries.length, 19)
+  t.like(entries[0], { var: 'WIND', offset: 0, length: 41723, level: 'surface' })
+
+  const entry = entries[2]
+  const msg = GribMessage.parseFromBuffer(grib.subarray(entry.offset, entry.offset + (entry.length ?? 0)), 0)
+  t.is(msg.varAbbrev, entry.var)
+
+  // ECMWF .index: explicit lengths, MARS keys verbatim.
+  const ecmwf = parseGribIndex(
+    '{"domain": "g", "date": "20260610", "time": "0000", "step": "3", "levtype": "sfc", "param": "2t", "_offset": 0, "_length": 224}',
+  )
+  t.like(ecmwf[0], { var: '2t', offset: 0, length: 224, forecastTime: '3' })
+  t.is(ecmwf[0].keys.levtype, 'sfc')
 })
 
 test('GribMessageFactory throws for unknown key', (t) => {
