@@ -21,7 +21,7 @@ async def test_decode_data_var_gribberish(dtype_str):
 
     buffer = default_buffer_prototype().buffer.from_bytes(raw_data)
     codec = GribberishCodec(var="UGRD")
-    data = await codec._decode_single(
+    decoded = await codec._decode_single(
         buffer,
         ArraySpec(
             shape=(1059, 1799),
@@ -31,6 +31,7 @@ async def test_decode_data_var_gribberish(dtype_str):
             config=ArrayConfig(order="C", write_empty_chunks=False),
         ),
     )
+    data = decoded.as_ndarray_like()
 
     assert data.shape == (1059, 1799)
     assert data.dtype == np.dtype(dtype_str)

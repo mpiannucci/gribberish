@@ -52,7 +52,7 @@ class GribberishCodec(ArrayBytesCodec):
         if data.shape != chunk_spec.shape:
             data = data.reshape(chunk_spec.shape)
 
-        return data
+        return chunk_spec.prototype.nd_buffer.from_ndarray_like(data)
 
     async def _encode_single(
         self,
