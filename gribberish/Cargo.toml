@@ -20,6 +20,7 @@ num = { version = "0.2", default-features = false }
 itertools = "0.10.5"
 mappers = "0.7.1"
 bitvec = "1.0.1"
+serde_json = "1"
 thiserror = "1.0.60"
 bitflags = "2.6.0"
 libaec-sys = { version = "0.1.1", optional = true }

@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use gribberish::{
+    message::read_message,
     message_metadata::{scan_message_metadata, MessageMetadata},
     templates::product::tables::{FixedSurfaceType, ProbabilityType},
 };
@@ -162,6 +163,73 @@ pub fn parse_grib_dataset<'py>(
     filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
     encode_coords: Option<bool>,
 ) -> PyResult<Bound<'py, PyDict>> {
+    build_grib_dataset(
+        py,
+        scan_message_metadata(data),
+        drop_variables,
+        only_variables,
+        perserve_dims,
+        filter_by_attrs,
+        filter_by_variable_attrs,
+        encode_coords,
+    )
+}
+
+/// Build a dataset tree from individually fetched messages — typically driven
+/// by a sidecar index, where only each message's leading header bytes were
+/// fetched. `messages` items are (offset of the message in the real file, full
+/// message size, the message's bytes — at least sections 0-5; the data section
+/// is never needed). Offsets in the resulting tree point into the real file.
+#[pyfunction]
+#[pyo3(signature = (messages, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
+#[allow(clippy::too_many_arguments)]
+pub fn parse_grib_dataset_from_headers<'py>(
+    py: Python<'py>,
+    messages: Vec<(usize, usize, Vec<u8>)>,
+    drop_variables: Option<&Bound<PyList>>,
+    only_variables: Option<&Bound<PyList>>,
+    perserve_dims: Option<&Bound<PyList>>,
+    filter_by_attrs: Option<&Bound<'py, PyDict>>,
+    filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
+    encode_coords: Option<bool>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let mut mapping = HashMap::new();
+    for (index, (byte_offset, message_size, bytes)) in messages.iter().enumerate() {
+        let mut metadata = read_message(bytes, 0)
+            .and_then(|message| MessageMetadata::try_from(&message).ok())
+            .ok_or_else(|| {
+                PyValueError::new_err(format!(
+                    "failed to parse message header at file offset {byte_offset}; \
+                     fetch more of the message and retry"
+                ))
+            })?;
+        metadata.byte_offset = *byte_offset;
+        metadata.message_size = *message_size;
+        mapping.insert(metadata.key.clone(), (index, *byte_offset, metadata));
+    }
+    build_grib_dataset(
+        py,
+        mapping,
+        drop_variables,
+        only_variables,
+        perserve_dims,
+        filter_by_attrs,
+        filter_by_variable_attrs,
+        encode_coords,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_grib_dataset<'py>(
+    py: Python<'py>,
+    mapping: HashMap<String, (usize, usize, MessageMetadata)>,
+    drop_variables: Option<&Bound<PyList>>,
+    only_variables: Option<&Bound<PyList>>,
+    perserve_dims: Option<&Bound<PyList>>,
+    filter_by_attrs: Option<&Bound<'py, PyDict>>,
+    filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
+    encode_coords: Option<bool>,
+) -> PyResult<Bound<'py, PyDict>> {
     let drop_variables = if let Some(drop_variables) = drop_variables {
         drop_variables
             .iter()
@@ -202,15 +270,9 @@ pub fn parse_grib_dataset<'py>(
 
     let encode_coords = encode_coords.unwrap_or_default();
 
-    let mapping = scan_message_metadata(data)
+    let mapping = mapping
         .into_iter()
-        .filter_map(|(k, v)| {
-            if &v.2.name.to_lowercase() == "missing" {
-                None
-            } else {
-                Some((k.clone(), v))
-            }
-        })
+        .filter(|(_, v)| v.2.name.to_lowercase() != "missing")
         .collect::<HashMap<_, _>>();
 
     if mapping.keys().len() == 0 {
