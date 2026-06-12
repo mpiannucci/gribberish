@@ -168,10 +168,7 @@ pub struct GribIndexEntry {
 /// `.index`, auto-detected) into entries locating each message. `fileSize`
 /// (if known) sizes the final entry of a NOAA index.
 #[napi]
-pub fn parse_grib_index(
-  data: String,
-  file_size: Option<i64>,
-) -> napi::Result<Vec<GribIndexEntry>> {
+pub fn parse_grib_index(data: String, file_size: Option<i64>) -> napi::Result<Vec<GribIndexEntry>> {
   let entries = parse_index(&data, file_size.map(|s| s as u64))
     .map_err(|e| napi::Error::from_reason(e.to_string()))?;
   Ok(

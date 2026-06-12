@@ -82,8 +82,7 @@ test('GribMessageMetadataFactory lists and retrieves messages efficiently', (t) 
 })
 
 test('parseGribIndex locates messages for ranged reads', (t) => {
-  // NOAA .idx: entries carry byte ranges, and a range sliced out of the file
-  // parses as a standalone message — the fetch + Range-header pattern.
+  // NOAA .idx: one entry per message, lengths inferred from the next offset.
   const idxText = readFileSync(join(DATA_DIR, 'gfswave.t18z.atlocn.0p16.f001.grib2.idx'), 'utf8')
   const grib = readFileSync(join(DATA_DIR, 'gfswave.t18z.atlocn.0p16.f001.grib2'))
   const entries = parseGribIndex(idxText, grib.length)
@@ -91,8 +90,12 @@ test('parseGribIndex locates messages for ranged reads', (t) => {
   t.is(entries.length, 19)
   t.like(entries[0], { var: 'WIND', offset: 0, length: 41723, level: 'surface' })
 
-  const entry = entries[2]
-  const msg = GribMessage.parseFromBuffer(grib.subarray(entry.offset, entry.offset + (entry.length ?? 0)), 0)
+  // A byte range sliced via an index entry parses as a standalone message —
+  // the fetch + Range-header pattern. (HRRR fixture: complex packing, which
+  // also decodes on the wasm32 build; the wave file is JPEG2000, which doesn't.)
+  const hrrr = readFileSync(join(DATA_DIR, 'hrrr.t06z.wrfsfcf01-TMP.grib2'))
+  const [entry] = parseGribIndex('1:0:d=2023072206:TMP:2 m above ground:1 hour fcst:', hrrr.length)
+  const msg = GribMessage.parseFromBuffer(hrrr.subarray(entry.offset, entry.offset + (entry.length ?? 0)), 0)
   t.is(msg.varAbbrev, entry.var)
 
   // ECMWF .index: explicit lengths, MARS keys verbatim.
