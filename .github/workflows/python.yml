@@ -156,10 +156,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install package and test dependencies
         working-directory: python
-        run: pip install '.[xarray]' pytest
+        run: pip install '.[xarray,zarr]' pytest pytest-asyncio
       - name: Run tests
         working-directory: python
-        run: pytest tests/test_xarray_backend.py -v
+        run: pytest tests/test_xarray_backend.py tests/test_zarr_codec.py -v
 
   sdist:
     runs-on: ubuntu-latest
