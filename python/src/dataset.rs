@@ -900,16 +900,23 @@ fn build_group<'py>(
             let meta = &mapping.get(k).unwrap().2;
             if meta.probability_type.is_some() {
                 has_probability = true;
-                // Only create a threshold dimension for single-limit types
-                // (e.g., P(X < threshold)). Between-type probabilities are
-                // already split into separate variables via the hash.
+                // Single-limit types (e.g. P(X < threshold)) contribute their
+                // limit value; between-type probabilities have no single
+                // threshold and are already split into separate variables via
+                // the hash, so probability_threshold returns None for them.
                 if let Some(t) = probability_threshold(meta) {
                     thresholds.insert(format!("{:.5}", t));
                 }
             }
         }
 
-        if !has_probability || thresholds.len() < 2 {
+        // Like vertical levels and percentiles, only stack along a `threshold`
+        // dimension when more than one limit is present. A single-limit variable
+        // keeps its value in the `probability_limit` attribute instead of gaining
+        // a degenerate length-1 dimension; `perserve_dims` can force the dim.
+        if !has_probability
+            || (!perserve_dims.contains(&"threshold".to_string()) && thresholds.len() < 2)
+        {
             continue;
         }
 
@@ -1196,6 +1203,16 @@ fn build_group<'py>(
                     .as_ref()
                     .map(|p| p.to_string())
                     .unwrap_or("".to_string()),
+            )
+            .unwrap();
+        // The probability limit (cutoff) for single-limit products. When a
+        // variable has more than one limit they are stacked along the
+        // `threshold` dimension instead, mirroring how a single vertical level
+        // collapses to `fixed_surface_value`.
+        var_metadata
+            .set_item(
+                "probability_limit",
+                probability_threshold(&first.2).map_or("".to_string(), |t| t.to_string()),
             )
             .unwrap();
 

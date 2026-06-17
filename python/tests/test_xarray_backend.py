@@ -347,6 +347,14 @@ def test_xarray_backend_s2s_percentile_probability():
     between = [g for g in groups if "prob_between_inc" in g]
     assert len(between) == 3, f"expected 3 between_inc groups, got {sorted(between)}"
 
+    # A single-limit probability has no degenerate `threshold` dimension; its
+    # limit is preserved in the `probability_limit` attribute, mirroring how a
+    # single vertical level collapses to `fixed_surface_value`.
+    abnorm = next(g for g in groups if "prob_abnorm" in g)
+    prob = xr.open_dataset(path, engine="gribberish", group=abnorm)
+    assert "threshold" not in prob.tmp.dims
+    assert prob.tmp.attrs["probability_limit"] == "0"
+
     # Probability groups never carry a percentile dimension.
     for gname in (g for g in groups if "prob" in g):
         prob = xr.open_dataset(path, engine="gribberish", group=gname)
