@@ -645,8 +645,16 @@ fn read_nbm_lambert_specified_radius_projection() {
     // The producer-specified spherical radius must be read from the radius
     // fields (6,371,200 m), not the missing major/minor axis fields.
     let params = msg.grid_template().unwrap().proj_params();
-    assert!((params["a"] - 6_371_200.0).abs() < 1.0, "a = {}", params["a"]);
-    assert!((params["b"] - 6_371_200.0).abs() < 1.0, "b = {}", params["b"]);
+    assert!(
+        (params["a"] - 6_371_200.0).abs() < 1.0,
+        "a = {}",
+        params["a"]
+    );
+    assert!(
+        (params["b"] - 6_371_200.0).abs() < 1.0,
+        "b = {}",
+        params["b"]
+    );
 
     let projector = msg.latlng_projector().expect("Failed to get projector");
     let (lats, lngs) = projector.lat_lng();
@@ -655,7 +663,11 @@ fn read_nbm_lambert_specified_radius_projection() {
 
     // First grid point: ~19.229°N, ~-126.28°.
     assert!((lats[0] - 19.229).abs() < 0.01, "first lat = {}", lats[0]);
-    assert!((lngs[0] - (-126.28)).abs() < 0.01, "first lng = {}", lngs[0]);
+    assert!(
+        (lngs[0] - (-126.28)).abs() < 0.01,
+        "first lng = {}",
+        lngs[0]
+    );
 
     // Every point must fall inside the physical NBM CONUS footprint — not the
     // degenerate values the bad radius produced (e.g. 90°N / -307°).
