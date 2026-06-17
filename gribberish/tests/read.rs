@@ -628,6 +628,66 @@ fn test_longitude_normalization_era5_grib1() {
 }
 
 #[test]
+fn read_nbm_lambert_specified_radius_projection() {
+    // Regression test: NBM uses a Lambert Conformal grid whose earth shape is
+    // "spherical with a producer-specified radius" (shape code 1). That radius
+    // lives in the "radius of spherical earth" fields, not the major/minor axis
+    // fields (which are set to missing). Reading the missing axis fields gave a
+    // radius of ~2.5e-253 m, producing garbage lat/lon (and an inverse-project
+    // panic for some grids). The first CONUS grid point must land near
+    // 19.229°N, 233.72°E (-126.28°).
+    let grib_data = read_grib_messages("../test-data/nbm-pwat-prob-above.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    assert!(!messages.is_empty(), "Expected at least one message");
+
+    let msg = &messages[0];
+
+    // The producer-specified spherical radius must be read from the radius
+    // fields (6,371,200 m), not the missing major/minor axis fields.
+    let params = msg.grid_template().unwrap().proj_params();
+    assert!(
+        (params["a"] - 6_371_200.0).abs() < 1.0,
+        "a = {}",
+        params["a"]
+    );
+    assert!(
+        (params["b"] - 6_371_200.0).abs() < 1.0,
+        "b = {}",
+        params["b"]
+    );
+
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+    let (lats, lngs) = projector.lat_lng();
+    assert_eq!(lats.len(), 1597 * 2345);
+    assert_eq!(lngs.len(), 1597 * 2345);
+
+    // First grid point: ~19.229°N, ~-126.28°.
+    assert!((lats[0] - 19.229).abs() < 0.01, "first lat = {}", lats[0]);
+    assert!(
+        (lngs[0] - (-126.28)).abs() < 0.01,
+        "first lng = {}",
+        lngs[0]
+    );
+
+    // Every point must fall inside the physical NBM CONUS footprint — not the
+    // degenerate values the bad radius produced (e.g. 90°N / -307°).
+    for lat in &lats {
+        assert!(
+            (15.0..=60.0).contains(lat),
+            "latitude {} outside CONUS range",
+            lat
+        );
+    }
+    for lng in &lngs {
+        assert!(
+            (-140.0..=-50.0).contains(lng),
+            "longitude {} outside CONUS range",
+            lng
+        );
+    }
+}
+
+#[test]
 fn read_hrrr_hpbl_parameter() {
     // Test the new PlanetaryBoundaryLayerHeight (HPBL) meteorological parameter
     // disc=0 (meteorological), cat=3 (mass), num=18

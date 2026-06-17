@@ -71,6 +71,32 @@ fn message_kind(meta: &MessageMetadata) -> String {
     }
 }
 
+/// The threshold value that distinguishes probability messages of the same
+/// field, selected according to the probability type.
+///
+/// "Above upper limit" / "below upper limit" products carry their varying
+/// value in the *upper* limit field, while "below lower limit" /
+/// "above lower limit" / "equal to lower limit" products use the *lower* limit
+/// field. Choosing blindly (e.g. lower-or-upper) breaks "above upper limit"
+/// products like NBM `pwat`, whose lower-limit field is unset (or zero) so all
+/// messages collapse to one threshold instead of stacking along it.
+///
+/// Between-limit products vary along no single threshold (they are split into
+/// separate variables via the message hash), so they return `None`.
+fn probability_threshold(meta: &MessageMetadata) -> Option<f64> {
+    match &meta.probability_type {
+        None
+        | Some(ProbabilityType::BetweenLimits)
+        | Some(ProbabilityType::BetweenLimitsInclusive) => None,
+        Some(ProbabilityType::AboveUpperLimit) | Some(ProbabilityType::BelowUpperLimit) => meta
+            .probability_upper_limit
+            .or(meta.probability_lower_limit),
+        Some(_) => meta
+            .probability_lower_limit
+            .or(meta.probability_upper_limit),
+    }
+}
+
 fn process_kind(meta: &MessageMetadata) -> String {
     let member_kind = if meta.perturbation_number.is_some() {
         "ens"
@@ -341,7 +367,11 @@ fn build_grib_dataset<'py>(
         }
 
         let mut path = Vec::new();
-        if partition_by_level {
+        // A level coordinate name can be empty when the surface type is missing
+        // or unrecognized. An empty path segment would produce an unnamed group,
+        // which corrupts the Zarr/datatree hierarchy (the group collides with
+        // its parent), so such messages partition by kind only.
+        if partition_by_level && !level.is_empty() {
             path.push(level.clone());
         }
         if partition_by_kind {
@@ -423,6 +453,26 @@ fn build_grib_dataset<'py>(
         }
 
         match path.as_slice() {
+            [] => {
+                // Variables with no level/kind segment (e.g. a missing or
+                // unrecognized surface type, with no competing product kind)
+                // live at the dataset root rather than in a named group — an
+                // empty group name would corrupt the Zarr/datatree hierarchy.
+                let root_data_vars = root.get_item("data_vars")?.unwrap();
+                let root_data_vars = root_data_vars.cast::<PyDict>()?;
+                if let Some(node_data_vars) = node.get_item("data_vars")? {
+                    for (k, v) in node_data_vars.cast::<PyDict>()?.iter() {
+                        root_data_vars.set_item(k, v)?;
+                    }
+                }
+                let root_coords = root.get_item("coords")?.unwrap();
+                let root_coords = root_coords.cast::<PyDict>()?;
+                if let Some(node_coords) = node.get_item("coords")? {
+                    for (k, v) in node_coords.cast::<PyDict>()?.iter() {
+                        root_coords.set_item(k, v)?;
+                    }
+                }
+            }
             [segment] => {
                 groups_dict.set_item(segment, node)?;
             }
@@ -850,23 +900,23 @@ fn build_group<'py>(
             let meta = &mapping.get(k).unwrap().2;
             if meta.probability_type.is_some() {
                 has_probability = true;
-                // Only create a threshold dimension for single-limit types
-                // (e.g., P(X < threshold)). Between-type probabilities are
-                // already split into separate variables via the hash.
-                let threshold = match &meta.probability_type {
-                    Some(ProbabilityType::BetweenLimits)
-                    | Some(ProbabilityType::BetweenLimitsInclusive) => None,
-                    _ => meta
-                        .probability_lower_limit
-                        .or(meta.probability_upper_limit),
-                };
-                if let Some(t) = threshold {
+                // Single-limit types (e.g. P(X < threshold)) contribute their
+                // limit value; between-type probabilities have no single
+                // threshold and are already split into separate variables via
+                // the hash, so probability_threshold returns None for them.
+                if let Some(t) = probability_threshold(meta) {
                     thresholds.insert(format!("{:.5}", t));
                 }
             }
         }
 
-        if !has_probability || thresholds.len() < 2 {
+        // Like vertical levels and percentiles, only stack along a `threshold`
+        // dimension when more than one limit is present. A single-limit variable
+        // keeps its value in the `probability_limit` attribute instead of gaining
+        // a degenerate length-1 dimension; `perserve_dims` can force the dim.
+        if !has_probability
+            || (!perserve_dims.contains(&"threshold".to_string()) && thresholds.len() < 2)
+        {
             continue;
         }
 
@@ -1155,6 +1205,16 @@ fn build_group<'py>(
                     .unwrap_or("".to_string()),
             )
             .unwrap();
+        // The probability limit (cutoff) for single-limit products. When a
+        // variable has more than one limit they are stacked along the
+        // `threshold` dimension instead, mirroring how a single vertical level
+        // collapses to `fixed_surface_value`.
+        var_metadata
+            .set_item(
+                "probability_limit",
+                probability_threshold(&first.2).map_or("".to_string(), |t| t.to_string()),
+            )
+            .unwrap();
 
         let proj_params = PyDict::new(py);
         proj_params
@@ -1221,14 +1281,8 @@ fn build_group<'py>(
         v_sorted.sort_by(|a, b| {
             let a = mapping.get(a).unwrap();
             let b = mapping.get(b).unwrap();
-            let a_threshold =
-                a.2.probability_lower_limit
-                    .or(a.2.probability_upper_limit)
-                    .unwrap_or(0.0);
-            let b_threshold =
-                b.2.probability_lower_limit
-                    .or(b.2.probability_upper_limit)
-                    .unwrap_or(0.0);
+            let a_threshold = probability_threshold(&a.2).unwrap_or(0.0);
+            let b_threshold = probability_threshold(&b.2).unwrap_or(0.0);
             (
                 a.2.forecast_date,
                 a.2.first_fixed_surface_value.unwrap_or(0.0),

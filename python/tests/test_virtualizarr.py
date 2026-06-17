@@ -68,6 +68,25 @@ def test_level_type_conflict_groups():
     assert iso["tmp"].shape == (1, 10, 361, 720)
 
 
+def test_missing_level_does_not_break_datatree():
+    """A variable with a missing/unrecognized surface type must not create an
+    unnamed group. When a file also partitions by level type, such a variable
+    used to land in an empty-named group, which corrupts the Zarr/datatree
+    hierarchy and made `to_virtual_datatree` raise `KeyError: ... at <level>`.
+    The fixture has TMP at two levels (forcing a level split) plus TCDC on a
+    "reserved" surface that gribberish maps to a missing level type.
+    """
+    store = _store_for("nbm-multilevel-tcdc.grib2")
+    vdt = store.to_virtual_datatree()
+
+    keys = {k for k, _ in vdt.subtree_with_keys}
+    assert "" not in keys, "an unnamed group leaked into the hierarchy"
+    # The level split still happens for the well-formed variable.
+    assert {"hag", "sfc"}.issubset(set(vdt.children))
+    # The missing-level variable is preserved at the root rather than dropped.
+    assert "tcdc" in vdt.to_dataset().data_vars
+
+
 def test_decoded_values_match_direct_parse():
     """Reading a chunk through the store decodes the exact message the manifest
     points to (the gribberish codec resolves at read time)."""

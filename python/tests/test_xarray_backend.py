@@ -347,10 +347,43 @@ def test_xarray_backend_s2s_percentile_probability():
     between = [g for g in groups if "prob_between_inc" in g]
     assert len(between) == 3, f"expected 3 between_inc groups, got {sorted(between)}"
 
+    # A single-limit probability has no degenerate `threshold` dimension; its
+    # limit is preserved in the `probability_limit` attribute, mirroring how a
+    # single vertical level collapses to `fixed_surface_value`.
+    abnorm = next(g for g in groups if "prob_abnorm" in g)
+    prob = xr.open_dataset(path, engine="gribberish", group=abnorm)
+    assert "threshold" not in prob.tmp.dims
+    assert prob.tmp.attrs["probability_limit"] == "0"
+
     # Probability groups never carry a percentile dimension.
     for gname in (g for g in groups if "prob" in g):
         prob = xr.open_dataset(path, engine="gribberish", group=gname)
         assert "percentile" not in prob.tmp.dims
+
+
+def test_xarray_backend_prob_above_upper_limit_threshold():
+    """"Above upper limit" probabilities stack along a `threshold` dimension.
+
+    Regression test for #157: NBM `PWAT` "prob > N mm" products encode their
+    varying value in the *upper* limit field. Selecting the lower limit (or
+    lower-or-upper) collapsed all six exceedance thresholds onto one another, so
+    the variable lost its `threshold` dimension (and the VirtualiZarr manifest
+    builder then failed with "expected 1 messages ... but got 6"). The fixture
+    carries the six `> 6.35 ... > 63.5 mm` messages from a real NBM file.
+    """
+    import numpy as np
+
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "nbm-pwat-prob-above.grib2"
+    ds = xr.open_dataset(str(fixture), engine="gribberish")
+
+    assert "threshold" in ds.coords
+    assert "threshold" in ds.pwat.dims
+    np.testing.assert_allclose(
+        ds.threshold.values, [6.35, 12.7, 25.4, 38.1, 50.8, 63.5]
+    )
+    # All six messages survive as distinct slices rather than collapsing.
+    assert ds.sizes["threshold"] == 6
 
 
 def test_cf_grid_mapping_metadata():
