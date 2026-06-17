@@ -367,7 +367,11 @@ fn build_grib_dataset<'py>(
         }
 
         let mut path = Vec::new();
-        if partition_by_level {
+        // A level coordinate name can be empty when the surface type is missing
+        // or unrecognized. An empty path segment would produce an unnamed group,
+        // which corrupts the Zarr/datatree hierarchy (the group collides with
+        // its parent), so such messages partition by kind only.
+        if partition_by_level && !level.is_empty() {
             path.push(level.clone());
         }
         if partition_by_kind {
@@ -449,6 +453,26 @@ fn build_grib_dataset<'py>(
         }
 
         match path.as_slice() {
+            [] => {
+                // Variables with no level/kind segment (e.g. a missing or
+                // unrecognized surface type, with no competing product kind)
+                // live at the dataset root rather than in a named group — an
+                // empty group name would corrupt the Zarr/datatree hierarchy.
+                let root_data_vars = root.get_item("data_vars")?.unwrap();
+                let root_data_vars = root_data_vars.cast::<PyDict>()?;
+                if let Some(node_data_vars) = node.get_item("data_vars")? {
+                    for (k, v) in node_data_vars.cast::<PyDict>()?.iter() {
+                        root_data_vars.set_item(k, v)?;
+                    }
+                }
+                let root_coords = root.get_item("coords")?.unwrap();
+                let root_coords = root_coords.cast::<PyDict>()?;
+                if let Some(node_coords) = node.get_item("coords")? {
+                    for (k, v) in node_coords.cast::<PyDict>()?.iter() {
+                        root_coords.set_item(k, v)?;
+                    }
+                }
+            }
             [segment] => {
                 groups_dict.set_item(segment, node)?;
             }
