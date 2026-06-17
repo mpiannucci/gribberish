@@ -353,6 +353,31 @@ def test_xarray_backend_s2s_percentile_probability():
         assert "percentile" not in prob.tmp.dims
 
 
+def test_xarray_backend_prob_above_upper_limit_threshold():
+    """"Above upper limit" probabilities stack along a `threshold` dimension.
+
+    Regression test for #157: NBM `PWAT` "prob > N mm" products encode their
+    varying value in the *upper* limit field. Selecting the lower limit (or
+    lower-or-upper) collapsed all six exceedance thresholds onto one another, so
+    the variable lost its `threshold` dimension (and the VirtualiZarr manifest
+    builder then failed with "expected 1 messages ... but got 6"). The fixture
+    carries the six `> 6.35 ... > 63.5 mm` messages from a real NBM file.
+    """
+    import numpy as np
+
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "nbm-pwat-prob-above.grib2"
+    ds = xr.open_dataset(str(fixture), engine="gribberish")
+
+    assert "threshold" in ds.coords
+    assert "threshold" in ds.pwat.dims
+    np.testing.assert_allclose(
+        ds.threshold.values, [6.35, 12.7, 25.4, 38.1, 50.8, 63.5]
+    )
+    # All six messages survive as distinct slices rather than collapsing.
+    assert ds.sizes["threshold"] == 6
+
+
 def test_cf_grid_mapping_metadata():
     """The backend emits a scalar `spatial_ref` grid-mapping coordinate and
     links each variable to it, so geospatial tooling can recover the CRS."""

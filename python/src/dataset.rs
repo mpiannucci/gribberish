@@ -71,6 +71,32 @@ fn message_kind(meta: &MessageMetadata) -> String {
     }
 }
 
+/// The threshold value that distinguishes probability messages of the same
+/// field, selected according to the probability type.
+///
+/// "Above upper limit" / "below upper limit" products carry their varying
+/// value in the *upper* limit field, while "below lower limit" /
+/// "above lower limit" / "equal to lower limit" products use the *lower* limit
+/// field. Choosing blindly (e.g. lower-or-upper) breaks "above upper limit"
+/// products like NBM `pwat`, whose lower-limit field is unset (or zero) so all
+/// messages collapse to one threshold instead of stacking along it.
+///
+/// Between-limit products vary along no single threshold (they are split into
+/// separate variables via the message hash), so they return `None`.
+fn probability_threshold(meta: &MessageMetadata) -> Option<f64> {
+    match &meta.probability_type {
+        None
+        | Some(ProbabilityType::BetweenLimits)
+        | Some(ProbabilityType::BetweenLimitsInclusive) => None,
+        Some(ProbabilityType::AboveUpperLimit) | Some(ProbabilityType::BelowUpperLimit) => meta
+            .probability_upper_limit
+            .or(meta.probability_lower_limit),
+        Some(_) => meta
+            .probability_lower_limit
+            .or(meta.probability_upper_limit),
+    }
+}
+
 fn process_kind(meta: &MessageMetadata) -> String {
     let member_kind = if meta.perturbation_number.is_some() {
         "ens"
@@ -853,14 +879,7 @@ fn build_group<'py>(
                 // Only create a threshold dimension for single-limit types
                 // (e.g., P(X < threshold)). Between-type probabilities are
                 // already split into separate variables via the hash.
-                let threshold = match &meta.probability_type {
-                    Some(ProbabilityType::BetweenLimits)
-                    | Some(ProbabilityType::BetweenLimitsInclusive) => None,
-                    _ => meta
-                        .probability_lower_limit
-                        .or(meta.probability_upper_limit),
-                };
-                if let Some(t) = threshold {
+                if let Some(t) = probability_threshold(meta) {
                     thresholds.insert(format!("{:.5}", t));
                 }
             }
@@ -1221,14 +1240,8 @@ fn build_group<'py>(
         v_sorted.sort_by(|a, b| {
             let a = mapping.get(a).unwrap();
             let b = mapping.get(b).unwrap();
-            let a_threshold =
-                a.2.probability_lower_limit
-                    .or(a.2.probability_upper_limit)
-                    .unwrap_or(0.0);
-            let b_threshold =
-                b.2.probability_lower_limit
-                    .or(b.2.probability_upper_limit)
-                    .unwrap_or(0.0);
+            let a_threshold = probability_threshold(&a.2).unwrap_or(0.0);
+            let b_threshold = probability_threshold(&b.2).unwrap_or(0.0);
             (
                 a.2.forecast_date,
                 a.2.first_fixed_surface_value.unwrap_or(0.0),
