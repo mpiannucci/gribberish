@@ -11,12 +11,21 @@ from zarr.registry import register_codec
 
 @dataclass(frozen=True)
 class GribberishCodec(ArrayBytesCodec):
-    """Transform GRIB2 bytes into zarr arrays using gribberish library"""
+    """Transform GRIB2 bytes into zarr arrays using gribberish library
+
+    When ``adjust_longitude_range`` is set, global 0–360° longitude grids are
+    rewrapped to a monotonic −180…180° range: the decoded data is rolled along
+    the longitude axis and the ``longitude`` coordinate is wrapped to match, so
+    label-based slicing across the prime meridian behaves as expected. It is a
+    no-op for grids that don't span the globe.
+    """
 
     var: str | None
+    adjust_longitude_range: bool = False
 
-    def __init__(self, var: str | None) -> Self:
+    def __init__(self, var: str | None, adjust_longitude_range: bool = False) -> Self:
         object.__setattr__(self, "var", var)
+        object.__setattr__(self, "adjust_longitude_range", bool(adjust_longitude_range))
 
     @classmethod
     def from_dict(cls, data: dict[str, JSON]) -> Self:
@@ -27,10 +36,14 @@ class GribberishCodec(ArrayBytesCodec):
         return cls(**configuration_parsed)  # type: ignore[arg-type]
 
     def to_dict(self) -> dict[str, JSON]:
-        if not self.var:
+        configuration: dict[str, JSON] = {}
+        if self.var:
+            configuration["var"] = self.var
+        if self.adjust_longitude_range:
+            configuration["adjust_longitude_range"] = True
+        if not configuration:
             return {"name": "gribberish"}
-        else:
-            return {"name": "gribberish", "configuration": {"var": self.var}}
+        return {"name": "gribberish", "configuration": configuration}
 
     async def _decode_single(
         self,
@@ -42,10 +55,12 @@ class GribberishCodec(ArrayBytesCodec):
 
         if self.var == 'latitude' or self.var == 'longitude':
             message = parse_grib_message_metadata(chunk_bytes, 0)
-            lat, lng = message.latlng()
+            lat, lng = message.latlng(self.adjust_longitude_range)
             data: NDArrayLike = lat if self.var == 'latitude' else lng
         else:
-            data: NDArrayLike = parse_grib_array(chunk_bytes, 0)
+            data: NDArrayLike = parse_grib_array(
+                chunk_bytes, 0, self.adjust_longitude_range
+            )
 
         if (native_dtype := chunk_spec.dtype.to_native_dtype()) != data.dtype:
             data = data.astype(native_dtype)

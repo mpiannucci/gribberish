@@ -177,7 +177,7 @@ fn cf_grid_mapping<'py>(
 }
 
 #[pyfunction]
-#[pyo3(signature = (data, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
+#[pyo3(signature = (data, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None, adjust_longitude_range=None))]
 #[allow(clippy::too_many_arguments)]
 pub fn parse_grib_dataset<'py>(
     py: Python<'py>,
@@ -188,6 +188,7 @@ pub fn parse_grib_dataset<'py>(
     filter_by_attrs: Option<&Bound<'py, PyDict>>,
     filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
     encode_coords: Option<bool>,
+    adjust_longitude_range: Option<bool>,
 ) -> PyResult<Bound<'py, PyDict>> {
     build_grib_dataset(
         py,
@@ -198,6 +199,7 @@ pub fn parse_grib_dataset<'py>(
         filter_by_attrs,
         filter_by_variable_attrs,
         encode_coords,
+        adjust_longitude_range,
     )
 }
 
@@ -207,7 +209,7 @@ pub fn parse_grib_dataset<'py>(
 /// message size, the message's bytes — at least sections 0-5; the data section
 /// is never needed). Offsets in the resulting tree point into the real file.
 #[pyfunction]
-#[pyo3(signature = (messages, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
+#[pyo3(signature = (messages, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None, adjust_longitude_range=None))]
 #[allow(clippy::too_many_arguments)]
 pub fn parse_grib_dataset_from_headers<'py>(
     py: Python<'py>,
@@ -218,6 +220,7 @@ pub fn parse_grib_dataset_from_headers<'py>(
     filter_by_attrs: Option<&Bound<'py, PyDict>>,
     filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
     encode_coords: Option<bool>,
+    adjust_longitude_range: Option<bool>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let mut mapping = HashMap::new();
     for (index, (byte_offset, message_size, bytes)) in messages.iter().enumerate() {
@@ -242,6 +245,7 @@ pub fn parse_grib_dataset_from_headers<'py>(
         filter_by_attrs,
         filter_by_variable_attrs,
         encode_coords,
+        adjust_longitude_range,
     )
 }
 
@@ -255,6 +259,7 @@ fn build_grib_dataset<'py>(
     filter_by_attrs: Option<&Bound<'py, PyDict>>,
     filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
     encode_coords: Option<bool>,
+    adjust_longitude_range: Option<bool>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let drop_variables = if let Some(drop_variables) = drop_variables {
         drop_variables
@@ -295,6 +300,7 @@ fn build_grib_dataset<'py>(
         };
 
     let encode_coords = encode_coords.unwrap_or_default();
+    let adjust_longitude_range = adjust_longitude_range.unwrap_or_default();
 
     let mapping = mapping
         .into_iter()
@@ -410,6 +416,7 @@ fn build_grib_dataset<'py>(
             &filter_by_variable_attrs,
             filter_by_variable_attrs_defined,
             encode_coords,
+            adjust_longitude_range,
         )?;
         if !node_has_data_vars(&node)? {
             return Err(PyValueError::new_err("No variables remain after filtering"));
@@ -440,6 +447,7 @@ fn build_grib_dataset<'py>(
             &filter_by_variable_attrs,
             filter_by_variable_attrs_defined,
             encode_coords,
+            adjust_longitude_range,
         )?;
         if !node_has_data_vars(&node)? {
             continue;
@@ -521,6 +529,7 @@ fn build_group<'py>(
     filter_by_variable_attrs: &Bound<'py, PyDict>,
     filter_by_variable_attrs_defined: bool,
     encode_coords: bool,
+    adjust_longitude_range: bool,
 ) -> PyResult<Bound<'py, PyDict>> {
     let mut var_dims = var_mapping
         .keys()
@@ -1007,7 +1016,7 @@ fn build_group<'py>(
         latitude.set_item("dims", vec!["latitude"]).unwrap();
         latitude_metadata.set_item("axis", "Y").unwrap();
 
-        let (lat, lng) = first.2.latlng();
+        let (lat, lng) = first.2.latlng_adjusted(adjust_longitude_range);
         latitude
             .set_item("values", PyArray1::from_vec(py, lat))
             .unwrap();

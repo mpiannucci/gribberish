@@ -152,11 +152,13 @@ impl GribMessageMetadata {
         )
     }
 
+    #[pyo3(signature = (adjust_longitude_range=false))]
     fn latlng<'py>(
         &self,
         py: Python<'py>,
+        adjust_longitude_range: bool,
     ) -> (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>) {
-        let (lat, lng) = self.inner.latlng();
+        let (lat, lng) = self.inner.latlng_adjusted(adjust_longitude_range);
         (PyArray::from_vec(py, lat), PyArray::from_vec(py, lng))
     }
 
@@ -177,22 +179,35 @@ pub struct GribMessage {
 #[pymethods]
 impl GribMessage {
     fn data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<f64>>> {
-        parse_grib_array(py, &self.raw_data, self.offset)
+        parse_grib_array(py, &self.raw_data, self.offset, false)
     }
 }
 
 #[pyfunction]
+#[pyo3(signature = (data, offset, adjust_longitude_range=false))]
 pub fn parse_grib_array<'py>(
     py: Python<'py>,
     data: &[u8],
     offset: usize,
+    adjust_longitude_range: bool,
 ) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let message = Message::from_data(data, offset)
         .ok_or_else(|| PyTypeError::new_err("Failed to read GRIB message"))?;
-    let data = message
+    let values = message
         .data()
         .map_err(|e| PyTypeError::new_err(format!("Failed to decode GRIB data: {e}")))?;
-    Ok(PyArray::from_vec(py, data))
+    // For eligible global grids, roll the data columns so longitudes run
+    // -180..180 monotonically, matching the wrapped coordinates. The projector
+    // decides eligibility and the exact roll, so data and coords stay aligned.
+    let values = if adjust_longitude_range {
+        let projector = message
+            .latlng_projector()
+            .map_err(|e| PyTypeError::new_err(format!("Failed to build projection: {e}")))?;
+        projector.adjust_data_longitude(values, true)
+    } else {
+        values
+    };
+    Ok(PyArray::from_vec(py, values))
 }
 
 #[pyfunction]

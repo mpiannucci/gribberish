@@ -76,6 +76,90 @@ impl LatLngProjection {
         }
     }
 
+    /// For an eligible global grid, the number of columns to rotate the data and
+    /// longitude coordinates left so that longitudes run monotonically over
+    /// `[-180, 180)` instead of `[0, 360)`.
+    ///
+    /// Returns `None` (callers should no-op) unless the grid is a regular lat/lon
+    /// (`PlateCaree`) grid that spans ~360° with an ascending longitude axis —
+    /// mirroring the conditions under which GDAL's `GRIB_ADJUST_LONGITUDE_RANGE`
+    /// "split & swap" applies. The roll is the index of the column nearest the
+    /// antimeridian from the east (the most-negative wrapped longitude); for a
+    /// grid that already starts at 180° this is `0` (relabel only, no data move).
+    pub fn longitude_wrap_roll(&self) -> Option<usize> {
+        let projection = match self {
+            LatLngProjection::PlateCaree(projection) => projection,
+            LatLngProjection::LambertConformal(_) => return None,
+        };
+
+        let nx = projection.longitudes.count;
+        let dx = projection.longitudes.step;
+        // Regular ascending grid only; descending-longitude grids are out of scope.
+        if nx == 0 || dx <= 0.0 {
+            return None;
+        }
+        // Near-global: the columns must densely cover ~360°, within a quarter cell
+        // (GDAL's tolerance). Excludes regional subsets and overlapping/duplicated
+        // wrap-around columns (e.g. a grid carrying both 0° and 360°).
+        if (dx * nx as f64 - 360.0).abs() >= dx / 4.0 {
+            return None;
+        }
+
+        // Rotate so the column with the most-negative wrapped longitude (closest
+        // to -180 from above) leads, which makes the wrapped axis monotonic.
+        let lngs = self.lat_lng().1;
+        let (roll, _) = lngs.iter().enumerate().fold(
+            (0usize, f64::INFINITY),
+            |(roll, min), (i, &lon)| {
+                let wrapped = wrap_longitude(lon);
+                if wrapped < min {
+                    (i, wrapped)
+                } else {
+                    (roll, min)
+                }
+            },
+        );
+        Some(roll)
+    }
+
+    /// Like [`lat_lng`](Self::lat_lng), but when `adjust` is set and the grid is
+    /// eligible (see [`longitude_wrap_roll`](Self::longitude_wrap_roll)) the
+    /// longitudes are wrapped to `[-180, 180)` and rotated so they are
+    /// monotonically increasing. Latitudes are unchanged. A no-op (identical to
+    /// `lat_lng`) when `adjust` is false or the grid is not eligible.
+    pub fn lat_lng_adjusted(&self, adjust: bool) -> (Vec<f64>, Vec<f64>) {
+        let (lats, lngs) = self.lat_lng();
+        if !adjust {
+            return (lats, lngs);
+        }
+        match self.longitude_wrap_roll() {
+            Some(roll) => {
+                let wrapped: Vec<f64> = lngs.iter().map(|&lon| wrap_longitude(lon)).collect();
+                (lats, rotate_left(&wrapped, roll))
+            }
+            None => (lats, lngs),
+        }
+    }
+
+    /// Apply the same longitude wrap as [`lat_lng_adjusted`](Self::lat_lng_adjusted)
+    /// to a decoded data buffer laid out row-major as `ny × nx` (latitude-major,
+    /// longitude fastest), rolling its columns so it stays aligned with the
+    /// wrapped longitude coordinates. A no-op when `adjust` is false or the grid
+    /// is not eligible.
+    pub fn adjust_data_longitude(&self, data: Vec<f64>, adjust: bool) -> Vec<f64> {
+        if !adjust {
+            return data;
+        }
+        match (self, self.longitude_wrap_roll()) {
+            (LatLngProjection::PlateCaree(projection), Some(roll)) => {
+                let nx = projection.longitudes.count;
+                let ny = projection.latitudes.count;
+                rotate_rows_left(&data, ny, nx, roll)
+            }
+            _ => data,
+        }
+    }
+
     pub fn x(&self) -> Vec<f64> {
         match self {
             LatLngProjection::PlateCaree(projection) => {
@@ -213,6 +297,47 @@ impl Iterator for RegularCoordinateIterator {
     }
 }
 
+/// Wrap a longitude given in `[0, 360)` into `[-180, 180)`. The antimeridian
+/// (exactly 180°) maps to -180, yielding a clean half-open range — matching
+/// `(lon + 180) % 360 - 180` rather than GDAL's `if (lon == 180) return 180`
+/// special-case, which only matters for a scalar geotransform origin.
+fn wrap_longitude(lon: f64) -> f64 {
+    if lon >= 180.0 {
+        lon - 360.0
+    } else {
+        lon
+    }
+}
+
+/// Rotate a slice left by `roll` positions: `out[i] = values[(i + roll) % n]`.
+fn rotate_left(values: &[f64], roll: usize) -> Vec<f64> {
+    let n = values.len();
+    if n == 0 || roll.is_multiple_of(n) {
+        return values.to_vec();
+    }
+    let roll = roll % n;
+    (0..n).map(|i| values[(i + roll) % n]).collect()
+}
+
+/// Rotate each row of a row-major `ny × nx` buffer left by `roll` columns. Used
+/// to apply a longitude wrap to decoded data so it stays aligned with the
+/// wrapped longitude coordinates. Returns the input unchanged if `roll` is a
+/// no-op or the dimensions don't match the buffer length.
+pub fn rotate_rows_left(data: &[f64], ny: usize, nx: usize, roll: usize) -> Vec<f64> {
+    if nx == 0 || roll.is_multiple_of(nx) || ny * nx != data.len() {
+        return data.to_vec();
+    }
+    let roll = roll % nx;
+    let mut out = vec![0.0; data.len()];
+    for r in 0..ny {
+        let row = &data[r * nx..(r + 1) * nx];
+        for c in 0..nx {
+            out[r * nx + c] = row[(c + roll) % nx];
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -290,5 +415,92 @@ mod tests {
                 lng
             );
         }
+    }
+
+    fn platecaree(lon_start: f64, lon_step: f64, lon_count: usize) -> super::LatLngProjection {
+        let latitudes = super::RegularCoordinateIterator::new(90.0, -1.0, 5);
+        let longitudes = super::RegularCoordinateIterator::new(lon_start, lon_step, lon_count);
+        super::LatLngProjection::PlateCaree(crate::utils::iter::projection::PlateCareeProjection {
+            latitudes,
+            longitudes,
+            projection_name: "latlon".into(),
+            projection_params: HashMap::new(),
+        })
+    }
+
+    #[test]
+    fn test_longitude_wrap_roll() {
+        // GFS 0.25°: 1440 columns, split at 180° -> column 720.
+        assert_eq!(platecaree(0.0, 0.25, 1440).longitude_wrap_roll(), Some(720));
+        // GEFS 0.5°: 720 columns -> column 360.
+        assert_eq!(platecaree(0.0, 0.5, 720).longitude_wrap_roll(), Some(360));
+        // ERA5-style 3° GRIB: 120 columns, 180° at column 60.
+        assert_eq!(platecaree(0.0, 3.0, 120).longitude_wrap_roll(), Some(60));
+        // ECMWF grid that already starts at 180°: relabel only, no data move.
+        assert_eq!(platecaree(180.0, 0.25, 1440).longitude_wrap_roll(), Some(0));
+        // Grid already in [-180, 180): nothing to roll.
+        assert_eq!(platecaree(-180.0, 0.25, 1440).longitude_wrap_roll(), Some(0));
+    }
+
+    #[test]
+    fn test_longitude_wrap_roll_ineligible() {
+        // Regional subset (90° wide) is not global -> None.
+        assert_eq!(platecaree(0.0, 0.25, 360).longitude_wrap_roll(), None);
+        // Descending longitude axis is out of scope -> None.
+        assert_eq!(platecaree(359.75, -0.25, 1440).longitude_wrap_roll(), None);
+        // Overlapping wrap-around (carries both 0° and 360°) -> None.
+        assert_eq!(platecaree(0.0, 0.25, 1441).longitude_wrap_roll(), None);
+    }
+
+    #[test]
+    fn test_lat_lng_adjusted_monotonic() {
+        let projection = platecaree(0.0, 0.5, 720);
+        let (_, native) = projection.lat_lng();
+        let (lats, lngs) = projection.lat_lng_adjusted(true);
+
+        // Latitudes are untouched.
+        assert_eq!(lats, projection.lat_lng().0);
+
+        // Strictly monotonic increasing over [-180, 180).
+        assert_eq!(lngs.len(), 720);
+        assert!((lngs[0] - (-180.0)).abs() < f64::EPSILON);
+        assert!((lngs[719] - 179.5).abs() < f64::EPSILON);
+        for w in lngs.windows(2) {
+            assert!(w[1] > w[0], "not monotonic at {} -> {}", w[0], w[1]);
+        }
+        for &lng in &lngs {
+            assert!((-180.0..180.0).contains(&lng), "out of range: {lng}");
+        }
+
+        // No data lost: the wrapped set matches wrapping each native value.
+        let mut from_native: Vec<f64> = native.iter().map(|&l| super::wrap_longitude(l)).collect();
+        let mut adjusted = lngs.clone();
+        from_native.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        adjusted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        assert_eq!(from_native, adjusted);
+    }
+
+    #[test]
+    fn test_lat_lng_adjusted_noop_when_disabled_or_ineligible() {
+        let global = platecaree(0.0, 0.5, 720);
+        assert_eq!(global.lat_lng_adjusted(false), global.lat_lng());
+
+        let regional = platecaree(0.0, 0.25, 360);
+        assert_eq!(regional.lat_lng_adjusted(true), regional.lat_lng());
+    }
+
+    #[test]
+    fn test_rotate_rows_left() {
+        // 2 rows x 4 cols, roll left by 1.
+        let data = vec![0.0, 1.0, 2.0, 3.0, 10.0, 11.0, 12.0, 13.0];
+        let rolled = super::rotate_rows_left(&data, 2, 4, 1);
+        assert_eq!(rolled, vec![1.0, 2.0, 3.0, 0.0, 11.0, 12.0, 13.0, 10.0]);
+
+        // roll == 0 and roll == nx are no-ops.
+        assert_eq!(super::rotate_rows_left(&data, 2, 4, 0), data);
+        assert_eq!(super::rotate_rows_left(&data, 2, 4, 4), data);
+
+        // Mismatched dimensions return the input unchanged.
+        assert_eq!(super::rotate_rows_left(&data, 3, 4, 1), data);
     }
 }

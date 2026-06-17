@@ -45,11 +45,18 @@ _BYTES_CODEC = {"name": "bytes", "configuration": {"endian": "little"}}
 _N_SPATIAL = 2
 
 
-def _gribberish_codecs(var: str) -> list[dict[str, Any]]:
-    return [{"name": _GRIBBERISH_CODEC, "configuration": {"var": var}}]
+def _gribberish_codecs(
+    var: str, adjust_longitude_range: bool = False
+) -> list[dict[str, Any]]:
+    configuration: dict[str, Any] = {"var": var}
+    if adjust_longitude_range:
+        configuration["adjust_longitude_range"] = True
+    return [{"name": _GRIBBERISH_CODEC, "configuration": configuration}]
 
 
-def _data_manifest_array(url: str, name: str, var: dict[str, Any]) -> ManifestArray:
+def _data_manifest_array(
+    url: str, name: str, var: dict[str, Any], adjust_longitude_range: bool = False
+) -> ManifestArray:
     """One ManifestArray per data variable; each GRIB message is one chunk."""
     dims = tuple(var["dims"])
     shape = tuple(int(s) for s in var["values"]["shape"])
@@ -88,7 +95,7 @@ def _data_manifest_array(url: str, name: str, var: dict[str, Any]) -> ManifestAr
         data_type=np.dtype("float64"),
         chunk_shape=chunk_shape,
         fill_value=float("nan"),
-        codecs=_gribberish_codecs(name),
+        codecs=_gribberish_codecs(name, adjust_longitude_range),
         attributes=dict(var["attrs"]),
         dimension_names=dims,
     )
@@ -96,7 +103,7 @@ def _data_manifest_array(url: str, name: str, var: dict[str, Any]) -> ManifestAr
 
 
 def _reference_coord_array(
-    url: str, name: str, coord: dict[str, Any]
+    url: str, name: str, coord: dict[str, Any], adjust_longitude_range: bool = False
 ) -> ManifestArray:
     """A coordinate stored as a byte range in the file (projected lat/lon)."""
     values = coord["values"]
@@ -117,7 +124,7 @@ def _reference_coord_array(
         data_type=np.dtype("float64"),
         chunk_shape=shape,
         fill_value=float("nan"),
-        codecs=_gribberish_codecs(name),
+        codecs=_gribberish_codecs(name, adjust_longitude_range),
         attributes=dict(coord["attrs"]),
         dimension_names=dims,
     )
@@ -171,26 +178,30 @@ def _inline_coord_array(name: str, coord: dict[str, Any]) -> ManifestArray:
     return ManifestArray(metadata=metadata, chunkmanifest=manifest)
 
 
-def _coord_manifest_array(url: str, name: str, coord: dict[str, Any]) -> ManifestArray:
+def _coord_manifest_array(
+    url: str, name: str, coord: dict[str, Any], adjust_longitude_range: bool = False
+) -> ManifestArray:
     if isinstance(coord["values"], dict):
-        return _reference_coord_array(url, name, coord)
+        return _reference_coord_array(url, name, coord, adjust_longitude_range)
     return _inline_coord_array(name, coord)
 
 
-def _manifest_group(url: str, node: dict[str, Any]) -> ManifestGroup:
+def _manifest_group(
+    url: str, node: dict[str, Any], adjust_longitude_range: bool = False
+) -> ManifestGroup:
     """Recursively build a ManifestGroup (and its subgroups) from a tree node."""
     arrays: dict[str, ManifestArray] = {}
     coord_names: list[str] = []
 
     for name, coord in node.get("coords", {}).items():
-        arrays[name] = _coord_manifest_array(url, name, coord)
+        arrays[name] = _coord_manifest_array(url, name, coord, adjust_longitude_range)
         coord_names.append(name)
 
     for name, var in node.get("data_vars", {}).items():
-        arrays[name] = _data_manifest_array(url, name, var)
+        arrays[name] = _data_manifest_array(url, name, var, adjust_longitude_range)
 
     groups = {
-        gname: _manifest_group(url, gnode)
+        gname: _manifest_group(url, gnode, adjust_longitude_range)
         for gname, gnode in node.get("groups", {}).items()
     }
 
@@ -230,6 +241,12 @@ class GribberishParser:
         the known index names and silently falls back to a full read when none
         is found; an explicit suffix (``".idx"``, ``".index"``, ``".inv"``,
         ...) probes only that name and raises when it is missing.
+    adjust_longitude_range
+        Rewrap global 0–360° longitude grids to a monotonic −180…180° range:
+        the emitted ``longitude`` coordinate is wrapped and every data variable's
+        codec is told to roll its decoded chunk along the longitude axis to
+        match, so the published store slices cleanly across the prime meridian.
+        Default off; a no-op for grids that don't span the globe.
     """
 
     def __init__(
@@ -240,6 +257,7 @@ class GribberishParser:
         filter_by_attrs: dict[str, Any] | None = None,
         filter_by_variable_attrs: dict[str, Any] | None = None,
         use_index: bool | str = False,
+        adjust_longitude_range: bool = False,
     ) -> None:
         self.drop_variables = drop_variables
         self.only_variables = only_variables
@@ -247,6 +265,7 @@ class GribberishParser:
         self.filter_by_attrs = filter_by_attrs
         self.filter_by_variable_attrs = filter_by_variable_attrs
         self.use_index = use_index
+        self.adjust_longitude_range = adjust_longitude_range
 
     def _filter_kwargs(self) -> dict[str, Any]:
         return dict(
@@ -257,6 +276,9 @@ class GribberishParser:
             filter_by_variable_attrs=self.filter_by_variable_attrs,
             # Keep projected lat/lon as references rather than materializing them.
             encode_coords=True,
+            # Wrap inlined regular-grid longitude coords to match the data roll
+            # the codec applies at read time.
+            adjust_longitude_range=self.adjust_longitude_range,
         )
 
     def _parse_via_index(self, store, path: str, entries) -> dict[str, Any]:
@@ -304,5 +326,5 @@ class GribberishParser:
             data = _read_all(store, path_in_store)
             dataset = parse_grib_dataset(data, **self._filter_kwargs())
 
-        group = _manifest_group(url, dataset)
+        group = _manifest_group(url, dataset, self.adjust_longitude_range)
         return ManifestStore(group, registry=registry)
