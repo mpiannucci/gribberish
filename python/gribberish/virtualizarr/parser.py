@@ -18,7 +18,11 @@ import numpy as np
 # is what decodes each chunk at read time (and is required for zarr to validate
 # the codec pipeline when the array metadata is constructed below).
 from gribberish.zarr.codec import GribberishCodec  # noqa: F401
-from gribberish import parse_grib_dataset, parse_grib_dataset_from_headers
+from gribberish import (
+    adjust_longitude_values,
+    parse_grib_dataset,
+    parse_grib_dataset_from_headers,
+)
 from gribberish._index import (
     HEADER_BYTES,
     fetch_index_entries,
@@ -103,7 +107,7 @@ def _data_manifest_array(
 
 
 def _reference_coord_array(
-    url: str, name: str, coord: dict[str, Any], adjust_longitude_range: bool = False
+    url: str, name: str, coord: dict[str, Any]
 ) -> ManifestArray:
     """A coordinate stored as a byte range in the file (projected lat/lon)."""
     values = coord["values"]
@@ -124,18 +128,26 @@ def _reference_coord_array(
         data_type=np.dtype("float64"),
         chunk_shape=shape,
         fill_value=float("nan"),
-        codecs=_gribberish_codecs(name, adjust_longitude_range),
+        codecs=_gribberish_codecs(name),
         attributes=dict(coord["attrs"]),
         dimension_names=dims,
     )
     return ManifestArray(metadata=metadata, chunkmanifest=manifest)
 
 
-def _inline_coord_array(name: str, coord: dict[str, Any]) -> ManifestArray:
+def _inline_coord_array(
+    name: str, coord: dict[str, Any], adjust_longitude_range: bool = False
+) -> ManifestArray:
     """A small derived coordinate (time/level/number/...) inlined as raw bytes."""
     dims = tuple(coord["dims"])
     attrs = dict(coord["attrs"])
     arr = np.asarray(coord["values"])
+
+    # Rewrap an inlined 0–360° longitude axis to a monotonic −180…180° range,
+    # matching the roll the codec applies to each data chunk at read time. A
+    # no-op for grids that don't span the globe (the kernel decides eligibility).
+    if adjust_longitude_range and name == "longitude":
+        arr = np.asarray(adjust_longitude_values(arr))
 
     if arr.dtype.kind == "M":
         # Store datetimes as CF-encoded int64 seconds so xarray can decode them.
@@ -182,8 +194,8 @@ def _coord_manifest_array(
     url: str, name: str, coord: dict[str, Any], adjust_longitude_range: bool = False
 ) -> ManifestArray:
     if isinstance(coord["values"], dict):
-        return _reference_coord_array(url, name, coord, adjust_longitude_range)
-    return _inline_coord_array(name, coord)
+        return _reference_coord_array(url, name, coord)
+    return _inline_coord_array(name, coord, adjust_longitude_range)
 
 
 def _manifest_group(
@@ -276,9 +288,6 @@ class GribberishParser:
             filter_by_variable_attrs=self.filter_by_variable_attrs,
             # Keep projected lat/lon as references rather than materializing them.
             encode_coords=True,
-            # Wrap inlined regular-grid longitude coords to match the data roll
-            # the codec applies at read time.
-            adjust_longitude_range=self.adjust_longitude_range,
         )
 
     def _parse_via_index(self, store, path: str, entries) -> dict[str, Any]:

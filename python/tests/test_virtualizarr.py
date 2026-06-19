@@ -279,6 +279,25 @@ def test_adjust_longitude_range_default_off_unchanged():
     assert default.longitude.values[0] == 0.0
 
 
+def test_adjust_longitude_values_helper():
+    """The longitude-wrap kernel the parser calls on the inlined coordinate:
+    a global 0..360 axis becomes monotonic -180..180; a non-global axis is
+    returned unchanged."""
+    from gribberish import adjust_longitude_values
+
+    # Global 0.25° axis (1440 pts, 0..359.75): split at 180° -> -180..179.75.
+    native = np.arange(1440) * 0.25
+    wrapped = np.asarray(adjust_longitude_values(native))
+    assert wrapped[0] == -180.0 and wrapped[-1] == 179.75
+    assert np.all(np.diff(wrapped) > 0)
+
+    # Regional axis (90° wide) is not near-global -> returned unchanged.
+    regional = 10.0 + np.arange(360) * 0.25
+    np.testing.assert_array_equal(
+        np.asarray(adjust_longitude_values(regional)), regional
+    )
+
+
 def test_layer_variable_distinguished_by_second_surface():
     """Layer quantities whose bottom surface is constant but top varies (HRRR
     0-1000m vs 0-6000m wind shear) must not collapse into a single chunk slot.

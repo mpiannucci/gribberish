@@ -210,6 +210,15 @@ pub fn parse_grib_array<'py>(
     Ok(PyArray::from_vec(py, values))
 }
 
+/// Wrap a global 0–360° longitude coordinate to a monotonic −180…180° axis,
+/// matching the data roll the codec applies. A no-op for grids that don't span
+/// the globe. Used by the VirtualiZarr parser to rewrap the inlined longitude
+/// coordinate at the boundary, keeping the eager dataset reader projection-faithful.
+#[pyfunction]
+pub fn adjust_longitude_values(py: Python<'_>, longitudes: Vec<f64>) -> Bound<'_, PyArray1<f64>> {
+    PyArray::from_vec(py, gribberish::adjust_longitude_values(longitudes))
+}
+
 #[pyfunction]
 pub fn parse_grib_message_metadata(data: &[u8], offset: usize) -> PyResult<GribMessageMetadata> {
     let message = Message::from_data(data, offset)

@@ -700,9 +700,18 @@ fn test_longitude_adjustment_geavg() {
     // Latitudes untouched; longitudes wrapped, monotonic, in [-180, 180).
     assert_eq!(lats, projector.lat_lng().0);
     assert_eq!(lngs.len(), 720);
-    assert!((lngs[0] - (-180.0)).abs() < 0.001, "first lng should be -180");
-    assert!((lngs[360] - 0.0).abs() < 0.001, "lng at index 360 should be 0");
-    assert!((lngs[719] - 179.5).abs() < 0.001, "last lng should be 179.5");
+    assert!(
+        (lngs[0] - (-180.0)).abs() < 0.001,
+        "first lng should be -180"
+    );
+    assert!(
+        (lngs[360] - 0.0).abs() < 0.001,
+        "lng at index 360 should be 0"
+    );
+    assert!(
+        (lngs[719] - 179.5).abs() < 0.001,
+        "last lng should be 179.5"
+    );
     for i in 1..lngs.len() {
         assert!(lngs[i] > lngs[i - 1], "longitudes must be monotonic");
         assert!((-180.0..180.0).contains(&lngs[i]), "lng out of range");
@@ -721,7 +730,10 @@ fn test_longitude_adjustment_geavg() {
 
     // Disabled / no-op path returns the originals unchanged.
     assert_eq!(projector.lat_lng_adjusted(false), projector.lat_lng());
-    assert_eq!(projector.adjust_data_longitude(native.clone(), false), native);
+    assert_eq!(
+        projector.adjust_data_longitude(native.clone(), false),
+        native
+    );
 }
 
 #[test]
@@ -734,8 +746,14 @@ fn test_longitude_adjustment_era5_grib1() {
 
     let (_, lngs) = projector.lat_lng_adjusted(true);
     assert_eq!(lngs.len(), 120);
-    assert!((lngs[0] - (-180.0)).abs() < 0.001, "first lng should be -180");
-    assert!((lngs[60] - 0.0).abs() < 0.001, "lng at index 60 should be 0");
+    assert!(
+        (lngs[0] - (-180.0)).abs() < 0.001,
+        "first lng should be -180"
+    );
+    assert!(
+        (lngs[60] - 0.0).abs() < 0.001,
+        "lng at index 60 should be 0"
+    );
     assert!((lngs[119] - 177.0).abs() < 0.001, "last lng should be 177");
     for i in 1..lngs.len() {
         assert!(lngs[i] > lngs[i - 1], "longitudes must be monotonic");
@@ -746,7 +764,11 @@ fn test_longitude_adjustment_era5_grib1() {
     let nx = 120usize;
     for (i, value) in adjusted.iter().enumerate() {
         let (row, col) = (i / nx, i % nx);
-        assert_eq!(*value, native[row * nx + (col + 60) % nx], "roll mismatch at {i}");
+        assert_eq!(
+            *value,
+            native[row * nx + (col + 60) % nx],
+            "roll mismatch at {i}"
+        );
     }
 }
 

@@ -87,39 +87,13 @@ impl LatLngProjection {
     /// antimeridian from the east (the most-negative wrapped longitude); for a
     /// grid that already starts at 180° this is `0` (relabel only, no data move).
     pub fn longitude_wrap_roll(&self) -> Option<usize> {
-        let projection = match self {
-            LatLngProjection::PlateCaree(projection) => projection,
-            LatLngProjection::LambertConformal(_) => return None,
-        };
-
-        let nx = projection.longitudes.count;
-        let dx = projection.longitudes.step;
-        // Regular ascending grid only; descending-longitude grids are out of scope.
-        if nx == 0 || dx <= 0.0 {
-            return None;
+        match self {
+            // For a regular grid `lat_lng().1` is the 1-D longitude axis; for a
+            // projected grid it is the full flattened field, which is never
+            // eligible, so short-circuit it.
+            LatLngProjection::PlateCaree(_) => wrap_roll(&self.lat_lng().1),
+            LatLngProjection::LambertConformal(_) => None,
         }
-        // Near-global: the columns must densely cover ~360°, within a quarter cell
-        // (GDAL's tolerance). Excludes regional subsets and overlapping/duplicated
-        // wrap-around columns (e.g. a grid carrying both 0° and 360°).
-        if (dx * nx as f64 - 360.0).abs() >= dx / 4.0 {
-            return None;
-        }
-
-        // Rotate so the column with the most-negative wrapped longitude (closest
-        // to -180 from above) leads, which makes the wrapped axis monotonic.
-        let lngs = self.lat_lng().1;
-        let (roll, _) = lngs.iter().enumerate().fold(
-            (0usize, f64::INFINITY),
-            |(roll, min), (i, &lon)| {
-                let wrapped = wrap_longitude(lon);
-                if wrapped < min {
-                    (i, wrapped)
-                } else {
-                    (roll, min)
-                }
-            },
-        );
-        Some(roll)
     }
 
     /// Like [`lat_lng`](Self::lat_lng), but when `adjust` is set and the grid is
@@ -132,13 +106,7 @@ impl LatLngProjection {
         if !adjust {
             return (lats, lngs);
         }
-        match self.longitude_wrap_roll() {
-            Some(roll) => {
-                let wrapped: Vec<f64> = lngs.iter().map(|&lon| wrap_longitude(lon)).collect();
-                (lats, rotate_left(&wrapped, roll))
-            }
-            None => (lats, lngs),
-        }
+        (lats, adjust_longitude_values(lngs))
     }
 
     /// Apply the same longitude wrap as [`lat_lng_adjusted`](Self::lat_lng_adjusted)
@@ -309,6 +277,65 @@ fn wrap_longitude(lon: f64) -> f64 {
     }
 }
 
+/// For an ascending, near-global `[0, 360)` longitude axis, the number of
+/// columns to rotate left so the wrapped `[-180, 180)` axis is monotonic.
+///
+/// Returns `None` (callers should no-op) unless the axis spans ~360° with an
+/// ascending step — mirroring the conditions under which GDAL's
+/// `GRIB_ADJUST_LONGITUDE_RANGE` "split & swap" applies. The roll is the index
+/// of the column nearest the antimeridian from the east (the most-negative
+/// wrapped longitude); a grid that already starts at 180° rolls by `0` (relabel
+/// only, no data move). The step is read off the first two samples, so this
+/// works on either a projector's longitude axis or an already-materialized
+/// longitude coordinate.
+fn wrap_roll(lons: &[f64]) -> Option<usize> {
+    let nx = lons.len();
+    if nx < 2 {
+        return None;
+    }
+    // Regular ascending grid only; descending-longitude grids are out of scope.
+    let dx = lons[1] - lons[0];
+    if dx <= 0.0 {
+        return None;
+    }
+    // Near-global: the columns must densely cover ~360°, within a quarter cell
+    // (GDAL's tolerance). Excludes regional subsets and overlapping/duplicated
+    // wrap-around columns (e.g. a grid carrying both 0° and 360°).
+    if (dx * nx as f64 - 360.0).abs() >= dx / 4.0 {
+        return None;
+    }
+
+    // Rotate so the column with the most-negative wrapped longitude (closest to
+    // -180 from above) leads, which makes the wrapped axis monotonic.
+    let (roll, _) =
+        lons.iter()
+            .enumerate()
+            .fold((0usize, f64::INFINITY), |(roll, min), (i, &lon)| {
+                let wrapped = wrap_longitude(lon);
+                if wrapped < min {
+                    (i, wrapped)
+                } else {
+                    (roll, min)
+                }
+            });
+    Some(roll)
+}
+
+/// Wrap and rotate a `[0, 360)` longitude coordinate axis to a monotonic
+/// `[-180, 180)` range, returning it unchanged for axes that aren't eligible
+/// near-global ascending grids (see [`wrap_roll`]). The matching data buffer
+/// must be rolled with [`LatLngProjection::adjust_data_longitude`] so the
+/// coordinate and the data stay aligned.
+pub fn adjust_longitude_values(longitudes: Vec<f64>) -> Vec<f64> {
+    match wrap_roll(&longitudes) {
+        Some(roll) => {
+            let wrapped: Vec<f64> = longitudes.iter().map(|&lon| wrap_longitude(lon)).collect();
+            rotate_left(&wrapped, roll)
+        }
+        None => longitudes,
+    }
+}
+
 /// Rotate a slice left by `roll` positions: `out[i] = values[(i + roll) % n]`.
 fn rotate_left(values: &[f64], roll: usize) -> Vec<f64> {
     let n = values.len();
@@ -439,7 +466,10 @@ mod tests {
         // ECMWF grid that already starts at 180°: relabel only, no data move.
         assert_eq!(platecaree(180.0, 0.25, 1440).longitude_wrap_roll(), Some(0));
         // Grid already in [-180, 180): nothing to roll.
-        assert_eq!(platecaree(-180.0, 0.25, 1440).longitude_wrap_roll(), Some(0));
+        assert_eq!(
+            platecaree(-180.0, 0.25, 1440).longitude_wrap_roll(),
+            Some(0)
+        );
     }
 
     #[test]
