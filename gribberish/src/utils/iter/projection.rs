@@ -273,13 +273,14 @@ fn wrap_longitude(lon: f64) -> f64 {
 /// columns to rotate left so the wrapped `[-180, 180)` axis is monotonic.
 ///
 /// Returns `None` (callers should no-op) unless the axis spans ~360° with an
-/// ascending step — mirroring the conditions under which GDAL's
-/// `GRIB_ADJUST_LONGITUDE_RANGE` "split & swap" applies. The roll is the index
-/// of the column nearest the antimeridian from the east (the most-negative
-/// wrapped longitude); a grid that already starts at 180° rolls by `0` (relabel
-/// only, no data move). The step is read off the first two samples, so this
-/// works on either a projector's longitude axis or an already-materialized
-/// longitude coordinate.
+/// ascending step. The roll is the index of the column nearest the antimeridian
+/// from the east (the most-negative wrapped longitude); a grid that already
+/// starts at 180° rolls by `0` (relabel only, no data move). The step is read
+/// off the first two samples, so this works on either a projector's longitude
+/// axis or an already-materialized longitude coordinate.
+///
+/// The logic to determine whether this should be applied mirrors GDAL's
+/// `GRIB_ADJUST_LONGITUDE_RANGE` "split & swap" option.
 fn wrap_roll(lons: &[f64]) -> Option<usize> {
     let nx = lons.len();
     if nx < 2 {
