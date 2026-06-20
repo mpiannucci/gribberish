@@ -76,17 +76,11 @@ impl LatLngProjection {
         }
     }
 
-    /// For an eligible global grid, the number of columns to rotate the data and
-    /// longitude coordinates left so that longitudes run monotonically over
-    /// `[-180, 180)` instead of `[0, 360)`.
-    ///
-    /// Returns `None` (callers should no-op) unless the grid is a regular lat/lon
-    /// (`PlateCaree`) grid that spans ~360° with an ascending longitude axis —
-    /// mirroring the conditions under which GDAL's `GRIB_ADJUST_LONGITUDE_RANGE`
-    /// "split & swap" applies. The roll is the index of the column nearest the
-    /// antimeridian from the east (the most-negative wrapped longitude); for a
-    /// grid that already starts at 180° this is `0` (relabel only, no data move).
-    pub fn longitude_wrap_roll(&self) -> Option<usize> {
+    /// Columns to roll this projection's longitude axis (and matching data) left
+    /// so longitudes run monotonically over `[-180, 180)`, or `None` for
+    /// projected/ineligible grids (callers no-op). See [`wrap_roll`] for the
+    /// eligibility rules and how the roll is chosen.
+    fn longitude_wrap_roll(&self) -> Option<usize> {
         match self {
             // For a regular grid `lat_lng().1` is the 1-D longitude axis; for a
             // projected grid it is the full flattened field, which is never
@@ -96,11 +90,11 @@ impl LatLngProjection {
         }
     }
 
-    /// Like [`lat_lng`](Self::lat_lng), but when `adjust` is set and the grid is
-    /// eligible (see [`longitude_wrap_roll`](Self::longitude_wrap_roll)) the
-    /// longitudes are wrapped to `[-180, 180)` and rotated so they are
-    /// monotonically increasing. Latitudes are unchanged. A no-op (identical to
-    /// `lat_lng`) when `adjust` is false or the grid is not eligible.
+    /// Like [`lat_lng`](Self::lat_lng), but when `adjust` is set the longitudes
+    /// are wrapped to `[-180, 180)` and rotated so they are monotonically
+    /// increasing (see [`adjust_longitude_values`]). Latitudes are unchanged. A
+    /// no-op (identical to `lat_lng`) when `adjust` is false or the grid is not
+    /// eligible.
     pub fn lat_lng_adjusted(&self, adjust: bool) -> (Vec<f64>, Vec<f64>) {
         let (lats, lngs) = self.lat_lng();
         if !adjust {
@@ -350,7 +344,7 @@ fn rotate_left(values: &[f64], roll: usize) -> Vec<f64> {
 /// to apply a longitude wrap to decoded data so it stays aligned with the
 /// wrapped longitude coordinates. Returns the input unchanged if `roll` is a
 /// no-op or the dimensions don't match the buffer length.
-pub fn rotate_rows_left(data: &[f64], ny: usize, nx: usize, roll: usize) -> Vec<f64> {
+fn rotate_rows_left(data: &[f64], ny: usize, nx: usize, roll: usize) -> Vec<f64> {
     if nx == 0 || roll.is_multiple_of(nx) || ny * nx != data.len() {
         return data.to_vec();
     }
@@ -508,6 +502,30 @@ mod tests {
         from_native.sort_by(|a, b| a.partial_cmp(b).unwrap());
         adjusted.sort_by(|a, b| a.partial_cmp(b).unwrap());
         assert_eq!(from_native, adjusted);
+    }
+
+    #[test]
+    fn test_longitude_wrap_off_column_split() {
+        // Cell-centered 1° grid (0.5, 1.5, ... 359.5): 180° falls *between*
+        // columns, so the split must land on the most-negative wrapped column
+        // (180.5 -> -179.5 at index 180), not on an exact 180° column.
+        let projection = platecaree(0.5, 1.0, 360);
+        assert_eq!(projection.longitude_wrap_roll(), Some(180));
+
+        let (_, lngs) = projection.lat_lng_adjusted(true);
+        assert_eq!(lngs.len(), 360);
+        assert!((lngs[0] - (-179.5)).abs() < f64::EPSILON);
+        assert!((lngs[359] - 179.5).abs() < f64::EPSILON);
+        for w in lngs.windows(2) {
+            assert!(w[1] > w[0], "not monotonic at {} -> {}", w[0], w[1]);
+        }
+        for &lng in &lngs {
+            assert!((-180.0..180.0).contains(&lng), "out of range: {lng}");
+        }
+
+        // Idempotent: wrapping an already-monotonic [-180, 180) axis is a no-op
+        // (its roll is 0).
+        assert_eq!(super::adjust_longitude_values(lngs.clone()), lngs);
     }
 
     #[test]

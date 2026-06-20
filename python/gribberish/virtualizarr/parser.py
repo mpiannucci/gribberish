@@ -146,7 +146,9 @@ def _inline_coord_array(
     # Rewrap an inlined 0–360° longitude axis to a monotonic −180…180° range,
     # matching the roll the codec applies to each data chunk at read time. A
     # no-op for grids that don't span the globe (the kernel decides eligibility).
-    if adjust_longitude_range and name == "longitude":
+    # Only the 1-D regular-grid axis is wrapped; a projected grid's 2-D longitude
+    # is stored as a reference (not inlined), so the ndim guard is also future-proofing.
+    if adjust_longitude_range and name == "longitude" and arr.ndim == 1:
         arr = np.asarray(adjust_longitude_values(arr))
 
     if arr.dtype.kind == "M":
