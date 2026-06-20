@@ -260,9 +260,7 @@ impl Iterator for RegularCoordinateIterator {
 }
 
 /// Wrap a longitude given in `[0, 360)` into `[-180, 180)`. The antimeridian
-/// (exactly 180°) maps to -180, yielding a clean half-open range — matching
-/// `(lon + 180) % 360 - 180` rather than GDAL's `if (lon == 180) return 180`
-/// special-case, which only matters for a scalar geotransform origin.
+/// (exactly 180°) maps to -180.
 fn wrap_longitude(lon: f64) -> f64 {
     if lon >= 180.0 {
         lon - 360.0
