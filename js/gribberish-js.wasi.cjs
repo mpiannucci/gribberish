@@ -111,5 +111,6 @@ module.exports = __napiModule.exports
 module.exports.GribMessage = __napiModule.exports.GribMessage
 module.exports.GribMessageFactory = __napiModule.exports.GribMessageFactory
 module.exports.GribMessageMetadataFactory = __napiModule.exports.GribMessageMetadataFactory
+module.exports.adjustLongitudeValues = __napiModule.exports.adjustLongitudeValues
 module.exports.parseGribIndex = __napiModule.exports.parseGribIndex
 module.exports.parseMessagesFromBuffer = __napiModule.exports.parseMessagesFromBuffer
