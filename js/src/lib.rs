@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use gribberish::{
+  adjust_longitude_values as adjust_longitude_values_core,
   data_message::DataMessage,
   index::parse_index,
   message::{read_message, read_messages, scan_messages},
@@ -103,6 +104,20 @@ impl GribMessage {
     }
   }
 
+  /// Like the `latlng` getter, but when `adjustLongitudeRange` is set the
+  /// longitudes of an eligible near-global grid are wrapped from `[0, 360)` to a
+  /// monotonic `[-180, 180)` axis. Pair with `dataAdjusted(true)` so the values
+  /// stay aligned with the wrapped coordinates. A no-op for grids that don't
+  /// span the globe (returns the same as `latlng`).
+  #[napi]
+  pub fn latlng_adjusted(&self, adjust_longitude_range: bool) -> LatLng {
+    let (latitude, longitude) = self.inner.metadata.latlng_adjusted(adjust_longitude_range);
+    LatLng {
+      latitude,
+      longitude,
+    }
+  }
+
   #[napi(getter)]
   pub fn is_regular_grid(&self) -> bool {
     self.inner.metadata.is_regular_grid
@@ -130,6 +145,19 @@ impl GribMessage {
   #[napi(getter)]
   pub fn data(&self) -> Vec<f64> {
     self.inner.data.clone()
+  }
+
+  /// Like the `data` getter, but when `adjustLongitudeRange` is set the decoded
+  /// values of an eligible near-global grid have their columns rolled to match a
+  /// `[-180, 180)` longitude axis, staying aligned with `latlngAdjusted(true)`.
+  /// A no-op for grids that don't span the globe (returns the same as `data`).
+  #[napi]
+  pub fn data_adjusted(&self, adjust_longitude_range: bool) -> Vec<f64> {
+    self
+      .inner
+      .metadata
+      .projector
+      .adjust_data_longitude(self.inner.data.clone(), adjust_longitude_range)
   }
 }
 
@@ -188,6 +216,15 @@ pub fn parse_grib_index(data: String, file_size: Option<i64>) -> napi::Result<Ve
       })
       .collect(),
   )
+}
+
+/// Wrap a `[0, 360)` longitude coordinate axis to a monotonic `[-180, 180)`
+/// range, matching the column roll `dataAdjusted` applies to the values. A
+/// no-op for axes that aren't eligible near-global ascending grids (returns the
+/// input unchanged), so it is safe to call on any longitude array.
+#[napi]
+pub fn adjust_longitude_values(longitudes: Vec<f64>) -> Vec<f64> {
+  adjust_longitude_values_core(longitudes)
 }
 
 #[napi]

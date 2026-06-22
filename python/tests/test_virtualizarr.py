@@ -200,6 +200,104 @@ def test_use_index_matches_full_scan():
     )
 
 
+def test_adjust_longitude_range_global_grid():
+    """Opt-in longitude wrap: a 0–360° GFS grid becomes a monotonic −180…180°
+    store whose data is rolled to match, so a box straddling the prime meridian
+    slices cleanly (the gotcha from issue #156)."""
+    fname = "gfs.t18z.pgrb2.0p25.f186-RH.grib2"
+    nx, roll = 1440, 720
+
+    plain = _store_for(fname).to_virtual_dataset()
+    wrapped = _store_for(fname, adjust_longitude_range=True).to_virtual_dataset()
+
+    # default coordinate is the native 0..360 range
+    np.testing.assert_array_equal(plain.longitude.values[[0, -1]], [0.0, 359.75])
+
+    # wrapped coordinate is strictly monotonic over [-180, 180)
+    lon = wrapped.longitude.values
+    assert lon[0] == -180.0 and lon[-1] == 179.75
+    assert np.all(np.diff(lon) > 0)
+
+    # data stays aligned with the coordinate: reading through the wrapped store
+    # equals the plain store rolled along longitude by the same split column.
+    z_plain = zarr.open(_store_for(fname), mode="r")
+    z_wrapped = zarr.open(_store_for(fname, adjust_longitude_range=True), mode="r")
+    plain_data = np.asarray(z_plain["rh"][...])
+    wrapped_data = np.asarray(z_wrapped["rh"][...])
+    cols = (np.arange(nx) + roll) % nx
+    np.testing.assert_array_equal(wrapped_data, plain_data[..., cols])
+
+    # the issue's acceptance: with the wrapped coordinate + rolled data assembled
+    # into a dataset (as a consumer like icechunk does at read time), a box around
+    # the prime meridian slices cleanly to 161 columns — the native 0–360 store
+    # would silently drop the [-10, 0) half.
+    import xarray as xr
+
+    ds = xr.Dataset(
+        {"rh": (("time", "latitude", "longitude"), wrapped_data)},
+        coords={"longitude": lon},
+    )
+    box = ds.sel(longitude=slice(-10, 30))
+    assert box.sizes["longitude"] == 161
+    np.testing.assert_array_equal(box.longitude.values[[0, -1]], [-10.0, 30.0])
+
+
+def test_adjust_longitude_range_start_at_antimeridian():
+    """A grid that already starts at 180° (ECMWF/AIFS) is non-monotonic in 0–360
+    today; wrapping relabels the coordinate to monotonic −180…180 with no data
+    move (roll == 0), exercising the relabel-only branch."""
+    fname = "aifs-single-t500.grib2"
+
+    plain = _store_for(fname).to_virtual_dataset()
+    wrapped = _store_for(fname, adjust_longitude_range=True).to_virtual_dataset()
+
+    # native coordinate wraps mid-array (180..359.75, then 0..179.75)
+    assert plain.longitude.values[0] == 180.0 and plain.longitude.values[-1] == 179.75
+    assert not np.all(np.diff(plain.longitude.values) > 0)
+
+    # wrapped coordinate is monotonic -180..180
+    lon = wrapped.longitude.values
+    assert lon[0] == -180.0 and lon[-1] == 179.75
+    assert np.all(np.diff(lon) > 0)
+
+    # data is unchanged because the columns were already in -180..180 order
+    z_plain = zarr.open(_store_for(fname), mode="r")
+    z_wrapped = zarr.open(_store_for(fname, adjust_longitude_range=True), mode="r")
+    np.testing.assert_array_equal(
+        np.asarray(z_wrapped["tmp"][...]), np.asarray(z_plain["tmp"][...])
+    )
+
+
+def test_adjust_longitude_range_default_off_unchanged():
+    """Default-off parser is byte-for-byte the existing behaviour."""
+    fname = "gfs.t18z.pgrb2.0p25.f186-RH.grib2"
+    default = _store_for(fname).to_virtual_dataset()
+    explicit_off = _store_for(fname, adjust_longitude_range=False).to_virtual_dataset()
+    np.testing.assert_array_equal(
+        default.longitude.values, explicit_off.longitude.values
+    )
+    assert default.longitude.values[0] == 0.0
+
+
+def test_adjust_longitude_values_helper():
+    """The longitude-wrap kernel the parser calls on the inlined coordinate:
+    a global 0..360 axis becomes monotonic -180..180; a non-global axis is
+    returned unchanged."""
+    from gribberish import adjust_longitude_values
+
+    # Global 0.25° axis (1440 pts, 0..359.75): split at 180° -> -180..179.75.
+    native = np.arange(1440) * 0.25
+    wrapped = np.asarray(adjust_longitude_values(native))
+    assert wrapped[0] == -180.0 and wrapped[-1] == 179.75
+    assert np.all(np.diff(wrapped) > 0)
+
+    # Regional axis (90° wide) is not near-global -> returned unchanged.
+    regional = 10.0 + np.arange(360) * 0.25
+    np.testing.assert_array_equal(
+        np.asarray(adjust_longitude_values(regional)), regional
+    )
+
+
 def test_layer_variable_distinguished_by_second_surface():
     """Layer quantities whose bottom surface is constant but top varies (HRRR
     0-1000m vs 0-6000m wind shear) must not collapse into a single chunk slot.

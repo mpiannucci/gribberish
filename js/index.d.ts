@@ -13,11 +13,26 @@ export declare class GribMessage {
   get crs(): string
   get gridShape(): GridShape
   get latlng(): LatLng
+  /**
+   * Like the `latlng` getter, but when `adjustLongitudeRange` is set the
+   * longitudes of an eligible near-global grid are wrapped from `[0, 360)` to a
+   * monotonic `[-180, 180)` axis. Pair with `dataAdjusted(true)` so the values
+   * stay aligned with the wrapped coordinates. A no-op for grids that don't
+   * span the globe (returns the same as `latlng`).
+   */
+  latlngAdjusted(adjustLongitudeRange: boolean): LatLng
   get isRegularGrid(): boolean
   get hasBitmap(): boolean
   get perturbationNumber(): number | null
   get numberOfEnsembleMembers(): number | null
   get data(): Array<number>
+  /**
+   * Like the `data` getter, but when `adjustLongitudeRange` is set the decoded
+   * values of an eligible near-global grid have their columns rolled to match a
+   * `[-180, 180)` longitude axis, staying aligned with `latlngAdjusted(true)`.
+   * A no-op for grids that don't span the globe (returns the same as `data`).
+   */
+  dataAdjusted(adjustLongitudeRange: boolean): Array<number>
 }
 
 export declare class GribMessageFactory {
@@ -31,6 +46,14 @@ export declare class GribMessageMetadataFactory {
   get availableMessages(): Array<string>
   getMessage(key: string): GribMessage
 }
+
+/**
+ * Wrap a `[0, 360)` longitude coordinate axis to a monotonic `[-180, 180)`
+ * range, matching the column roll `dataAdjusted` applies to the values. A
+ * no-op for axes that aren't eligible near-global ascending grids (returns the
+ * input unchanged), so it is safe to call on any longitude array.
+ */
+export declare function adjustLongitudeValues(longitudes: Array<number>): Array<number>
 
 /**
  * One entry of a GRIB sidecar index file (NOAA wgrib2 `.idx` or ECMWF
