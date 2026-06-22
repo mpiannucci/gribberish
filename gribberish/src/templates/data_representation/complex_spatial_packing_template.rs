@@ -7,10 +7,7 @@ use itertools::izip;
 use crate::{
     error::GribberishError,
     templates::template::{Template, TemplateType},
-    utils::{
-        iter::{spatial_differencing::SpatialDifferencingIterator, ScaleGribValueIterator},
-        read_f32_from_bytes, read_u16_from_bytes, read_u32_from_bytes,
-    },
+    utils::{read_f32_from_bytes, read_u16_from_bytes, read_u32_from_bytes},
 };
 
 use super::{
@@ -200,45 +197,98 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         let mut pos =
             group_lengths_start + (((ng * n_length_bits) as f32 / 8.0).ceil() as usize * 8);
-        let raw_values = izip!(group_references, group_widths, group_lengths).flat_map(
-            |(reference, width, length)| {
-                let n_bits = (width * length) as usize;
-                let group_values = (0..length).map(move |i| {
-                    let value = if width == 0 {
-                        0u32
-                    } else {
-                        bits[pos + (i * width) as usize
-                            ..pos + (i * width) as usize + width as usize]
-                            .load_be::<u32>()
-                    };
-                    let raw = as_signed!(value, 32, i32);
-                    raw + reference as i32
-                });
 
-                pos += n_bits;
-
-                group_values
-            },
-        );
-
-        let values = match self.spatial_differencing_order() {
-            SpatialDifferencingOrder::First => raw_values
-                .apply_first_order_spatial_differencing(d1, dmin)
-                .scale_value_by(
-                    self.binary_scale_factor(),
-                    self.decimal_scale_factor(),
-                    self.reference_value(),
-                )
-                .collect(),
-            SpatialDifferencingOrder::Second => raw_values
-                .apply_second_order_spatial_differencing(d1, d2, dmin)
-                .scale_value_by(
-                    self.binary_scale_factor(),
-                    self.decimal_scale_factor(),
-                    self.reference_value(),
-                )
-                .collect(),
+        // Missing-value handling (GRIB2 92.9.4): when missing-value management is
+        // active, the all-ones bit pattern marks a missing value. For a group with
+        // width 0 the *reference* carries the pattern (so the whole group is
+        // missing); otherwise each packed value is checked. Missing points are
+        // emitted as NaN and, crucially, are skipped by the spatial-differencing
+        // reconstruction -- the encoder only differenced the defined values, so the
+        // running state must not advance across a gap (otherwise the second-order
+        // sum diverges into garbage).
+        let mvm = self.missing_value_management();
+        let ref_all_ones = if n_reference_bits == 0 {
+            0
+        } else {
+            (1u32 << n_reference_bits) - 1
         };
+        let is_missing = |width: u32, raw: u32| -> bool {
+            match mvm {
+                MissingValueManagement::NoMissingValues => false,
+                MissingValueManagement::IncludesMissingPrimary => {
+                    width != 0 && raw == (1u32 << width) - 1
+                }
+                MissingValueManagement::IncludesMissingPrimarySecondary => {
+                    width != 0 && (raw == (1u32 << width) - 1 || raw == (1u32 << width) - 2)
+                }
+            }
+        };
+        let group_missing = |reference: u32| -> bool {
+            match mvm {
+                MissingValueManagement::NoMissingValues => false,
+                MissingValueManagement::IncludesMissingPrimary => reference == ref_all_ones,
+                MissingValueManagement::IncludesMissingPrimarySecondary => {
+                    reference == ref_all_ones || reference == ref_all_ones.wrapping_sub(1)
+                }
+            }
+        };
+
+        let second_order = self.spatial_differencing_order() == SpatialDifferencingOrder::Second;
+        let bscale = 2_f64.powi(self.binary_scale_factor() as i32);
+        let dscale = 10_f64.powi(-(self.decimal_scale_factor() as i32));
+        let reference_value = self.reference_value() as f64;
+        let scale = |x: i32| -> f64 { (x as f64 * bscale + reference_value) * dscale };
+
+        let mut values: Vec<f64> = Vec::new();
+        // Running reconstruction state over the *defined* value stream.
+        let mut prev = 0i32; // most recent reconstructed value
+        let mut prev2 = 0i32; // the one before that
+        let mut n_defined = 0usize;
+
+        for (reference, width, length) in izip!(group_references, group_widths, group_lengths) {
+            let n_bits = (width * length) as usize;
+            for i in 0..length {
+                let raw = if width == 0 {
+                    reference
+                } else {
+                    bits[pos + (i * width) as usize..pos + (i * width) as usize + width as usize]
+                        .load_be::<u32>()
+                };
+
+                let missing = if width == 0 {
+                    group_missing(reference)
+                } else {
+                    is_missing(width, raw)
+                };
+
+                if missing {
+                    values.push(f64::NAN);
+                    continue;
+                }
+
+                let stored = if width == 0 {
+                    reference as i32
+                } else {
+                    raw as i32 + reference as i32
+                };
+
+                let value = if n_defined == 0 {
+                    d1
+                } else if second_order && n_defined == 1 {
+                    d2
+                } else if second_order {
+                    stored + 2 * prev - prev2 + dmin
+                } else {
+                    stored + prev + dmin
+                };
+
+                prev2 = prev;
+                prev = value;
+                n_defined += 1;
+                values.push(scale(value));
+            }
+            pos += n_bits;
+        }
 
         Ok(values)
     }

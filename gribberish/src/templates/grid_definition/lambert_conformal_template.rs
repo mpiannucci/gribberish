@@ -75,6 +75,11 @@ impl LambertConformalTemplate {
         read_u32_from_bytes(&self.data, 26).unwrap_or(0)
     }
 
+    pub fn earth_radius(&self) -> f64 {
+        self.earth_radius_scaled_value() as f64
+            * 10f64.powi(-(self.earth_radius_scale_factor() as i32))
+    }
+
     pub fn earth_major_axis(&self) -> f64 {
         self.earth_major_axis_scaled_value() as f64
             * 10f64.powi(-(self.earth_major_axis_scale_factor() as i32))
@@ -86,9 +91,6 @@ impl LambertConformalTemplate {
     }
 
     pub fn earth_ellipsoid(&self) -> Result<Ellipsoid, GribberishError> {
-        let major = self.earth_major_axis();
-        let minor = self.earth_minor_axis();
-
         match self.earth_shape() {
             EarthShape::Spherical => Ok(Ellipsoid {
                 A: 6_367_470.0,
@@ -96,12 +98,15 @@ impl LambertConformalTemplate {
                 E: 0.0,
                 F: 0.0,
             }),
-            EarthShape::SpecifiedRadiusSpherical => Ok(Ellipsoid {
-                A: major,
-                B: minor,
-                E: 0.0,
-                F: 0.0,
-            }),
+            EarthShape::SpecifiedRadiusSpherical => {
+                let radius = self.earth_radius();
+                Ok(Ellipsoid {
+                    A: radius,
+                    B: radius,
+                    E: 0.0,
+                    F: 0.0,
+                })
+            }
             EarthShape::OblateIAU => Err(GribberishError::GridTemplateError(
                 "unimplemented: OblateIAU".into(),
             )),
@@ -131,12 +136,12 @@ impl LambertConformalTemplate {
     }
 
     pub fn earth_proj_string(&self) -> Result<String, GribberishError> {
-        let major = self.earth_major_axis();
-        let minor = self.earth_minor_axis();
-
         match self.earth_shape() {
             EarthShape::Spherical => Ok(" +a=6367470 +b=6367470".to_string()),
-            EarthShape::SpecifiedRadiusSpherical => Ok(format!(" +a={major} +b={minor}")),
+            EarthShape::SpecifiedRadiusSpherical => {
+                let radius = self.earth_radius();
+                Ok(format!(" +a={radius} +b={radius}"))
+            }
             EarthShape::OblateIAU => Ok(" +a=6,378,160.0 b=6356775 +rf=297".to_string()),
             EarthShape::OblateKM => Err(GribberishError::GridTemplateError(
                 "unimplemented: OblateKM".into(),
@@ -157,16 +162,14 @@ impl LambertConformalTemplate {
     }
 
     pub fn earth_proj_params(&self) -> Result<Vec<(String, f64)>, String> {
-        let major = self.earth_major_axis();
-        let minor = self.earth_minor_axis();
-
         match self.earth_shape() {
             EarthShape::Spherical => Ok(vec![
                 ("a".to_string(), 6_367_470.0),
                 ("b".to_string(), 6_367_470.0),
             ]),
             EarthShape::SpecifiedRadiusSpherical => {
-                Ok(vec![("a".to_string(), major), ("b".to_string(), minor)])
+                let radius = self.earth_radius();
+                Ok(vec![("a".to_string(), radius), ("b".to_string(), radius)])
             }
             EarthShape::OblateIAU => Err("unimplemented: OblateIAU".into()),
             EarthShape::OblateKM => Err("unimplemented: OblateKM".into()),

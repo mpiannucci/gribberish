@@ -103,6 +103,39 @@ fn read_spatial_differenced_complex() {
 }
 
 #[test]
+fn read_spatial_differenced_complex_with_missing() {
+    // GFS temperature on the potential-vorticity surface: complex packing with
+    // 2nd-order spatial differencing AND primary missing values (large regions
+    // of the grid are missing). Validated against cfgrib/eccodes. Regression
+    // test for the missing-value handling -- previously the all-ones group
+    // references were decoded as real data and the second-order reconstruction
+    // diverged into ~2^31 garbage across 99% of the grid.
+    let read_data =
+        read_grib_messages("../test-data/gfs.t12z.pgrb2.0p25.f023-PV-TMP-missing.grib2");
+    let message = read_messages(read_data.as_slice())
+        .next()
+        .expect("a message");
+    let data = message.data().expect("decode");
+
+    assert_eq!(data.len(), 1038240);
+    let defined: Vec<f64> = data.iter().copied().filter(|v| v.is_finite()).collect();
+    let missing = data.len() - defined.len();
+    assert_eq!(defined.len(), 629160, "defined value count");
+    assert_eq!(missing, 409080, "missing (NaN) value count");
+
+    let min = defined.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max = defined.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    assert!((min - 184.98).abs() < 0.01, "min was {min}");
+    assert!((max - 289.58).abs() < 0.01, "max was {max}");
+    // first row is fully defined and constant in this message
+    assert!(
+        (data[0] - 248.6795898).abs() < 1e-4,
+        "data[0] was {}",
+        data[0]
+    );
+}
+
+#[test]
 fn read_simple_zerod() {
     let read_data = read_grib_messages("../test-data/hrrr.t06z.wrfsfcf01-CFRZR.grib2");
     let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
@@ -401,9 +434,12 @@ fn read_grib1_era5_levels_members() {
         "Message 0 grid dimensions"
     );
 
-    // Validate key format
+    // Validate key format (message 0 is ensemble member 0)
     let key = msg_0.key().unwrap();
-    assert_eq!(key, "z:201701010000:500 in mb:forecast", "Message 0 key");
+    assert_eq!(
+        key, "z:201701010000:500 in mb:ens0:forecast",
+        "Message 0 key"
+    );
 
     // Validate data at multiple points
     let data_0 = msg_0.data().unwrap();
@@ -469,7 +505,8 @@ fn test_iterator_scans_past_padding() {
         "Expected 160 messages in ERA5 GRIB1 file (iterator should scan past padding)"
     );
 
-    // Verify we have 16 unique variable/time/level combinations
+    // Every message has a unique key: the ensemble member number is part of
+    // the key, so the 10 members no longer collide.
     let mut unique_keys = std::collections::HashSet::new();
     for message in &messages {
         let key = message.key().unwrap();
@@ -478,8 +515,8 @@ fn test_iterator_scans_past_padding() {
 
     assert_eq!(
         unique_keys.len(),
-        16,
-        "Expected 16 unique keys (2 vars x 4 times x 2 levels)"
+        160,
+        "Expected 160 unique keys (2 vars x 4 times x 2 levels x 10 members)"
     );
 }
 
@@ -586,6 +623,151 @@ fn test_longitude_normalization_era5_grib1() {
             "Longitude[{}] = {} is out of valid range [0, 360)",
             i,
             lng
+        );
+    }
+}
+
+#[test]
+fn read_nbm_lambert_specified_radius_projection() {
+    // Regression test: NBM uses a Lambert Conformal grid whose earth shape is
+    // "spherical with a producer-specified radius" (shape code 1). That radius
+    // lives in the "radius of spherical earth" fields, not the major/minor axis
+    // fields (which are set to missing). Reading the missing axis fields gave a
+    // radius of ~2.5e-253 m, producing garbage lat/lon (and an inverse-project
+    // panic for some grids). The first CONUS grid point must land near
+    // 19.229°N, 233.72°E (-126.28°).
+    let grib_data = read_grib_messages("../test-data/nbm-pwat-prob-above.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    assert!(!messages.is_empty(), "Expected at least one message");
+
+    let msg = &messages[0];
+
+    // The producer-specified spherical radius must be read from the radius
+    // fields (6,371,200 m), not the missing major/minor axis fields.
+    let params = msg.grid_template().unwrap().proj_params();
+    assert!(
+        (params["a"] - 6_371_200.0).abs() < 1.0,
+        "a = {}",
+        params["a"]
+    );
+    assert!(
+        (params["b"] - 6_371_200.0).abs() < 1.0,
+        "b = {}",
+        params["b"]
+    );
+
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+    let (lats, lngs) = projector.lat_lng();
+    assert_eq!(lats.len(), 1597 * 2345);
+    assert_eq!(lngs.len(), 1597 * 2345);
+
+    // First grid point: ~19.229°N, ~-126.28°.
+    assert!((lats[0] - 19.229).abs() < 0.01, "first lat = {}", lats[0]);
+    assert!(
+        (lngs[0] - (-126.28)).abs() < 0.01,
+        "first lng = {}",
+        lngs[0]
+    );
+
+    // Every point must fall inside the physical NBM CONUS footprint — not the
+    // degenerate values the bad radius produced (e.g. 90°N / -307°).
+    for lat in &lats {
+        assert!(
+            (15.0..=60.0).contains(lat),
+            "latitude {} outside CONUS range",
+            lat
+        );
+    }
+    for lng in &lngs {
+        assert!(
+            (-140.0..=-50.0).contains(lng),
+            "longitude {} outside CONUS range",
+            lng
+        );
+    }
+}
+
+#[test]
+fn test_longitude_adjustment_geavg() {
+    // GEFS 0.5° global grid (0..359.5): opt-in wrap to -180..180.
+    let grib_data = read_grib_messages("../test-data/geavg.t12z.pgrb2a.0p50.f000");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    let msg = &messages[0];
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+
+    let (lats, lngs) = projector.lat_lng_adjusted(true);
+
+    // Latitudes untouched; longitudes wrapped, monotonic, in [-180, 180).
+    assert_eq!(lats, projector.lat_lng().0);
+    assert_eq!(lngs.len(), 720);
+    assert!(
+        (lngs[0] - (-180.0)).abs() < 0.001,
+        "first lng should be -180"
+    );
+    assert!(
+        (lngs[360] - 0.0).abs() < 0.001,
+        "lng at index 360 should be 0"
+    );
+    assert!(
+        (lngs[719] - 179.5).abs() < 0.001,
+        "last lng should be 179.5"
+    );
+    for i in 1..lngs.len() {
+        assert!(lngs[i] > lngs[i - 1], "longitudes must be monotonic");
+        assert!((-180.0..180.0).contains(&lngs[i]), "lng out of range");
+    }
+
+    // Data is rolled by the same amount (360) so it stays aligned with coords.
+    let native = msg.data().expect("Failed to decode data");
+    let adjusted = projector.adjust_data_longitude(native.clone(), true);
+    assert_eq!(adjusted.len(), native.len());
+    let nx = 720usize;
+    for (i, value) in adjusted.iter().enumerate() {
+        let (row, col) = (i / nx, i % nx);
+        let expected = native[row * nx + (col + 360) % nx];
+        assert_eq!(*value, expected, "data not rolled correctly at {i}");
+    }
+
+    // Disabled / no-op path returns the originals unchanged.
+    assert_eq!(projector.lat_lng_adjusted(false), projector.lat_lng());
+    assert_eq!(
+        projector.adjust_data_longitude(native.clone(), false),
+        native
+    );
+}
+
+#[test]
+fn test_longitude_adjustment_era5_grib1() {
+    // ERA5 GRIB1 3° global grid (0..357): wrap to -180..180, roll 60.
+    let grib_data = read_grib_messages("../test-data/era5-levels-members.grib");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    let msg = &messages[0];
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+
+    let (_, lngs) = projector.lat_lng_adjusted(true);
+    assert_eq!(lngs.len(), 120);
+    assert!(
+        (lngs[0] - (-180.0)).abs() < 0.001,
+        "first lng should be -180"
+    );
+    assert!(
+        (lngs[60] - 0.0).abs() < 0.001,
+        "lng at index 60 should be 0"
+    );
+    assert!((lngs[119] - 177.0).abs() < 0.001, "last lng should be 177");
+    for i in 1..lngs.len() {
+        assert!(lngs[i] > lngs[i - 1], "longitudes must be monotonic");
+    }
+
+    let native = msg.data().expect("Failed to decode data");
+    let adjusted = projector.adjust_data_longitude(native.clone(), true);
+    let nx = 120usize;
+    for (i, value) in adjusted.iter().enumerate() {
+        let (row, col) = (i / nx, i % nx);
+        assert_eq!(
+            *value,
+            native[row * nx + (col + 60) % nx],
+            "roll mismatch at {i}"
         );
     }
 }

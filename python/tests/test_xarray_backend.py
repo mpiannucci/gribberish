@@ -7,52 +7,49 @@ from gribberish.gribberish_backend import GribberishBackend
 
 
 def test_xarray_backend_gefs_ensemble():
-    """Test reading GEFS ensemble average file using xarray backend"""
-    # Open the GEFS ensemble average file using the gribberish backend
+    """GEFS ensemble-mean file splits into standalone groups by level type."""
+    path = "./../test-data/geavg.t12z.pgrb2a.0p50.f000"
+
+    # Opening without a group raises, listing the available groups to choose.
+    with pytest.raises(ValueError, match="multiple groups"):
+        xr.open_dataset(path, engine="gribberish")
+
+    # The whole file is available as a DataTree of standalone group datasets.
+    dt = xr.open_datatree(path, engine="gribberish")
+    assert {"hag", "isobar", "sfc", "msl"}.issubset(set(dt.children))
+
+    # Open one group directly; variables keep their plain short names.
+    iso = xr.open_dataset(path, engine="gribberish", group="isobar")
+    assert {"tmp", "ugrd", "vgrd", "rh", "hgt"}.issubset(set(iso.data_vars))
+    assert "time" in iso.coords
+    assert "latitude" in iso.coords
+    assert "longitude" in iso.coords
+    # tmp at isobaric levels: (time, isobar_*, lat, lon)
+    assert iso.tmp.values.shape == (1, 10, 361, 720)
+
+    # Single-level fields live in their level-type group with no vertical dim.
+    hag = xr.open_dataset(path, engine="gribberish", group="hag")
+    assert hag.tmp.values.shape == (1, 361, 720)
+    cape = xr.open_dataset(path, engine="gribberish", group="pres_diff")
+    assert cape.cape.values.shape == (1, 361, 720)
+
+
+def test_xarray_filters_collapse_single_remaining_group():
+    """Variable/attribute filters can resolve conflicting hypercubes."""
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "geavg.t12z.pgrb2a.0p50.f000"
+
+    ds = xr.open_dataset(str(fixture), engine="gribberish", only_variables=["prmsl"])
+    assert set(ds.data_vars) == {"prmsl"}
+    assert tuple(ds.prmsl.shape) == (1, 361, 720)
+
     ds = xr.open_dataset(
-        "./../test-data/geavg.t12z.pgrb2a.0p50.f000", engine="gribberish"
+        str(fixture),
+        engine="gribberish",
+        filter_by_attrs={"fixed_surface_type": "mean sea level"},
     )
-
-    # Verify dataset was loaded
-    assert ds is not None
-
-    # Ensure expected data variables are present (variable names no longer have redundant prefix)
-    expected_data_vars = {
-        "cape",
-        "cin",
-        "hgt_isobar_ensmean",
-        "hgt_sfc_ensmean",
-        "icetk",
-        "pres",
-        "prmsl",
-        "pwat",
-        "rh_hag_ensmean",
-        "rh_isobar_ensmean",
-        "snod",
-        "soilw",
-        "tmp_hag_ensmean",
-        "tmp_isobar_ensmean",
-        "tsoil",
-        "ugrd_hag_ensmean",
-        "ugrd_isobar_ensmean",
-        "vgrd_hag_ensmean",
-        "vgrd_isobar_ensmean",
-        "vvel",
-        "weasd",
-    }
-    assert set(ds.data_vars.keys()) == expected_data_vars
-
-    # Verify coordinates are present
-    assert "time" in ds.coords
-    assert "latitude" in ds.coords
-    assert "longitude" in ds.coords
-
-    # Check dimensions of 2D variables
-    assert ds.cape.values.shape == (1, 361, 720)
-    assert ds.soilw.values.shape == (1, 361, 720)
-
-    # Check dimension of 3D variables
-    assert ds.tmp_isobar_ensmean.values.shape == (1, 10, 361, 720)
+    assert set(ds.data_vars) == {"prmsl"}
+    assert tuple(ds.prmsl.shape) == (1, 361, 720)
 
 
 def test_xarray_backend_era5_grib1():
@@ -93,12 +90,56 @@ def test_xarray_backend_era5_grib1():
     assert not np.all(np.isnan(data)), "Data should not be all NaNs"
 
 
+def test_xarray_backend_era5_grib1_ensemble():
+    """ERA5 GRIB1 EDA file exposes its 10 ensemble members as a 'number' dim."""
+    import numpy as np
+
+    ds = xr.open_dataset(
+        "./../test-data/era5-levels-members.grib", engine="gribberish"
+    )
+
+    # 10 ensemble members decoded from the ECMWF GRIB1 PDS local extension
+    assert "number" in ds.coords
+    assert ds.sizes["number"] == 10
+    np.testing.assert_array_equal(ds.number.values, np.arange(10))
+    # No conflict -> members are a dimension, not a group
+    assert "number" in ds.t.dims
+
+
 def test_xarray_backend_can_open_grib1_extensions():
     backend = GribberishBackend()
     assert backend.guess_can_open("example.grib1")
     assert backend.guess_can_open("example.GRIB1")
     assert backend.guess_can_open("example.grib")
     assert backend.guess_can_open("example.grib2")
+
+
+def test_xarray_open_datatree_can_guess_gribberish_engine():
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "hrrr.t06z.wrfsfcf01-TMP.grib2"
+
+    dt = xr.open_datatree(str(fixture))
+    assert set(dt.to_dataset().data_vars) == {"tmp"}
+
+
+def test_xarray_backend_complex_packing_missing_values():
+    """Complex packing with 2nd-order spatial differencing AND primary missing
+    values (GFS temperature on the potential-vorticity surface). Regression test:
+    the all-ones missing groups used to be decoded as real data, blowing the
+    second-order reconstruction up to ~2e8 across 99% of the grid. Values and
+    NaN mask validated against cfgrib/eccodes."""
+    import numpy as np
+
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "gfs.t12z.pgrb2.0p25.f023-PV-TMP-missing.grib2"
+    ds = xr.open_dataset(str(fixture), engine="gribberish")
+
+    arr = np.asarray(ds["tmp"].values)
+    finite = np.isfinite(arr)
+    assert int(finite.sum()) == 629160
+    assert int((~finite).sum()) == 409080
+    assert 184.0 < float(np.nanmin(arr)) < 186.0
+    assert 289.0 < float(np.nanmax(arr)) < 290.0
 
 
 def test_xarray_backend_ecmwf_soil_tiny_fixture():
@@ -121,38 +162,22 @@ def test_xarray_backend_ecmwf_soil_tiny_fixture():
 
 
 def test_multiple_variables_at_same_level():
-    """Test that multiple variables at the same vertical level are correctly
-    split into separate xarray variables with different data.
-
-    Previously this was tested as part of test_xarray_backend_ecmwf_soil_tiny_fixture
-    but was actually opening the GEFS file.
-    """
+    """Multiple variables at the same level type share a group, each a distinct
+    variable with its own data."""
     import numpy as np
 
     ds = xr.open_dataset(
-        "./../test-data/geavg.t12z.pgrb2a.0p50.f000", engine="gribberish"
+        "./../test-data/geavg.t12z.pgrb2a.0p50.f000", engine="gribberish", group="hag"
     )
 
-    # Multiple variables should exist at the 'hag' (height above ground) level
-    hag_vars = ["tmp_hag_ensmean", "ugrd_hag_ensmean", "vgrd_hag_ensmean", "rh_hag_ensmean"]
-    for var in hag_vars:
-        assert var in ds.data_vars, f"Expected variable {var} to exist"
-
-    # Multiple variables should exist at the 'isobar' level
-    isobar_vars = [
-        "tmp_isobar_ensmean",
-        "ugrd_isobar_ensmean",
-        "vgrd_isobar_ensmean",
-        "rh_isobar_ensmean",
-        "hgt_isobar_ensmean",
-    ]
-    for var in isobar_vars:
+    # Multiple variables exist in the 'hag' (height above ground) group
+    for var in ["tmp", "ugrd", "vgrd", "rh"]:
         assert var in ds.data_vars, f"Expected variable {var} to exist"
 
     # Verify these are genuinely different variables with different data
-    tmp_data = ds.tmp_hag_ensmean.values
-    ugrd_data = ds.ugrd_hag_ensmean.values
-    vgrd_data = ds.vgrd_hag_ensmean.values
+    tmp_data = ds.tmp.values
+    ugrd_data = ds.ugrd.values
+    vgrd_data = ds.vgrd.values
 
     assert not np.allclose(tmp_data, ugrd_data, equal_nan=True), (
         "TMP and UGRD should have different data"
@@ -166,39 +191,32 @@ def test_multiple_variables_at_same_level():
 
     # Each variable should have proper attributes identifying its parameter
     assert (
-        "tmp" in ds.tmp_hag_ensmean.attrs.get("standard_name", "").lower()
-        or "temperature" in ds.tmp_hag_ensmean.attrs.get("standard_name", "").lower()
+        "tmp" in ds.tmp.attrs.get("standard_name", "").lower()
+        or "temperature" in ds.tmp.attrs.get("standard_name", "").lower()
     )
     assert (
-        "wind" in ds.ugrd_hag_ensmean.attrs.get("standard_name", "").lower()
-        or "u-component" in ds.ugrd_hag_ensmean.attrs.get("standard_name", "").lower()
+        "wind" in ds.ugrd.attrs.get("standard_name", "").lower()
+        or "u-component" in ds.ugrd.attrs.get("standard_name", "").lower()
     )
 
 
 def test_variable_naming_without_redundant_prefix():
-    """Test that variable names don't have redundant variable prefixes.
-
-    Previously, variables were named like 'tmp_TMPisobar_ens' (variable name
-    appeared twice). Now they should be named like 'tmp_isobar_ens'.
-    """
-    ds = xr.open_dataset(
+    """Variables keep plain short names now that hypercube differences are
+    expressed as groups rather than name suffixes."""
+    dt = xr.open_datatree(
         "./../test-data/geavg.t12z.pgrb2a.0p50.f000", engine="gribberish"
     )
 
-    # Check that no variable names have doubled prefixes like 'TMP' in 'tmp_TMPisobar'
-    for var_name in ds.data_vars.keys():
-        # Variable names should be lowercase
-        assert var_name == var_name.lower(), (
-            f"Variable name '{var_name}' should be lowercase"
-        )
-
-        # Variable names shouldn't have patterns like 'tmp_TMP' or 'ugrd_UGRD'
-        parts = var_name.split("_")
-        if len(parts) >= 2:
-            # Check the second part isn't just an uppercase version of the first
-            assert parts[1].lower() != parts[0], (
-                f"Variable name '{var_name}' has redundant prefix"
+    for node in dt.subtree:
+        for var_name in node.data_vars:
+            assert var_name == var_name.lower(), (
+                f"Variable name '{var_name}' should be lowercase"
             )
+            # No level-type / product suffix is baked into the name anymore.
+            for suffix in ("_ensmean", "_isobar", "_hag", "_sfc", "_fcst"):
+                assert suffix not in var_name, (
+                    f"Variable name '{var_name}' should not carry suffix '{suffix}'"
+                )
 
 
 def test_longitude_normalization_grib2():
@@ -210,7 +228,7 @@ def test_longitude_normalization_grib2():
     import numpy as np
 
     ds = xr.open_dataset(
-        "./../test-data/geavg.t12z.pgrb2a.0p50.f000", engine="gribberish"
+        "./../test-data/geavg.t12z.pgrb2a.0p50.f000", engine="gribberish", group="hag"
     )
 
     # Get longitude coordinate
@@ -264,7 +282,7 @@ def test_latitude_values():
     import numpy as np
 
     ds = xr.open_dataset(
-        "./../test-data/geavg.t12z.pgrb2a.0p50.f000", engine="gribberish"
+        "./../test-data/geavg.t12z.pgrb2a.0p50.f000", engine="gribberish", group="hag"
     )
 
     # Get latitude coordinate
@@ -301,63 +319,92 @@ def test_xarray_backend_aifs_ensemble():
 
 
 def test_xarray_backend_s2s_percentile_probability():
-    """Test that S2S GRIB2 files with PDT 9/10/12 produce correct dimensions.
+    """S2S GRIB2 files with PDT 9/10/12 split into groups by product kind.
 
-    PDT 10 (percentile) messages should be joined along a 'percentile' dimension.
-    PDT 9 (probability) messages should be split by probability type into separate
-    variables, each with a probability_type attribute.
-    PDT 12 (derived ensemble) messages should be handled normally.
+    PDT 10 (percentile) -> its own group with a 'percentile' dimension.
+    PDT 9 (probability) -> a group per probability type / limit pair.
+    PDT 12 (derived ensemble) -> mean groups.
     """
     import numpy as np
 
-    ds = xr.open_dataset(
-        "./../test-data/s2s-pdt9-pdt10-pdt12.grib2", engine="gribberish"
+    path = "./../test-data/s2s-pdt9-pdt10-pdt12.grib2"
+
+    # Conflicting product kinds -> opening without a group lists them.
+    with pytest.raises(ValueError, match="multiple groups"):
+        xr.open_dataset(path, engine="gribberish")
+
+    dt = xr.open_datatree(path, engine="gribberish")
+    groups = set(dt.children)
+
+    # The percentile product is its own group, with a percentile dimension.
+    assert "min24h_pctl" in groups, f"groups: {sorted(groups)}"
+    pctl = xr.open_dataset(path, engine="gribberish", group="min24h_pctl")
+    assert "percentile" in pctl.coords
+    np.testing.assert_array_equal(sorted(pctl.percentile.values), [1, 50, 99])
+    assert "percentile" in pctl.tmp.dims
+
+    # Between-limit probabilities split into a group per (lower, upper) pair.
+    between = [g for g in groups if "prob_between_inc" in g]
+    assert len(between) == 3, f"expected 3 between_inc groups, got {sorted(between)}"
+
+    # A single-limit probability has no degenerate `threshold` dimension; its
+    # limit is preserved in the `probability_limit` attribute, mirroring how a
+    # single vertical level collapses to `fixed_surface_value`.
+    abnorm = next(g for g in groups if "prob_abnorm" in g)
+    prob = xr.open_dataset(path, engine="gribberish", group=abnorm)
+    assert "threshold" not in prob.tmp.dims
+    assert prob.tmp.attrs["probability_limit"] == "0"
+
+    # Probability groups never carry a percentile dimension.
+    for gname in (g for g in groups if "prob" in g):
+        prob = xr.open_dataset(path, engine="gribberish", group=gname)
+        assert "percentile" not in prob.tmp.dims
+
+
+def test_xarray_backend_prob_above_upper_limit_threshold():
+    """"Above upper limit" probabilities stack along a `threshold` dimension.
+
+    Regression test for #157: NBM `PWAT` "prob > N mm" products encode their
+    varying value in the *upper* limit field. Selecting the lower limit (or
+    lower-or-upper) collapsed all six exceedance thresholds onto one another, so
+    the variable lost its `threshold` dimension (and the VirtualiZarr manifest
+    builder then failed with "expected 1 messages ... but got 6"). The fixture
+    carries the six `> 6.35 ... > 63.5 mm` messages from a real NBM file.
+    """
+    import numpy as np
+
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture = repo_root / "test-data" / "nbm-pwat-prob-above.grib2"
+    ds = xr.open_dataset(str(fixture), engine="gribberish")
+
+    assert "threshold" in ds.coords
+    assert "threshold" in ds.pwat.dims
+    np.testing.assert_allclose(
+        ds.threshold.values, [6.35, 12.7, 25.4, 38.1, 50.8, 63.5]
     )
+    # All six messages survive as distinct slices rather than collapsing.
+    assert ds.sizes["threshold"] == 6
 
-    assert ds is not None
 
-    # Check that percentile coordinate exists
-    assert "percentile" in ds.coords, (
-        f"Expected 'percentile' coordinate, got coords: {list(ds.coords.keys())}"
-    )
+def test_cf_grid_mapping_metadata():
+    """The backend emits a scalar `spatial_ref` grid-mapping coordinate and
+    links each variable to it, so geospatial tooling can recover the CRS."""
+    pyproj = pytest.importorskip("pyproj")
 
-    # Percentile values should be [1, 50, 99]
-    percentile_values = ds.percentile.values
-    np.testing.assert_array_equal(
-        sorted(percentile_values), [1, 50, 99],
-        err_msg=f"Expected percentile values [1, 50, 99], got {percentile_values}"
-    )
+    cases = {
+        "./../test-data/hrrr.t06z.wrfsfcf01-TMP.grib2": "lambert_conformal_conic",
+        "./../test-data/gfs.t18z.pgrb2.0p25.f186-RH.grib2": "latitude_longitude",
+    }
+    for path, grid_mapping_name in cases.items():
+        ds = xr.open_dataset(path, engine="gribberish")
 
-    # Find a variable that has the percentile dimension
-    percentile_vars = [
-        name for name in ds.data_vars
-        if "percentile" in ds[name].dims
-    ]
-    assert len(percentile_vars) > 0, (
-        f"Expected at least one variable with 'percentile' dim, vars: {list(ds.data_vars.keys())}"
-    )
+        assert "spatial_ref" in ds.coords
+        assert ds["spatial_ref"].shape == ()
+        assert ds["spatial_ref"].attrs["grid_mapping_name"] == grid_mapping_name
 
-    # Probability variables should have probability_type attribute
-    prob_vars = [
-        name for name in ds.data_vars
-        if ds[name].attrs.get("probability_type", "") != ""
-    ]
-    assert len(prob_vars) > 0, (
-        f"Expected at least one variable with probability_type attr, vars: {list(ds.data_vars.keys())}"
-    )
+        for name in ds.data_vars:
+            assert ds[name].attrs["grid_mapping"] == "spatial_ref"
 
-    # Each probability variable should NOT have 'percentile' in its dims
-    for var_name in prob_vars:
-        assert "percentile" not in ds[var_name].dims, (
-            f"Probability variable {var_name} should not have percentile dimension"
-        )
-
-    # Between-type probability messages with different (lower, upper) pairs
-    # should be split into separate variables (not grouped on a threshold dim)
-    between_vars = [
-        name for name in ds.data_vars
-        if "prob_between_inc" in name
-    ]
-    assert len(between_vars) == 3, (
-        f"Expected 3 between_inc variables (one per limit pair), got {between_vars}"
-    )
+        attrs = ds["spatial_ref"].attrs
+        cf = {k: v for k, v in attrs.items() if k != "proj4"}
+        assert pyproj.CRS.from_cf(cf) == pyproj.CRS.from_proj4(attrs["proj4"])

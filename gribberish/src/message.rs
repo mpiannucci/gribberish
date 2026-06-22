@@ -550,7 +550,7 @@ impl<'a> Message<'a> {
 
     pub fn perturbation_number(&self) -> Result<Option<u8>, GribberishError> {
         match self {
-            Message::Grib1 { .. } => Ok(None),
+            Message::Grib1 { message, .. } => Ok(message.ensemble_number()),
             Message::Grib2 { .. } => {
                 let product_template = self.product_template()?;
                 Ok(product_template.perturbation_number())
@@ -560,7 +560,7 @@ impl<'a> Message<'a> {
 
     pub fn number_of_ensemble_members(&self) -> Result<Option<u8>, GribberishError> {
         match self {
-            Message::Grib1 { .. } => Ok(None),
+            Message::Grib1 { message, .. } => Ok(message.number_of_ensemble_members()),
             Message::Grib2 { .. } => {
                 let product_template = self.product_template()?;
                 Ok(product_template.number_of_ensemble_members())

@@ -1,13 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use gribberish::{
-    message::Message,
-    message_metadata::scan_message_metadata,
+    message::read_message,
+    message_metadata::{scan_message_metadata, MessageMetadata},
     templates::product::tables::{FixedSurfaceType, ProbabilityType},
 };
 use numpy::{
     datetime::{units::Seconds, Datetime},
-    ndarray::{Dim, IxDynImpl},
     PyArray, PyArray1, PyArrayMethods,
 };
 use pyo3::{
@@ -16,23 +15,165 @@ use pyo3::{
     types::{PyDict, PyList},
 };
 
-#[pyfunction]
-pub fn build_grib_array<'py>(
-    py: Python<'py>,
-    data: &[u8],
-    shape: Vec<usize>,
-    offsets: Vec<usize>,
-) -> pyo3::Bound<'py, PyArray<f64, Dim<IxDynImpl>>> {
-    let v = offsets
-        .iter()
-        .flat_map(|offset| {
-            let message = Message::from_data(data, *offset).unwrap();
-            message.data().unwrap()
-        })
-        .collect::<Vec<_>>();
+/// Compute the "kind" discriminator for a message: the statistical process,
+/// ensemble product, probability descriptor and anomaly flag combined into a
+/// single readable token. Plain instantaneous forecasts collapse to "instant".
+/// This is what (potentially) separates two hypercubes of the same variable at
+/// the same level type into different groups.
+fn message_kind(meta: &MessageMetadata) -> String {
+    let mut tokens: Vec<String> = Vec::new();
 
-    let v = PyArray::from_vec(py, v);
-    v.reshape(shape).unwrap()
+    if let Some(stat) = meta.statistical_process.as_ref() {
+        let mut token = stat.abbv();
+        // Distinguish accumulation/averaging windows (e.g. 1h vs 6h precip).
+        if let Some(end_date) = meta.forecast_end_date {
+            let hours = end_date
+                .signed_duration_since(meta.forecast_date)
+                .num_hours();
+            if hours > 0 {
+                token = format!("{token}{hours}h");
+            }
+        }
+        tokens.push(token);
+    }
+
+    if let Some(derived) = meta.derived_forecast_type.as_ref() {
+        tokens.push(derived.abbv());
+    }
+
+    if let Some(prob) = meta.probability_type.as_ref() {
+        let mut token = prob.abbv();
+        if matches!(
+            prob,
+            ProbabilityType::BetweenLimits | ProbabilityType::BetweenLimitsInclusive
+        ) {
+            if let (Some(lower), Some(upper)) =
+                (meta.probability_lower_limit, meta.probability_upper_limit)
+            {
+                token = format!("{token}_{lower:.0}_{upper:.0}");
+            }
+        }
+        tokens.push(token);
+    } else if meta.percentile_value.is_some() {
+        // Percentile products share the "pctl" kind so they never collapse into
+        // the same array as raw members; the value itself stays a dimension.
+        tokens.push("pctl".to_string());
+    }
+
+    if meta.is_anomaly {
+        tokens.push("anom".to_string());
+    }
+
+    if tokens.is_empty() {
+        "instant".to_string()
+    } else {
+        tokens.join("_")
+    }
+}
+
+/// The threshold value that distinguishes probability messages of the same
+/// field, selected according to the probability type.
+///
+/// "Above upper limit" / "below upper limit" products carry their varying
+/// value in the *upper* limit field, while "below lower limit" /
+/// "above lower limit" / "equal to lower limit" products use the *lower* limit
+/// field. Choosing blindly (e.g. lower-or-upper) breaks "above upper limit"
+/// products like NBM `pwat`, whose lower-limit field is unset (or zero) so all
+/// messages collapse to one threshold instead of stacking along it.
+///
+/// Between-limit products vary along no single threshold (they are split into
+/// separate variables via the message hash), so they return `None`.
+fn probability_threshold(meta: &MessageMetadata) -> Option<f64> {
+    match &meta.probability_type {
+        None
+        | Some(ProbabilityType::BetweenLimits)
+        | Some(ProbabilityType::BetweenLimitsInclusive) => None,
+        Some(ProbabilityType::AboveUpperLimit) | Some(ProbabilityType::BelowUpperLimit) => meta
+            .probability_upper_limit
+            .or(meta.probability_lower_limit),
+        Some(_) => meta
+            .probability_lower_limit
+            .or(meta.probability_upper_limit),
+    }
+}
+
+fn process_kind(meta: &MessageMetadata) -> String {
+    let member_kind = if meta.perturbation_number.is_some() {
+        "ens"
+    } else {
+        "det"
+    };
+    format!("{}_{member_kind}", meta.generating_process.abbv())
+}
+
+fn node_has_data_vars(node: &Bound<'_, PyDict>) -> PyResult<bool> {
+    let Some(data_vars) = node.get_item("data_vars")? else {
+        return Ok(false);
+    };
+    Ok(data_vars.cast::<PyDict>()?.len() > 0)
+}
+
+/// Build the CF grid-mapping attributes for a projection, suitable for a
+/// `spatial_ref`-style scalar coordinate. Returns `None` for projections we
+/// don't have a CF name for, in which case no grid_mapping is emitted.
+///
+/// These attributes let geospatial tooling (rioxarray, cartopy, MetPy,
+/// cf_xarray) reconstruct the CRS via `pyproj.CRS.from_cf`, instead of callers
+/// hand-parsing the proj4 `crs` string. The existing per-variable `crs`/
+/// `proj_params` attrs are left untouched.
+fn cf_grid_mapping<'py>(
+    py: Python<'py>,
+    proj_name: &str,
+    params: &HashMap<String, f64>,
+) -> Option<Bound<'py, PyDict>> {
+    let attrs = PyDict::new(py);
+
+    // Earth shape: spherical -> earth_radius, otherwise the semi-axes.
+    let set_earth = |attrs: &Bound<'py, PyDict>| match (params.get("a"), params.get("b")) {
+        (Some(&a), Some(&b)) if (a - b).abs() < 1e-3 => {
+            attrs.set_item("earth_radius", a).unwrap();
+        }
+        (Some(&a), Some(&b)) => {
+            attrs.set_item("semi_major_axis", a).unwrap();
+            attrs.set_item("semi_minor_axis", b).unwrap();
+        }
+        _ => {}
+    };
+
+    match proj_name {
+        "latlon" => {
+            attrs
+                .set_item("grid_mapping_name", "latitude_longitude")
+                .unwrap();
+            set_earth(&attrs);
+        }
+        "lcc" => {
+            attrs
+                .set_item("grid_mapping_name", "lambert_conformal_conic")
+                .unwrap();
+            if let (Some(&lat_1), Some(&lat_2)) = (params.get("lat_1"), params.get("lat_2")) {
+                attrs
+                    .set_item("standard_parallel", vec![lat_1, lat_2])
+                    .unwrap();
+            }
+            if let Some(&lon_0) = params.get("lon_0") {
+                attrs
+                    .set_item("longitude_of_central_meridian", lon_0)
+                    .unwrap();
+            }
+            if let Some(&lat_0) = params.get("lat_0") {
+                attrs
+                    .set_item("latitude_of_projection_origin", lat_0)
+                    .unwrap();
+            }
+            attrs.set_item("false_easting", 0.0).unwrap();
+            attrs.set_item("false_northing", 0.0).unwrap();
+            set_earth(&attrs);
+        }
+        _ => return None,
+    }
+
+    Some(attrs)
 }
 
 #[pyfunction]
@@ -44,8 +185,75 @@ pub fn parse_grib_dataset<'py>(
     drop_variables: Option<&Bound<PyList>>,
     only_variables: Option<&Bound<PyList>>,
     perserve_dims: Option<&Bound<PyList>>,
-    filter_by_attrs: Option<&Bound<PyDict>>,
-    filter_by_variable_attrs: Option<&Bound<PyDict>>,
+    filter_by_attrs: Option<&Bound<'py, PyDict>>,
+    filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
+    encode_coords: Option<bool>,
+) -> PyResult<Bound<'py, PyDict>> {
+    build_grib_dataset(
+        py,
+        scan_message_metadata(data),
+        drop_variables,
+        only_variables,
+        perserve_dims,
+        filter_by_attrs,
+        filter_by_variable_attrs,
+        encode_coords,
+    )
+}
+
+/// Build a dataset tree from individually fetched messages — typically driven
+/// by a sidecar index, where only each message's leading header bytes were
+/// fetched. `messages` items are (offset of the message in the real file, full
+/// message size, the message's bytes — at least sections 0-5; the data section
+/// is never needed). Offsets in the resulting tree point into the real file.
+#[pyfunction]
+#[pyo3(signature = (messages, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
+#[allow(clippy::too_many_arguments)]
+pub fn parse_grib_dataset_from_headers<'py>(
+    py: Python<'py>,
+    messages: Vec<(usize, usize, Vec<u8>)>,
+    drop_variables: Option<&Bound<PyList>>,
+    only_variables: Option<&Bound<PyList>>,
+    perserve_dims: Option<&Bound<PyList>>,
+    filter_by_attrs: Option<&Bound<'py, PyDict>>,
+    filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
+    encode_coords: Option<bool>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let mut mapping = HashMap::new();
+    for (index, (byte_offset, message_size, bytes)) in messages.iter().enumerate() {
+        let mut metadata = read_message(bytes, 0)
+            .and_then(|message| MessageMetadata::try_from(&message).ok())
+            .ok_or_else(|| {
+                PyValueError::new_err(format!(
+                    "failed to parse message header at file offset {byte_offset}; \
+                     fetch more of the message and retry"
+                ))
+            })?;
+        metadata.byte_offset = *byte_offset;
+        metadata.message_size = *message_size;
+        mapping.insert(metadata.key.clone(), (index, *byte_offset, metadata));
+    }
+    build_grib_dataset(
+        py,
+        mapping,
+        drop_variables,
+        only_variables,
+        perserve_dims,
+        filter_by_attrs,
+        filter_by_variable_attrs,
+        encode_coords,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_grib_dataset<'py>(
+    py: Python<'py>,
+    mapping: HashMap<String, (usize, usize, MessageMetadata)>,
+    drop_variables: Option<&Bound<PyList>>,
+    only_variables: Option<&Bound<PyList>>,
+    perserve_dims: Option<&Bound<PyList>>,
+    filter_by_attrs: Option<&Bound<'py, PyDict>>,
+    filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
     encode_coords: Option<bool>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let drop_variables = if let Some(drop_variables) = drop_variables {
@@ -88,138 +296,232 @@ pub fn parse_grib_dataset<'py>(
 
     let encode_coords = encode_coords.unwrap_or_default();
 
-    let mapping = scan_message_metadata(data)
+    let mapping = mapping
         .into_iter()
-        .filter_map(|(k, v)| {
-            if &v.2.name.to_lowercase() == "missing" {
-                None
-            } else {
-                Some((k.clone(), v))
-            }
-        })
+        .filter(|(_, v)| v.2.name.to_lowercase() != "missing")
         .collect::<HashMap<_, _>>();
 
     if mapping.keys().len() == 0 {
         return Err(PyValueError::new_err("No valid GRIB messages found"));
     }
 
-    let mut vars: HashMap<String, HashSet<String>> = HashMap::new();
-    let mut hash_mapping: HashMap<String, Vec<String>> = HashMap::new();
-
+    // Determine how to split the messages into groups, mirroring how cfgrib
+    // breaks a file into multiple datasets. Two discriminators can force a split:
+    //   * level type ("sfc", "isobar", ...) -> top-level group
+    //   * "kind" (statistical process / ensemble product / probability / anomaly)
+    //       -> nested group
+    // A discriminator only becomes a group axis when at least one variable
+    // actually spans more than one of its values; otherwise the corresponding
+    // coordinate stays a dimension and everything lands in a single root dataset.
+    let mut var_levels: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut kind_processes: HashMap<(String, String, String), HashSet<String>> = HashMap::new();
+    let mut msg_info: HashMap<String, (String, String, String, String)> = HashMap::new();
     for (k, v) in mapping.iter() {
-        let var = v.2.var.clone();
-        // For statistical processes like accumulation, include the accumulation period
-        // to differentiate between different accumulation lengths (e.g., 1-hour vs 6-hour precip)
-        let accum_period = if v.2.statistical_process.is_some() {
-            if let Some(end_date) = v.2.forecast_end_date {
-                let duration = end_date.signed_duration_since(v.2.forecast_date);
-                let hours = duration.num_hours();
-                if hours > 0 {
-                    format!("_{hours}h")
-                } else {
-                    "".to_string()
-                }
-            } else {
-                "".to_string()
-            }
-        } else {
-            "".to_string()
-        };
-        // The hash identifies a unique grouping based on surface type, statistical process,
-        // generating process, and derived forecast type. This is used for naming variables
-        // when they have multiple level types (e.g., tmp_sfc_fcst vs tmp_isobar_fcst) or
-        // derived forecast types (e.g., tmp_mean vs tmp_stddev).
-        let derived =
-            v.2.derived_forecast_type
-                .as_ref()
-                .map(|d| d.abbv())
-                .unwrap_or_default();
-        let prob_type =
-            v.2.probability_type
-                .as_ref()
-                .map(|p| p.abbv())
-                .unwrap_or_default();
-        // For probability types that use both limits (between, between_inclusive),
-        // include both limits in the hash so each unique (lower, upper) pair
-        // becomes a separate variable. This avoids collisions in the threshold
-        // dimension where different (lower, upper) pairs share the same lower_limit.
-        let prob_limits = match &v.2.probability_type {
-            Some(ProbabilityType::BetweenLimits)
-            | Some(ProbabilityType::BetweenLimitsInclusive) => {
-                if let (Some(lower), Some(upper)) =
-                    (v.2.probability_lower_limit, v.2.probability_upper_limit)
-                {
-                    format!("_{lower:.0}_{upper:.0}")
-                } else {
-                    "".to_string()
-                }
-            }
-            _ => "".to_string(),
-        };
-        let anom = if v.2.is_anomaly { "_anom" } else { "" };
-        let hash = format!(
-            "{surf}_{stat}{gen}{accum_period}{derived}{prob_type}{prob_limits}{anom}",
-            surf = v.2.first_fixed_surface_type.coordinate_name(),
-            stat =
-                v.2.statistical_process
-                    .clone()
-                    .map(|s| s.abbv())
-                    .unwrap_or("".to_string()),
-            gen = v.2.generating_process.abbv(),
-        );
-
-        // The hash_key must include the variable name to prevent different variables
-        // at the same level from being grouped together (e.g., TMP and VGRD both at hag_fcst)
-        let hash_key = format!("{var}_{hash}");
-
-        hash_mapping.entry(hash_key).or_default().push(k.clone());
-
-        vars.entry(var).or_default().insert(hash);
+        let meta = &v.2;
+        let var = meta.var.to_lowercase();
+        if (only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var))
+            || drop_variables.contains(&var)
+        {
+            continue;
+        }
+        let level = meta.first_fixed_surface_type.coordinate_name().to_string();
+        let kind = message_kind(meta);
+        let process = process_kind(meta);
+        var_levels
+            .entry(var.clone())
+            .or_default()
+            .insert(level.clone());
+        kind_processes
+            .entry((var.clone(), level.clone(), kind.clone()))
+            .or_default()
+            .insert(process.clone());
+        msg_info.insert(k.clone(), (var, level, kind, process));
     }
 
-    let mut var_names = vec![];
-    let mut var_mapping = HashMap::new();
-    for (k, v) in vars.iter_mut() {
-        if v.len() == 1 {
-            let var_name = k.to_lowercase();
-            if (only_variables.is_some() && !only_variables.as_ref().unwrap().contains(&var_name))
-                || drop_variables.contains(&var_name)
-            {
-                continue;
-            }
-
-            var_names.push(var_name);
-            var_mapping.insert(
-                k.to_lowercase(),
-                v.iter()
-                    .flat_map(|h| {
-                        // Look up using var_hash key (includes variable name)
-                        let hash_key = format!("{k}_{h}");
-                        hash_mapping.get(&hash_key).unwrap().clone()
-                    })
-                    .collect::<Vec<String>>(),
-            );
+    let partition_by_level = var_levels.values().any(|levels| levels.len() > 1);
+    let mut var_level_kinds: HashMap<(String, String), HashSet<String>> = HashMap::new();
+    for (var, level, kind, process) in msg_info.values() {
+        let process_conflict = kind_processes
+            .get(&(var.clone(), level.clone(), kind.clone()))
+            .map(|processes| processes.len() > 1)
+            .unwrap_or(false);
+        let path_kind = if process_conflict {
+            format!("{kind}_{process}")
         } else {
-            for hash in v.iter() {
-                let var_name = format!("{var}_{hash}", var = k.to_lowercase());
-                if (only_variables.is_some()
-                    && !only_variables.as_ref().unwrap().contains(&var_name))
-                    || drop_variables.contains(&var_name)
-                {
-                    continue;
-                }
+            kind.clone()
+        };
+        var_level_kinds
+            .entry((var.clone(), level.clone()))
+            .or_default()
+            .insert(path_kind);
+    }
+    let partition_by_kind = var_level_kinds.values().any(|kinds| kinds.len() > 1);
 
-                // Look up using var_hash key (includes variable name)
-                let hash_key = format!("{k}_{hash}");
-                var_names.push(var_name);
-                var_mapping.insert(
-                    format!("{var}_{hash}", var = k.to_lowercase()),
-                    hash_mapping.get(&hash_key).unwrap().clone(),
-                );
+    // group path (0, 1 or 2 segments) -> variable short name -> message keys
+    let mut groups: BTreeMap<Vec<String>, HashMap<String, Vec<String>>> = BTreeMap::new();
+    for (k, (var, level, kind, process)) in msg_info.iter() {
+        if (only_variables.is_some() && !only_variables.as_ref().unwrap().contains(var))
+            || drop_variables.contains(var)
+        {
+            continue;
+        }
+
+        let mut path = Vec::new();
+        // A level coordinate name can be empty when the surface type is missing
+        // or unrecognized. An empty path segment would produce an unnamed group,
+        // which corrupts the Zarr/datatree hierarchy (the group collides with
+        // its parent), so such messages partition by kind only.
+        if partition_by_level && !level.is_empty() {
+            path.push(level.clone());
+        }
+        if partition_by_kind {
+            let process_conflict = kind_processes
+                .get(&(var.clone(), level.clone(), kind.clone()))
+                .map(|processes| processes.len() > 1)
+                .unwrap_or(false);
+            if process_conflict {
+                path.push(format!("{kind}_{process}"));
+            } else {
+                path.push(kind.clone());
             }
         }
+
+        groups
+            .entry(path)
+            .or_default()
+            .entry(var.clone())
+            .or_default()
+            .push(k.clone());
     }
 
+    if groups.is_empty() {
+        return Err(PyValueError::new_err("No variables remain after filtering"));
+    }
+
+    // No conflicts: a single root dataset, with levels expressed as dimensions.
+    if groups.len() == 1 && groups.keys().next().unwrap().is_empty() {
+        let (_, var_mapping) = groups.into_iter().next().unwrap();
+        let node = build_group(
+            py,
+            &mapping,
+            &var_mapping,
+            &perserve_dims,
+            &filter_by_attrs,
+            &filter_by_variable_attrs,
+            filter_by_variable_attrs_defined,
+            encode_coords,
+        )?;
+        if !node_has_data_vars(&node)? {
+            return Err(PyValueError::new_err("No variables remain after filtering"));
+        }
+        return Ok(node);
+    }
+
+    // Conflicts: build a tree of standalone group datasets.
+    let root = PyDict::new(py);
+    root.set_item("coords", PyDict::new(py))?;
+    root.set_item("data_vars", PyDict::new(py))?;
+    let root_attrs = PyDict::new(py);
+    root_attrs.set_item("meta", "Generated with gribberishpy")?;
+    root.set_item("attrs", root_attrs)?;
+
+    let groups_dict = PyDict::new(py);
+    // first path segment -> the "groups" sub-dict of its intermediate node
+    let mut intermediates: HashMap<String, Bound<'py, PyDict>> = HashMap::new();
+    let mut leaf_count = 0usize;
+    let mut single_leaf: Option<Bound<'py, PyDict>> = None;
+    for (path, var_mapping) in groups.iter() {
+        let node = build_group(
+            py,
+            &mapping,
+            var_mapping,
+            &perserve_dims,
+            &filter_by_attrs,
+            &filter_by_variable_attrs,
+            filter_by_variable_attrs_defined,
+            encode_coords,
+        )?;
+        if !node_has_data_vars(&node)? {
+            continue;
+        }
+
+        leaf_count += 1;
+        if leaf_count == 1 {
+            single_leaf = Some(node.clone());
+        } else {
+            single_leaf = None;
+        }
+
+        match path.as_slice() {
+            [] => {
+                // Variables with no level/kind segment (e.g. a missing or
+                // unrecognized surface type, with no competing product kind)
+                // live at the dataset root rather than in a named group — an
+                // empty group name would corrupt the Zarr/datatree hierarchy.
+                let root_data_vars = root.get_item("data_vars")?.unwrap();
+                let root_data_vars = root_data_vars.cast::<PyDict>()?;
+                if let Some(node_data_vars) = node.get_item("data_vars")? {
+                    for (k, v) in node_data_vars.cast::<PyDict>()?.iter() {
+                        root_data_vars.set_item(k, v)?;
+                    }
+                }
+                let root_coords = root.get_item("coords")?.unwrap();
+                let root_coords = root_coords.cast::<PyDict>()?;
+                if let Some(node_coords) = node.get_item("coords")? {
+                    for (k, v) in node_coords.cast::<PyDict>()?.iter() {
+                        root_coords.set_item(k, v)?;
+                    }
+                }
+            }
+            [segment] => {
+                groups_dict.set_item(segment, node)?;
+            }
+            [parent, child] => {
+                let sub = if let Some(sub) = intermediates.get(parent) {
+                    sub.clone()
+                } else {
+                    let intermediate = PyDict::new(py);
+                    intermediate.set_item("coords", PyDict::new(py))?;
+                    intermediate.set_item("data_vars", PyDict::new(py))?;
+                    let attrs = PyDict::new(py);
+                    attrs.set_item("meta", "Generated with gribberishpy")?;
+                    intermediate.set_item("attrs", attrs)?;
+                    let sub = PyDict::new(py);
+                    intermediate.set_item("groups", &sub)?;
+                    groups_dict.set_item(parent, intermediate)?;
+                    intermediates.insert(parent.clone(), sub.clone());
+                    sub
+                };
+                sub.set_item(child, node)?;
+            }
+            _ => {}
+        }
+    }
+    if leaf_count == 0 {
+        return Err(PyValueError::new_err("No variables remain after filtering"));
+    }
+    if let Some(node) = single_leaf {
+        return Ok(node);
+    }
+
+    root.set_item("groups", groups_dict)?;
+
+    Ok(root)
+}
+
+/// Build a single, standalone group dataset (coords + data_vars + attrs) from a
+/// mapping of variable short names to the GRIB message keys that compose them.
+#[allow(clippy::too_many_arguments)]
+fn build_group<'py>(
+    py: Python<'py>,
+    mapping: &HashMap<String, (usize, usize, MessageMetadata)>,
+    var_mapping: &HashMap<String, Vec<String>>,
+    perserve_dims: &[String],
+    filter_by_attrs: &Bound<'py, PyDict>,
+    filter_by_variable_attrs: &Bound<'py, PyDict>,
+    filter_by_variable_attrs_defined: bool,
+    encode_coords: bool,
+) -> PyResult<Bound<'py, PyDict>> {
     let mut var_dims = var_mapping
         .keys()
         .map(|d| (d.to_owned(), vec![]))
@@ -231,8 +533,11 @@ pub fn parse_grib_dataset<'py>(
 
     let coords = PyDict::new(py);
 
-    // Temporal dims
-    let mut time_map = HashMap::new();
+    // Temporal dims. BTreeMap keyed by the joined value string so that
+    // suffix indices (time, time_1, ...) depend only on the value sets
+    // present, never on HashMap iteration order or message order — files
+    // with the same schema always produce the same dimension names.
+    let mut time_map = BTreeMap::new();
     let mut time_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut times = HashSet::new();
@@ -293,11 +598,14 @@ pub fn parse_grib_dataset<'py>(
 
     // Vertical dims
     let mut vertical_map = HashMap::new();
-    let mut vertical_dim_name_map: HashMap<String, HashSet<String>> = HashMap::new();
+    // Ordered so that the isobar_0/isobar_1/... suffixes map to the same
+    // level set on every parse of any file with the same schema.
+    let mut vertical_dim_name_map: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut vertical_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     let mut vertical_attr_map: HashMap<String, FixedSurfaceType> = HashMap::new();
     for (var, v) in var_mapping.iter() {
-        let mut verticals = HashSet::new();
+        let mut first_verticals = HashSet::new();
+        let mut second_verticals = HashSet::new();
         let mut vertical_name = String::new();
         for k in v.iter() {
             if vertical_name.is_empty() {
@@ -310,9 +618,23 @@ pub fn parse_grib_dataset<'py>(
                     .to_string();
             }
             if let Some(vertical_value) = mapping.get(k).unwrap().2.first_fixed_surface_value {
-                verticals.insert(format!("{:.5}", vertical_value));
+                first_verticals.insert(format!("{:.5}", vertical_value));
+            }
+            if let Some(vertical_value) = mapping.get(k).unwrap().2.second_fixed_surface_value {
+                second_verticals.insert(format!("{:.5}", vertical_value));
             }
         }
+
+        // Normally the first (bottom) fixed surface defines the vertical
+        // coordinate. For layer quantities whose bottom is constant while the
+        // top varies (e.g. 0-1000m vs 0-6000m wind shear), the first surface
+        // can't tell the messages apart and they would collapse into one chunk
+        // slot, so fall back to the second (top) surface as the coordinate.
+        let verticals = if first_verticals.len() < 2 && second_verticals.len() >= 2 {
+            second_verticals
+        } else {
+            first_verticals
+        };
 
         if !perserve_dims.contains(&vertical_name.to_lowercase()) && verticals.len() < 2 {
             continue;
@@ -346,7 +668,7 @@ pub fn parse_grib_dataset<'py>(
                 .unwrap()
                 .insert(vertical_key.clone());
         } else {
-            let mut vertical_key_set = HashSet::new();
+            let mut vertical_key_set = BTreeSet::new();
             vertical_key_set.insert(vertical_key.clone());
             vertical_dim_name_map.insert(vertical_name.clone(), vertical_key_set);
         }
@@ -435,8 +757,8 @@ pub fn parse_grib_dataset<'py>(
         }
     }
 
-    // Ensemble member dims
-    let mut member_map = HashMap::new();
+    // Ensemble member dims, ordered for deterministic suffix assignment.
+    let mut member_map = BTreeMap::new();
     let mut member_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut members = HashSet::new();
@@ -500,8 +822,8 @@ pub fn parse_grib_dataset<'py>(
         coords.set_item(name, member).unwrap();
     }
 
-    // Percentile dims
-    let mut percentile_map = HashMap::new();
+    // Percentile dims, ordered for deterministic suffix assignment.
+    let mut percentile_map = BTreeMap::new();
     let mut percentile_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut percentiles = HashSet::new();
@@ -567,8 +889,9 @@ pub fn parse_grib_dataset<'py>(
         coords.set_item(name, percentile).unwrap();
     }
 
-    // Threshold dims (for probability variables with varying limits)
-    let mut threshold_map: HashMap<String, Vec<f64>> = HashMap::new();
+    // Threshold dims (for probability variables with varying limits),
+    // ordered for deterministic suffix assignment.
+    let mut threshold_map: BTreeMap<String, Vec<f64>> = BTreeMap::new();
     let mut threshold_dim_map: HashMap<String, Vec<String>> = HashMap::new();
     for (var, v) in var_mapping.iter() {
         let mut thresholds = HashSet::new();
@@ -577,23 +900,23 @@ pub fn parse_grib_dataset<'py>(
             let meta = &mapping.get(k).unwrap().2;
             if meta.probability_type.is_some() {
                 has_probability = true;
-                // Only create a threshold dimension for single-limit types
-                // (e.g., P(X < threshold)). Between-type probabilities are
-                // already split into separate variables via the hash.
-                let threshold = match &meta.probability_type {
-                    Some(ProbabilityType::BetweenLimits)
-                    | Some(ProbabilityType::BetweenLimitsInclusive) => None,
-                    _ => meta
-                        .probability_lower_limit
-                        .or(meta.probability_upper_limit),
-                };
-                if let Some(t) = threshold {
+                // Single-limit types (e.g. P(X < threshold)) contribute their
+                // limit value; between-type probabilities have no single
+                // threshold and are already split into separate variables via
+                // the hash, so probability_threshold returns None for them.
+                if let Some(t) = probability_threshold(meta) {
                     thresholds.insert(format!("{:.5}", t));
                 }
             }
         }
 
-        if !has_probability || thresholds.len() < 2 {
+        // Like vertical levels and percentiles, only stack along a `threshold`
+        // dimension when more than one limit is present. A single-limit variable
+        // keeps its value in the `probability_limit` attribute instead of gaining
+        // a degenerate length-1 dimension; `perserve_dims` can force the dim.
+        if !has_probability
+            || (!perserve_dims.contains(&"threshold".to_string()) && thresholds.len() < 2)
+        {
             continue;
         }
 
@@ -671,7 +994,9 @@ pub fn parse_grib_dataset<'py>(
     longitude_metadata.set_item("unit", "degrees_east").unwrap();
     longitude.set_item("attrs", &longitude_metadata).unwrap();
 
-    let first = mapping.values().next().unwrap();
+    let first = mapping
+        .get(var_mapping.values().next().unwrap().first().unwrap())
+        .unwrap();
     let grid_shape = first.2.grid_shape;
     var_shape.iter_mut().for_each(|(_, v)| {
         v.push(grid_shape.0);
@@ -738,14 +1063,18 @@ pub fn parse_grib_dataset<'py>(
             lats_array
                 .set_item("shape", [grid_shape.0, grid_shape.1])
                 .unwrap();
-            lats_array.set_item("offsets", [first.1]).unwrap();
+            lats_array
+                .set_item("offsets", [(first.1, first.2.message_size)])
+                .unwrap();
             latitude.set_item("values", lats_array).unwrap();
 
             let lngs_array = PyDict::new(py);
             lngs_array
                 .set_item("shape", [grid_shape.0, grid_shape.1])
                 .unwrap();
-            lngs_array.set_item("offsets", [first.1]).unwrap();
+            lngs_array
+                .set_item("offsets", [(first.1, first.2.message_size)])
+                .unwrap();
             longitude.set_item("values", lngs_array).unwrap();
         } else {
             let (lat, lng) = first.2.latlng();
@@ -766,6 +1095,25 @@ pub fn parse_grib_dataset<'py>(
 
     coords.set_item("latitude", latitude).unwrap();
     coords.set_item("longitude", longitude).unwrap();
+
+    // CF grid mapping: a scalar `spatial_ref` coordinate carrying the CRS in a
+    // form geospatial tooling can auto-detect. Variables reference it via a
+    // `grid_mapping` attribute below.
+    let proj_name = first.2.projector.proj_name();
+    let proj_params = first.2.projector.proj_params();
+    let has_grid_mapping = if let Some(gm_attrs) = cf_grid_mapping(py, &proj_name, &proj_params) {
+        // Keep the proj4 string around for tools that prefer it over CF attrs.
+        gm_attrs.set_item("proj4", first.2.proj.clone()).unwrap();
+
+        let spatial_ref = PyDict::new(py);
+        spatial_ref.set_item("attrs", gm_attrs).unwrap();
+        spatial_ref.set_item("dims", Vec::<String>::new()).unwrap();
+        spatial_ref.set_item("values", 0i32).unwrap();
+        coords.set_item("spatial_ref", spatial_ref).unwrap();
+        true
+    } else {
+        false
+    };
 
     // Vars
     let data_vars = PyDict::new(py);
@@ -857,6 +1205,16 @@ pub fn parse_grib_dataset<'py>(
                     .unwrap_or("".to_string()),
             )
             .unwrap();
+        // The probability limit (cutoff) for single-limit products. When a
+        // variable has more than one limit they are stacked along the
+        // `threshold` dimension instead, mirroring how a single vertical level
+        // collapses to `fixed_surface_value`.
+        var_metadata
+            .set_item(
+                "probability_limit",
+                probability_threshold(&first.2).map_or("".to_string(), |t| t.to_string()),
+            )
+            .unwrap();
 
         let proj_params = PyDict::new(py);
         proj_params
@@ -868,6 +1226,13 @@ pub fn parse_grib_dataset<'py>(
         var_metadata.set_item("proj_params", proj_params).unwrap();
 
         var_metadata.set_item("crs", first.2.proj.clone()).unwrap();
+
+        // Link the variable to the scalar `spatial_ref` grid-mapping coordinate.
+        if has_grid_mapping {
+            var_metadata
+                .set_item("grid_mapping", "spatial_ref")
+                .unwrap();
+        }
 
         let mut filtered = false;
         if filter_by_variable_attrs_defined {
@@ -916,17 +1281,12 @@ pub fn parse_grib_dataset<'py>(
         v_sorted.sort_by(|a, b| {
             let a = mapping.get(a).unwrap();
             let b = mapping.get(b).unwrap();
-            let a_threshold =
-                a.2.probability_lower_limit
-                    .or(a.2.probability_upper_limit)
-                    .unwrap_or(0.0);
-            let b_threshold =
-                b.2.probability_lower_limit
-                    .or(b.2.probability_upper_limit)
-                    .unwrap_or(0.0);
+            let a_threshold = probability_threshold(&a.2).unwrap_or(0.0);
+            let b_threshold = probability_threshold(&b.2).unwrap_or(0.0);
             (
                 a.2.forecast_date,
                 a.2.first_fixed_surface_value.unwrap_or(0.0),
+                a.2.second_fixed_surface_value.unwrap_or(0.0),
                 a.2.perturbation_number.unwrap_or(0),
                 a.2.percentile_value.unwrap_or(0),
                 format!("{:.5}", a_threshold),
@@ -934,6 +1294,7 @@ pub fn parse_grib_dataset<'py>(
                 .partial_cmp(&(
                     b.2.forecast_date,
                     b.2.first_fixed_surface_value.unwrap_or(0.0),
+                    b.2.second_fixed_surface_value.unwrap_or(0.0),
                     b.2.perturbation_number.unwrap_or(0),
                     b.2.percentile_value.unwrap_or(0),
                     format!("{:.5}", b_threshold),
