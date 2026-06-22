@@ -688,6 +688,91 @@ fn read_nbm_lambert_specified_radius_projection() {
 }
 
 #[test]
+fn test_longitude_adjustment_geavg() {
+    // GEFS 0.5° global grid (0..359.5): opt-in wrap to -180..180.
+    let grib_data = read_grib_messages("../test-data/geavg.t12z.pgrb2a.0p50.f000");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    let msg = &messages[0];
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+
+    let (lats, lngs) = projector.lat_lng_adjusted(true);
+
+    // Latitudes untouched; longitudes wrapped, monotonic, in [-180, 180).
+    assert_eq!(lats, projector.lat_lng().0);
+    assert_eq!(lngs.len(), 720);
+    assert!(
+        (lngs[0] - (-180.0)).abs() < 0.001,
+        "first lng should be -180"
+    );
+    assert!(
+        (lngs[360] - 0.0).abs() < 0.001,
+        "lng at index 360 should be 0"
+    );
+    assert!(
+        (lngs[719] - 179.5).abs() < 0.001,
+        "last lng should be 179.5"
+    );
+    for i in 1..lngs.len() {
+        assert!(lngs[i] > lngs[i - 1], "longitudes must be monotonic");
+        assert!((-180.0..180.0).contains(&lngs[i]), "lng out of range");
+    }
+
+    // Data is rolled by the same amount (360) so it stays aligned with coords.
+    let native = msg.data().expect("Failed to decode data");
+    let adjusted = projector.adjust_data_longitude(native.clone(), true);
+    assert_eq!(adjusted.len(), native.len());
+    let nx = 720usize;
+    for (i, value) in adjusted.iter().enumerate() {
+        let (row, col) = (i / nx, i % nx);
+        let expected = native[row * nx + (col + 360) % nx];
+        assert_eq!(*value, expected, "data not rolled correctly at {i}");
+    }
+
+    // Disabled / no-op path returns the originals unchanged.
+    assert_eq!(projector.lat_lng_adjusted(false), projector.lat_lng());
+    assert_eq!(
+        projector.adjust_data_longitude(native.clone(), false),
+        native
+    );
+}
+
+#[test]
+fn test_longitude_adjustment_era5_grib1() {
+    // ERA5 GRIB1 3° global grid (0..357): wrap to -180..180, roll 60.
+    let grib_data = read_grib_messages("../test-data/era5-levels-members.grib");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    let msg = &messages[0];
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+
+    let (_, lngs) = projector.lat_lng_adjusted(true);
+    assert_eq!(lngs.len(), 120);
+    assert!(
+        (lngs[0] - (-180.0)).abs() < 0.001,
+        "first lng should be -180"
+    );
+    assert!(
+        (lngs[60] - 0.0).abs() < 0.001,
+        "lng at index 60 should be 0"
+    );
+    assert!((lngs[119] - 177.0).abs() < 0.001, "last lng should be 177");
+    for i in 1..lngs.len() {
+        assert!(lngs[i] > lngs[i - 1], "longitudes must be monotonic");
+    }
+
+    let native = msg.data().expect("Failed to decode data");
+    let adjusted = projector.adjust_data_longitude(native.clone(), true);
+    let nx = 120usize;
+    for (i, value) in adjusted.iter().enumerate() {
+        let (row, col) = (i / nx, i % nx);
+        assert_eq!(
+            *value,
+            native[row * nx + (col + 60) % nx],
+            "roll mismatch at {i}"
+        );
+    }
+}
+
+#[test]
 fn read_hrrr_hpbl_parameter() {
     // Test the new PlanetaryBoundaryLayerHeight (HPBL) meteorological parameter
     // disc=0 (meteorological), cat=3 (mass), num=18

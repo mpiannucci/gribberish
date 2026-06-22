@@ -8,3 +8,5 @@ pub mod message;
 pub mod message_metadata;
 pub mod sections;
 pub mod templates;
+
+pub use utils::iter::projection::adjust_longitude_values;
