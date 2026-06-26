@@ -24,10 +24,38 @@ def _store_for(filename, **kwargs):
     return GribberishParser(**kwargs)(url, registry)
 
 
-def test_no_conflict_single_root_dataset():
-    """A conflict-free file becomes a single virtual dataset, levels and ensemble
-    members as dimensions (this ERA5 EDA file has 10 GRIB1 members)."""
+def _collapsed_store_for(filename, **kwargs):
+    """A store built with the legacy collapse-to-root layout, for tests that
+    just need a flat single dataset to exercise an orthogonal feature."""
+    return _store_for(filename, collapse_groups=True, **kwargs)
+
+
+def test_stable_layout_nests_under_level_and_kind():
+    """By default every variable is nested under its surface-type and product
+    kind, even when nothing in the file conflicts — so the group path is a pure
+    function of the variable's own metadata. This ERA5 EDA file has a single
+    isobaric instantaneous hypercube (10 GRIB1 members), which lands at
+    `/isobar/instant` rather than collapsing to the root."""
     store = _store_for("era5-levels-members.grib")
+    vdt = store.to_virtual_datatree()
+
+    assert set(vdt.children) == {"isobar"}
+    iso = vdt["isobar/instant"].to_dataset()
+    assert {"t", "z"}.issubset(set(iso.data_vars))
+    assert dict(iso.sizes) == {
+        "time": 4,
+        "isobar": 2,
+        "number": 10,
+        "latitude": 61,
+        "longitude": 120,
+    }
+    assert iso["t"].dims == ("time", "isobar", "number", "latitude", "longitude")
+
+
+def test_collapse_groups_single_root_dataset():
+    """`collapse_groups=True` folds a conflict-free file back into a single
+    virtual dataset, with levels and ensemble members as dimensions."""
+    store = _collapsed_store_for("era5-levels-members.grib")
     vds = store.to_virtual_dataset()
 
     assert dict(vds.sizes) == {
@@ -42,27 +70,61 @@ def test_no_conflict_single_root_dataset():
     assert vds["t"].dims == ("time", "isobar", "number", "latitude", "longitude")
 
 
+def test_group_paths_are_content_independent():
+    """The whole point of the stable default: the same variable lands at the
+    same group path regardless of what else is in the file.
+
+    `tmp` exists at the surface in both fixtures, but only spans a second level
+    (height-above-ground) in the NBM file. Under the legacy `collapse_groups`
+    layout the surface `tmp` lands at `/` in the single-level file but `/sfc` in
+    the multi-level one — different paths for the same variable, which breaks
+    concatenation across a forecast sequence. The default layout pins it to
+    `/sfc/instant` in both."""
+    single_level = "hrrr.t06z.wrfsfcf01-TMP.grib2"  # tmp at sfc only
+    multi_level = "nbm-multilevel-tcdc.grib2"        # tmp at hag AND sfc
+
+    def tmp_paths(filename, **kwargs):
+        vdt = _store_for(filename, **kwargs).to_virtual_datatree()
+        return sorted(
+            node.path
+            for node in vdt.subtree
+            if "tmp" in vdt[node.path].dataset.data_vars
+        )
+
+    # Stable default: surface tmp is at /sfc/instant in both files.
+    assert "/sfc/instant" in tmp_paths(single_level)
+    assert "/sfc/instant" in tmp_paths(multi_level)
+
+    # Legacy collapse layout: the surface tmp's path depends on the file.
+    assert tmp_paths(single_level, collapse_groups=True) == ["/"]
+    assert "/sfc" in tmp_paths(multi_level, collapse_groups=True)
+    assert "/sfc/instant" not in tmp_paths(multi_level, collapse_groups=True)
+
+
 def test_conflict_produces_datatree_groups():
-    """Conflicting product kinds become a DataTree of standalone groups."""
+    """Conflicting product kinds become a DataTree of standalone groups. These
+    S2S products are all at height-above-ground, so they nest under `/hag`."""
     store = _store_for("s2s-pdt9-pdt10-pdt12.grib2")
     vdt = store.to_virtual_datatree()
 
-    groups = set(vdt.children)
+    assert set(vdt.children) == {"hag"}
+    groups = set(vdt["hag"].children)
     # percentile product is its own group, with the percentile dim inside it
     assert "min24h_pctl" in groups
-    pctl = store.to_virtual_datatree()["min24h_pctl"]
+    pctl = store.to_virtual_datatree()["hag/min24h_pctl"]
     assert "percentile" in pctl.dims
     # between-limit probabilities split per (lower, upper) pair
     assert len([g for g in groups if "prob_between_inc" in g]) == 3
 
 
 def test_level_type_conflict_groups():
-    """A variable spanning multiple level types splits by level type."""
+    """A variable spanning multiple level types splits by level type; each level
+    then nests by product kind (this GEFS file is an ensemble mean)."""
     store = _store_for("geavg.t12z.pgrb2a.0p50.f000")
     vdt = store.to_virtual_datatree()
     assert {"hag", "isobar", "sfc", "msl"}.issubset(set(vdt.children))
 
-    iso = vdt["isobar"].to_dataset()
+    iso = vdt["isobar/mean"].to_dataset()
     assert {"tmp", "ugrd", "vgrd", "rh", "hgt"}.issubset(set(iso.data_vars))
     # isobaric temperature keeps its vertical level dimension
     assert iso["tmp"].shape == (1, 10, 361, 720)
@@ -70,28 +132,27 @@ def test_level_type_conflict_groups():
 
 def test_missing_level_does_not_break_datatree():
     """A variable with a missing/unrecognized surface type must not create an
-    unnamed group. When a file also partitions by level type, such a variable
-    used to land in an empty-named group, which corrupts the Zarr/datatree
-    hierarchy and made `to_virtual_datatree` raise `KeyError: ... at <level>`.
-    The fixture has TMP at two levels (forcing a level split) plus TCDC on a
-    "reserved" surface that gribberish maps to a missing level type.
+    unnamed group. It keeps its product-kind segment but no level segment, so it
+    lands at a top-level kind group (`/instant`) rather than an empty-named one.
+    The fixture has TMP at two levels plus TCDC on a "reserved" surface that
+    gribberish maps to a missing level type.
     """
     store = _store_for("nbm-multilevel-tcdc.grib2")
     vdt = store.to_virtual_datatree()
 
     keys = {k for k, _ in vdt.subtree_with_keys}
     assert "" not in keys, "an unnamed group leaked into the hierarchy"
-    # The level split still happens for the well-formed variable.
+    # The well-formed variable still splits by level type.
     assert {"hag", "sfc"}.issubset(set(vdt.children))
-    # The missing-level variable is preserved at the root rather than dropped.
-    assert "tcdc" in vdt.to_dataset().data_vars
+    # The missing-level variable is preserved in a top-level kind group.
+    assert "tcdc" in vdt["instant"].dataset.data_vars
 
 
 def test_decoded_values_match_direct_parse():
     """Reading a chunk through the store decodes the exact message the manifest
     points to (the gribberish codec resolves at read time)."""
     fname = "era5-levels-members.grib"
-    store = _store_for(fname)
+    store = _collapsed_store_for(fname)
     z = zarr.open(store, mode="r")
 
     chunk = np.asarray(z["t"][0, 0, 0])  # (time0, isobar0, number0) -> (lat, lon)
@@ -99,7 +160,7 @@ def test_decoded_values_match_direct_parse():
 
     with open(TEST_DATA / fname, "rb") as f:
         data = f.read()
-    ds = parse_grib_dataset(data)
+    ds = parse_grib_dataset(data, collapse_groups=True)
     offset, size = ds["data_vars"]["t"]["values"]["offsets"][0]
     expected = parse_grib_array(data[offset : offset + size], 0).reshape(61, 120)
 
@@ -109,7 +170,7 @@ def test_decoded_values_match_direct_parse():
 def test_inline_coordinates_decode():
     """Derived coordinates (time / level) are inlined and decode correctly."""
     fname = "era5-levels-members.grib"
-    store = _store_for(fname)
+    store = _collapsed_store_for(fname)
     z = zarr.open(store, mode="r")
 
     isobar = np.asarray(z["isobar"][:])
@@ -122,7 +183,7 @@ def test_inline_coordinates_decode():
 def test_projected_grid_latlon_are_references():
     """A projected (Lambert) grid keeps 2D lat/lon as byte references decoded
     by the gribberish codec."""
-    store = _store_for("hrrr.t06z.wrfsfcf01-TMP.grib2")
+    store = _collapsed_store_for("hrrr.t06z.wrfsfcf01-TMP.grib2")
     vds = store.to_virtual_dataset()
 
     assert vds["latitude"].dims == ("y", "x")
@@ -146,7 +207,7 @@ def test_cf_grid_mapping_scalar_coordinate():
         "gfs.t18z.pgrb2.0p25.f186-RH.grib2": "latitude_longitude",
     }
     for fname, grid_mapping_name in cases.items():
-        store = _store_for(fname)
+        store = _collapsed_store_for(fname)
         vds = store.to_virtual_dataset()
 
         assert "spatial_ref" in vds.coords
@@ -166,7 +227,7 @@ def test_cf_grid_mapping_scalar_coordinate():
 
 def test_ensemble_member_dimension():
     """Ensemble member number is a dimension, not a group."""
-    store = _store_for("aifs-ens-cf-t500.grib2")
+    store = _collapsed_store_for("aifs-ens-cf-t500.grib2")
     vds = store.to_virtual_dataset()
 
     assert "number" in vds.coords
@@ -174,7 +235,7 @@ def test_ensemble_member_dimension():
 
 
 def test_drop_and_only_variables():
-    store = _store_for("ecmwf-ifs-oper-surface.grib2", only_variables=["tcc"])
+    store = _collapsed_store_for("ecmwf-ifs-oper-surface.grib2", only_variables=["tcc"])
     vds = store.to_virtual_dataset()
     assert set(vds.data_vars) == {"tcc"}
 
@@ -185,16 +246,16 @@ def test_use_index_matches_full_scan():
     file: identical structure, identical chunk manifests (real file offsets),
     identical decoded values."""
     fname = "gfswave.t18z.atlocn.0p16.f001.grib2"
-    full = _store_for(fname).to_virtual_dataset()
-    via_index = _store_for(fname, use_index=".idx").to_virtual_dataset()
+    full = _collapsed_store_for(fname).to_virtual_dataset()
+    via_index = _collapsed_store_for(fname, use_index=".idx").to_virtual_dataset()
 
     assert dict(via_index.sizes) == dict(full.sizes)
     assert set(via_index.data_vars) == set(full.data_vars)
     for name in full.data_vars:
         assert via_index[name].data.manifest == full[name].data.manifest
 
-    z_full = zarr.open(_store_for(fname), mode="r")
-    z_index = zarr.open(_store_for(fname, use_index=".idx"), mode="r")
+    z_full = zarr.open(_collapsed_store_for(fname), mode="r")
+    z_index = zarr.open(_collapsed_store_for(fname, use_index=".idx"), mode="r")
     np.testing.assert_array_equal(
         np.asarray(z_index["wind"][0]), np.asarray(z_full["wind"][0])
     )
@@ -207,8 +268,10 @@ def test_adjust_longitude_range_global_grid():
     fname = "gfs.t18z.pgrb2.0p25.f186-RH.grib2"
     nx, roll = 1440, 720
 
-    plain = _store_for(fname).to_virtual_dataset()
-    wrapped = _store_for(fname, adjust_longitude_range=True).to_virtual_dataset()
+    plain = _collapsed_store_for(fname).to_virtual_dataset()
+    wrapped = _collapsed_store_for(
+        fname, adjust_longitude_range=True
+    ).to_virtual_dataset()
 
     # default coordinate is the native 0..360 range
     np.testing.assert_array_equal(plain.longitude.values[[0, -1]], [0.0, 359.75])
@@ -220,8 +283,10 @@ def test_adjust_longitude_range_global_grid():
 
     # data stays aligned with the coordinate: reading through the wrapped store
     # equals the plain store rolled along longitude by the same split column.
-    z_plain = zarr.open(_store_for(fname), mode="r")
-    z_wrapped = zarr.open(_store_for(fname, adjust_longitude_range=True), mode="r")
+    z_plain = zarr.open(_collapsed_store_for(fname), mode="r")
+    z_wrapped = zarr.open(
+        _collapsed_store_for(fname, adjust_longitude_range=True), mode="r"
+    )
     plain_data = np.asarray(z_plain["rh"][...])
     wrapped_data = np.asarray(z_wrapped["rh"][...])
     cols = (np.arange(nx) + roll) % nx
@@ -248,8 +313,10 @@ def test_adjust_longitude_range_start_at_antimeridian():
     move (roll == 0), exercising the relabel-only branch."""
     fname = "aifs-single-t500.grib2"
 
-    plain = _store_for(fname).to_virtual_dataset()
-    wrapped = _store_for(fname, adjust_longitude_range=True).to_virtual_dataset()
+    plain = _collapsed_store_for(fname).to_virtual_dataset()
+    wrapped = _collapsed_store_for(
+        fname, adjust_longitude_range=True
+    ).to_virtual_dataset()
 
     # native coordinate wraps mid-array (180..359.75, then 0..179.75)
     assert plain.longitude.values[0] == 180.0 and plain.longitude.values[-1] == 179.75
@@ -261,8 +328,10 @@ def test_adjust_longitude_range_start_at_antimeridian():
     assert np.all(np.diff(lon) > 0)
 
     # data is unchanged because the columns were already in -180..180 order
-    z_plain = zarr.open(_store_for(fname), mode="r")
-    z_wrapped = zarr.open(_store_for(fname, adjust_longitude_range=True), mode="r")
+    z_plain = zarr.open(_collapsed_store_for(fname), mode="r")
+    z_wrapped = zarr.open(
+        _collapsed_store_for(fname, adjust_longitude_range=True), mode="r"
+    )
     np.testing.assert_array_equal(
         np.asarray(z_wrapped["tmp"][...]), np.asarray(z_plain["tmp"][...])
     )
@@ -271,8 +340,10 @@ def test_adjust_longitude_range_start_at_antimeridian():
 def test_adjust_longitude_range_default_off_unchanged():
     """Default-off parser is byte-for-byte the existing behaviour."""
     fname = "gfs.t18z.pgrb2.0p25.f186-RH.grib2"
-    default = _store_for(fname).to_virtual_dataset()
-    explicit_off = _store_for(fname, adjust_longitude_range=False).to_virtual_dataset()
+    default = _collapsed_store_for(fname).to_virtual_dataset()
+    explicit_off = _collapsed_store_for(
+        fname, adjust_longitude_range=False
+    ).to_virtual_dataset()
     np.testing.assert_array_equal(
         default.longitude.values, explicit_off.longitude.values
     )
@@ -303,7 +374,7 @@ def test_layer_variable_distinguished_by_second_surface():
     0-1000m vs 0-6000m wind shear) must not collapse into a single chunk slot.
     The second (top) fixed surface becomes the vertical coordinate so each
     layer maps to its own message."""
-    store = _store_for("hrrr.t01z.wrfsfcf01-VVCSH-VUCSH.grib2")
+    store = _collapsed_store_for("hrrr.t01z.wrfsfcf01-VVCSH-VUCSH.grib2")
     vds = store.to_virtual_dataset()
 
     assert {"vvcsh", "vucsh"}.issubset(set(vds.data_vars))

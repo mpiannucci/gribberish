@@ -149,11 +149,17 @@ class GribberishBackend(BackendEntrypoint):
 
     Adapted from https://xarray.pydata.org/en/stable/internals/how-to-add-new-backend.html
 
-    Conflicting hypercubes (a variable at multiple level types, or
-    instantaneous vs. accumulated/derived/probability products) are exposed as
-    separate groups, mirroring the way ``cfgrib`` breaks a file into multiple
-    datasets. Use ``group=`` to select one, or ``xarray.open_datatree`` /
-    ``xarray.open_groups`` to get them all. A conflict-free file opens directly.
+    By default the file is split into nested groups by surface type and product
+    kind (a variable at multiple level types, or instantaneous vs.
+    accumulated/derived/probability products), mirroring the way ``cfgrib``
+    breaks a file into multiple datasets. Use ``group=`` to select one, or
+    ``xarray.open_datatree`` / ``xarray.open_groups`` to get them all. This
+    layout is **content-independent**: a variable lands at the same group path
+    (e.g. ``/hag/instant``) in every same-schema file, so multi-file workflows
+    line up. Pass ``collapse_groups=True`` to instead fold everything into one
+    root dataset where possible (a subgroup appears only when a variable in this
+    file actually spans more than one value) — cleaner for a single file, but
+    the group path then depends on the file's content.
 
     Within a group, variables spanning different value sets of the same
     coordinate type get index-suffixed dimensions (``isobar_0``, ``isobar_1``,
@@ -178,7 +184,7 @@ class GribberishBackend(BackendEntrypoint):
 
     def _parse(self, filename_or_obj, storage_options, drop_variables,
                only_variables, perserve_dims, filter_by_attrs,
-               filter_by_variable_attrs, use_index):
+               filter_by_variable_attrs, use_index, collapse_groups):
         store, path = _store_and_path(filename_or_obj, storage_options)
         raw_data, file_offsets = _read_grib_bytes(
             store, path, use_index, only_variables, drop_variables
@@ -190,6 +196,7 @@ class GribberishBackend(BackendEntrypoint):
             perserve_dims=perserve_dims,
             filter_by_attrs=filter_by_attrs,
             filter_by_variable_attrs=filter_by_variable_attrs,
+            collapse_groups=collapse_groups,
         )
         if file_offsets is not None:
             _remap_offsets(tree, file_offsets)
@@ -207,11 +214,13 @@ class GribberishBackend(BackendEntrypoint):
         filter_by_attrs=None,
         filter_by_variable_attrs=None,
         use_index=False,
+        collapse_groups=False,
     ):
         storage_options = storage_options or {}
         tree = self._parse(
             filename_or_obj, storage_options, drop_variables, only_variables,
             perserve_dims, filter_by_attrs, filter_by_variable_attrs, use_index,
+            collapse_groups,
         )
 
         has_groups = bool(tree.get("groups"))
@@ -237,11 +246,13 @@ class GribberishBackend(BackendEntrypoint):
         filter_by_attrs=None,
         filter_by_variable_attrs=None,
         use_index=False,
+        collapse_groups=False,
     ):
         storage_options = storage_options or {}
         tree = self._parse(
             filename_or_obj, storage_options, drop_variables, only_variables,
             perserve_dims, filter_by_attrs, filter_by_variable_attrs, use_index,
+            collapse_groups,
         )
         return {
             path: _node_to_dataset(node, filename_or_obj, storage_options)
@@ -262,6 +273,7 @@ class GribberishBackend(BackendEntrypoint):
         "filter_by_attrs",
         "filter_by_variable_attrs",
         "use_index",
+        "collapse_groups",
         "storage_options",
     ]
 

@@ -177,7 +177,7 @@ fn cf_grid_mapping<'py>(
 }
 
 #[pyfunction]
-#[pyo3(signature = (data, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
+#[pyo3(signature = (data, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None, collapse_groups=None))]
 #[allow(clippy::too_many_arguments)]
 pub fn parse_grib_dataset<'py>(
     py: Python<'py>,
@@ -188,6 +188,7 @@ pub fn parse_grib_dataset<'py>(
     filter_by_attrs: Option<&Bound<'py, PyDict>>,
     filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
     encode_coords: Option<bool>,
+    collapse_groups: Option<bool>,
 ) -> PyResult<Bound<'py, PyDict>> {
     build_grib_dataset(
         py,
@@ -198,6 +199,7 @@ pub fn parse_grib_dataset<'py>(
         filter_by_attrs,
         filter_by_variable_attrs,
         encode_coords,
+        collapse_groups,
     )
 }
 
@@ -207,7 +209,7 @@ pub fn parse_grib_dataset<'py>(
 /// message size, the message's bytes — at least sections 0-5; the data section
 /// is never needed). Offsets in the resulting tree point into the real file.
 #[pyfunction]
-#[pyo3(signature = (messages, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None))]
+#[pyo3(signature = (messages, drop_variables=None, only_variables=None, perserve_dims=None, filter_by_attrs=None, filter_by_variable_attrs=None, encode_coords=None, collapse_groups=None))]
 #[allow(clippy::too_many_arguments)]
 pub fn parse_grib_dataset_from_headers<'py>(
     py: Python<'py>,
@@ -218,6 +220,7 @@ pub fn parse_grib_dataset_from_headers<'py>(
     filter_by_attrs: Option<&Bound<'py, PyDict>>,
     filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
     encode_coords: Option<bool>,
+    collapse_groups: Option<bool>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let mut mapping = HashMap::new();
     for (index, (byte_offset, message_size, bytes)) in messages.iter().enumerate() {
@@ -242,6 +245,7 @@ pub fn parse_grib_dataset_from_headers<'py>(
         filter_by_attrs,
         filter_by_variable_attrs,
         encode_coords,
+        collapse_groups,
     )
 }
 
@@ -255,7 +259,9 @@ fn build_grib_dataset<'py>(
     filter_by_attrs: Option<&Bound<'py, PyDict>>,
     filter_by_variable_attrs: Option<&Bound<'py, PyDict>>,
     encode_coords: Option<bool>,
+    collapse_groups: Option<bool>,
 ) -> PyResult<Bound<'py, PyDict>> {
+    let collapse_groups = collapse_groups.unwrap_or(false);
     let drop_variables = if let Some(drop_variables) = drop_variables {
         drop_variables
             .iter()
@@ -338,7 +344,14 @@ fn build_grib_dataset<'py>(
         msg_info.insert(k.clone(), (var, level, kind, process));
     }
 
-    let partition_by_level = var_levels.values().any(|levels| levels.len() > 1);
+    // In the default (stable) layout every variable is nested under its level
+    // and kind segments unconditionally, so its group path is a pure function of
+    // its own metadata — the same variable lands at the same path across every
+    // file in a sequence, which is what lets multi-file datacubes concatenate.
+    // With `collapse_groups` we fall back to the content-dependent behavior: a
+    // discriminator only becomes a group axis when at least one variable in this
+    // file actually spans more than one of its values, so a conflict-free file
+    // collapses into a single root dataset.
     let mut var_level_kinds: HashMap<(String, String), HashSet<String>> = HashMap::new();
     for (var, level, kind, process) in msg_info.values() {
         let process_conflict = kind_processes
@@ -355,7 +368,10 @@ fn build_grib_dataset<'py>(
             .or_default()
             .insert(path_kind);
     }
-    let partition_by_kind = var_level_kinds.values().any(|kinds| kinds.len() > 1);
+    let partition_by_level =
+        !collapse_groups || var_levels.values().any(|levels| levels.len() > 1);
+    let partition_by_kind =
+        !collapse_groups || var_level_kinds.values().any(|kinds| kinds.len() > 1);
 
     // group path (0, 1 or 2 segments) -> variable short name -> message keys
     let mut groups: BTreeMap<Vec<String>, HashMap<String, Vec<String>>> = BTreeMap::new();
@@ -446,11 +462,14 @@ fn build_grib_dataset<'py>(
         }
 
         leaf_count += 1;
-        if leaf_count == 1 {
-            single_leaf = Some(node.clone());
+        // Collapsing a lone surviving group up to the root is itself a
+        // content-dependent shortcut, so it only applies under `collapse_groups`.
+        // The stable layout always keeps the full group tree.
+        single_leaf = if collapse_groups && leaf_count == 1 {
+            Some(node.clone())
         } else {
-            single_leaf = None;
-        }
+            None
+        };
 
         match path.as_slice() {
             [] => {
