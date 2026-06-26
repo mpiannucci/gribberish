@@ -1,11 +1,15 @@
 """VirtualiZarr parser for GRIB2 files, backed by gribberish.
 
 Each GRIB message is a single chunk decoded at read time by the
-``gribberish`` zarr codec. Conflicting hypercubes (a variable spanning
-multiple level types, or instantaneous vs. accumulated/derived/probability
-products) are split into nested groups, mirroring the way ``cfgrib`` breaks a
-file into multiple datasets. A conflict-free file is a single root dataset with
-levels expressed as dimensions.
+``gribberish`` zarr codec. By default variables are split into nested groups by
+surface type and product kind (a variable spanning multiple level types, or
+instantaneous vs. accumulated/derived/probability products), mirroring the way
+``cfgrib`` breaks a file into multiple datasets. This layout is
+content-independent — a variable lands at the same path (e.g. ``/hag/instant``)
+in every same-schema file, so multi-file datacubes concatenate cleanly. Pass
+``collapse_groups=True`` to fold everything into one root dataset where possible,
+with levels expressed as dimensions (cleaner per file, but the layout then
+depends on the file's content).
 """
 
 from __future__ import annotations
@@ -261,6 +265,19 @@ class GribberishParser:
         codec is told to roll its decoded chunk along the longitude axis to
         match, so the published store slices cleanly across the prime meridian.
         Default off; a no-op for grids that don't span the globe.
+    collapse_groups
+        Default off, which gives a **stable, content-independent** group layout:
+        every variable is nested under its surface-type and product-kind
+        subgroups (e.g. ``/hag/instant``) regardless of whether anything in the
+        file conflicts, so a variable's group path depends only on its own
+        metadata and is identical across every file in a forecast sequence —
+        letting multi-file datacubes concatenate cleanly. Turn it **on** to
+        collapse everything into one root dataset where possible (levels and
+        kinds become dimensions, and a subgroup only appears when a variable in
+        *this* file actually spans more than one of its values). That is cleaner
+        for a single file but makes the layout content-dependent: the same
+        variable can land at different paths across files (``/hag/instant`` in
+        one, ``/instant`` in another), which breaks concatenation.
     """
 
     def __init__(
@@ -272,6 +289,7 @@ class GribberishParser:
         filter_by_variable_attrs: dict[str, Any] | None = None,
         use_index: bool | str = False,
         adjust_longitude_range: bool = False,
+        collapse_groups: bool = False,
     ) -> None:
         self.drop_variables = drop_variables
         self.only_variables = only_variables
@@ -280,6 +298,7 @@ class GribberishParser:
         self.filter_by_variable_attrs = filter_by_variable_attrs
         self.use_index = use_index
         self.adjust_longitude_range = adjust_longitude_range
+        self.collapse_groups = collapse_groups
 
     def _filter_kwargs(self) -> dict[str, Any]:
         return dict(
@@ -290,6 +309,7 @@ class GribberishParser:
             filter_by_variable_attrs=self.filter_by_variable_attrs,
             # Keep projected lat/lon as references rather than materializing them.
             encode_coords=True,
+            collapse_groups=self.collapse_groups,
         )
 
     def _parse_via_index(self, store, path: str, entries) -> dict[str, Any]:

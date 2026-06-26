@@ -66,10 +66,14 @@ def test_message_order_does_not_affect_structure():
 
 def test_isobaric_level_sets_are_complete():
     """Every distinct isobaric level set in the file survives, with the level
-    counts matching the messages actually present (cross-checked with wgrib2)."""
+    counts matching the messages actually present (cross-checked with wgrib2).
+    Uses the collapsed layout so the isobaric hypercube sits directly under
+    `/isobar`; the level sets are identical either way."""
     data = GEFS_FIXTURE.read_bytes()
 
-    coords, dims, groups = dataset_structure(parse_grib_dataset(data))
+    coords, dims, groups = dataset_structure(
+        parse_grib_dataset(data, collapse_groups=True)
+    )
     iso_coords, iso_dims, _ = groups["isobar"]
 
     isobar_sizes = sorted(
@@ -86,12 +90,49 @@ def test_isobaric_level_sets_are_complete():
         )
 
 
+def _group_paths(node, prefix=""):
+    """All group paths that actually carry data variables."""
+    out = []
+    if node.get("data_vars"):
+        out.append(prefix or "/")
+    for name, group in node.get("groups", {}).items():
+        out += _group_paths(group, prefix + "/" + name)
+    return out
+
+
+def test_stable_layout_group_path_is_content_independent():
+    """The default layout pins each variable to a group path that depends only
+    on its own metadata, so the same variable lands at the same path whether or
+    not the file also carries it at other levels. The legacy collapse layout
+    makes the path content-dependent, which is what broke multi-file concat
+    (issue #165)."""
+    SINGLE = REPO_ROOT / "test-data" / "hrrr.t06z.wrfsfcf01-TMP.grib2"  # tmp @ sfc
+    MULTI = REPO_ROOT / "test-data" / "nbm-multilevel-tcdc.grib2"       # tmp @ hag+sfc
+
+    single = _group_paths(parse_grib_dataset(SINGLE.read_bytes()))
+    multi = _group_paths(parse_grib_dataset(MULTI.read_bytes()))
+    # Surface tmp is at the same path in both, despite the multi-level file.
+    assert "/sfc/instant" in single
+    assert "/sfc/instant" in multi
+
+    # Under the collapse layout the surface tmp's path is content-dependent.
+    single_c = _group_paths(parse_grib_dataset(SINGLE.read_bytes(), collapse_groups=True))
+    multi_c = _group_paths(parse_grib_dataset(MULTI.read_bytes(), collapse_groups=True))
+    assert single_c == ["/"]
+    assert "/sfc" in multi_c
+
+
 def test_xarray_engine_dims_are_stable_across_opens():
     """The xarray engine exposes the same dim name per variable on every open."""
     xr = pytest.importorskip("xarray")
 
     def structure():
-        ds = xr.open_dataset(str(GEFS_FIXTURE), engine="gribberish", group="isobar")
+        ds = xr.open_dataset(
+            str(GEFS_FIXTURE),
+            engine="gribberish",
+            group="isobar",
+            collapse_groups=True,
+        )
         try:
             return (
                 {c: tuple(ds[c].values.tolist()) for c in ds.coords if "isobar" in c},

@@ -59,11 +59,14 @@ For direct usage, see [dump_dataset.py](./examples/dump_dataset.py) or compare w
 
 ### `xarray`
 
-To use with `xarray`, simply specify the `gribberish` backend when loading a `grib2` file:
+To use with `xarray`, simply specify the `gribberish` backend when loading a `grib2` file. By default a file is split into nested groups by surface type and product kind, so open one group at a time (or the whole tree with `xr.open_datatree`):
 
 ```
 import xarray as xr
-ds = xr.open_dataset('gfswave.20210826.t12z.atlocn.0p16.f000.grib2', engine='gribberish')
+ds = xr.open_dataset('gfswave.20210826.t12z.atlocn.0p16.f000.grib2', engine='gribberish', group='sfc/instant')
+
+# Or fold everything into one dataset where possible:
+ds = xr.open_dataset('gfswave.20210826.t12z.atlocn.0p16.f000.grib2', engine='gribberish', collapse_groups=True)
 ```
 
 Remote files (`s3://`, `gs://`, `https://`) work the same way and are fetched
@@ -82,7 +85,7 @@ Some examples are provided:
 
 ### `VirtualiZarr`
 
-This package can build virtual datasets with [`VirtualiZarr`](https://virtualizarr.readthedocs.io/) using the `GribberishParser`. Conflicting hypercubes (e.g. the same variable at different level types, or instantaneous vs. accumulated fields) are split into nested groups, matching the way `cfgrib` breaks a file into multiple datasets:
+This package can build virtual datasets with [`VirtualiZarr`](https://virtualizarr.readthedocs.io/) using the `GribberishParser`. By default each variable is nested under its surface type and product kind (e.g. `/hag/instant`, `/sfc/instant`), matching the way `cfgrib` breaks a file into multiple datasets. This layout is **content-independent** — a variable lands at the same group path in every same-schema file, so multi-file datacubes concatenate cleanly across a forecast sequence:
 
 ```python
 import virtualizarr as vz
@@ -93,11 +96,15 @@ from gribberish.virtualizarr import GribberishParser
 registry = ObjectStoreRegistry({"file://": LocalStore()})
 store = GribberishParser()("file:///path/to/file.grib2", registry)
 
-# A single, conflict-free file opens directly:
-vds = store.to_virtual_dataset()
-
-# A file with conflicting hypercubes opens as a tree of groups:
+# The file opens as a tree of standalone group datasets:
 vdt = store.to_virtual_datatree()
+
+# Pass collapse_groups=True to fold a conflict-free file into one root dataset
+# (levels/kinds become dimensions). Cleaner per file, but the group layout then
+# depends on the file's content, so the same variable can land at different
+# paths across files — which breaks concatenation.
+store = GribberishParser(collapse_groups=True)("file:///path/to/file.grib2", registry)
+vds = store.to_virtual_dataset()
 ```
 
 `GribberishParser` also accepts `use_index=` to build manifests from a sidecar
