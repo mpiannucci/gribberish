@@ -55,25 +55,7 @@ impl Decoder {
         stream.block_size = block_size;
         stream.rsi = reference_sample_interval;
 
-        // Parse compression flags
-        let mut flags = 0u32;
-        if (compression_options_mask & 0x01) != 0 {
-            flags |= AEC_DATA_SIGNED;
-        }
-        if (compression_options_mask & 0x02) != 0 {
-            flags |= AEC_DATA_PREPROCESS;
-        }
-        if (compression_options_mask & 0x04) != 0 {
-            flags |= AEC_DATA_MSB;
-        }
-        if (compression_options_mask & 0x08) != 0 {
-            flags |= AEC_RESTRICTED;
-        }
-        if (compression_options_mask & 0x10) != 0 {
-            flags |= AEC_PAD_RSI;
-        }
-
-        stream.flags = flags;
+        stream.flags = compression_options_mask as u32;
 
         // Initialize decoder
         let result = unsafe { aec_decode_init(&mut stream) };
@@ -149,9 +131,6 @@ pub fn extract_ccsds_data(
         ));
     }
 
-    // Parse compression flags from the options mask
-    let big_endian = (compression_options_mask & 0x04) != 0;
-
     // Build decoder with parameters
     let mut decoder = Decoder::new(
         bits_per_sample as u32,
@@ -186,7 +165,10 @@ pub fn extract_ccsds_data(
         }
     })?;
 
-    // Convert bytes to f32 values to match pure Rust interface
+    // Convert bytes to f32 values to match pure Rust interface.
+    // libaec outputs bytes in the byte order specified by AEC_DATA_MSB
+    // in the compression_options_mask from the GRIB2 file.
+    let big_endian = (compression_options_mask as u32 & AEC_DATA_MSB) != 0;
     let f32_values = bytes_to_f32_values(
         &decompressed_bytes,
         bits_per_sample,
@@ -197,7 +179,8 @@ pub fn extract_ccsds_data(
     Ok(f32_values)
 }
 
-/// Convert decompressed bytes to f32 values as expected by GRIB2 processing
+/// Convert decompressed bytes to f32 values as expected by GRIB2 processing.
+/// The byte order matches the AEC_DATA_MSB flag from the GRIB2 file.
 fn bytes_to_f32_values(
     bytes: &[u8],
     bits_per_sample: usize,
