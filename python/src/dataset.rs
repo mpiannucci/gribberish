@@ -368,8 +368,7 @@ fn build_grib_dataset<'py>(
             .or_default()
             .insert(path_kind);
     }
-    let partition_by_level =
-        !collapse_groups || var_levels.values().any(|levels| levels.len() > 1);
+    let partition_by_level = !collapse_groups || var_levels.values().any(|levels| levels.len() > 1);
     let partition_by_kind =
         !collapse_groups || var_level_kinds.values().any(|kinds| kinds.len() > 1);
 
