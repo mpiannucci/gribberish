@@ -695,7 +695,7 @@ fn test_longitude_adjustment_geavg() {
     let msg = &messages[0];
     let projector = msg.latlng_projector().expect("Failed to get projector");
 
-    let (lats, lngs) = projector.lat_lng_adjusted(true);
+    let (lats, lngs) = projector.lat_lng_adjusted(true, false);
 
     // Latitudes untouched; longitudes wrapped, monotonic, in [-180, 180).
     assert_eq!(lats, projector.lat_lng().0);
@@ -729,7 +729,10 @@ fn test_longitude_adjustment_geavg() {
     }
 
     // Disabled / no-op path returns the originals unchanged.
-    assert_eq!(projector.lat_lng_adjusted(false), projector.lat_lng());
+    assert_eq!(
+        projector.lat_lng_adjusted(false, false),
+        projector.lat_lng()
+    );
     assert_eq!(
         projector.adjust_data_longitude(native.clone(), false),
         native
@@ -744,7 +747,7 @@ fn test_longitude_adjustment_era5_grib1() {
     let msg = &messages[0];
     let projector = msg.latlng_projector().expect("Failed to get projector");
 
-    let (_, lngs) = projector.lat_lng_adjusted(true);
+    let (_, lngs) = projector.lat_lng_adjusted(true, false);
     assert_eq!(lngs.len(), 120);
     assert!(
         (lngs[0] - (-180.0)).abs() < 0.001,
@@ -770,6 +773,89 @@ fn test_longitude_adjustment_era5_grib1() {
             "roll mismatch at {i}"
         );
     }
+}
+
+#[test]
+fn test_north_up_hrrr_lambert() {
+    // HRRR is a Lambert Conformal grid where "north up" means north-up in
+    // projected y/northing space (latitude is a 2-D field, not a 1-D axis). The
+    // PlateCaree fixtures are all north-first already, so this Lambert grid is
+    // what actually exercises the row flip.
+    let grib_data = read_grib_messages("../test-data/hrrr.t06z.wrfsfcf01-TMP.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    let msg = &messages[0];
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+
+    let (ny, nx) = msg
+        .grid_dimensions()
+        .expect("Failed to get grid dimensions");
+    let native = msg.data().expect("Failed to decode data");
+    assert_eq!(native.len(), ny * nx);
+
+    // Determine the native orientation from the 2-D latitude field: compare the
+    // latitude of the first and last data rows at the same column.
+    let (native_lats, _) = projector.lat_lng();
+    let first_row_lat = native_lats[0];
+    let last_row_lat = native_lats[(ny - 1) * nx];
+    let native_north_first = first_row_lat > last_row_lat;
+    eprintln!(
+        "HRRR native orientation: first row lat {first_row_lat}, last row lat \
+         {last_row_lat} => {}",
+        if native_north_first {
+            "north-first"
+        } else {
+            "south-first"
+        }
+    );
+
+    // north_up data adjustment.
+    let north_up = projector.adjust_data_north_up(native.clone(), true);
+    assert_eq!(north_up.len(), native.len());
+
+    if native_north_first {
+        // Already north-first: north_up is a no-op.
+        assert_eq!(
+            north_up, native,
+            "north_up should be a no-op when north-first"
+        );
+    } else {
+        // South-first: north_up must equal a manual row reversal of the native
+        // buffer, putting the northern-most row first.
+        let mut expected = Vec::with_capacity(native.len());
+        for r in (0..ny).rev() {
+            expected.extend_from_slice(&native[r * nx..(r + 1) * nx]);
+        }
+        assert_eq!(north_up, expected, "north_up should reverse rows");
+        // And it must differ from native (this fixture is genuinely south-first).
+        assert_ne!(north_up, native);
+    }
+
+    // north_up=false is always a no-op.
+    assert_eq!(
+        projector.adjust_data_north_up(native.clone(), false),
+        native
+    );
+
+    // The north-up latitude field has its first row north of its last row.
+    let (lats_up, lngs_up) = projector.lat_lng_adjusted(false, true);
+    assert_eq!(lats_up.len(), ny * nx);
+    assert!(
+        lats_up[0] > lats_up[(ny - 1) * nx],
+        "north-up first row ({}) should be north of last row ({})",
+        lats_up[0],
+        lats_up[(ny - 1) * nx]
+    );
+
+    // The north-up coordinates stay aligned with the north-up data: row r of the
+    // north-up latitude field matches row (ny-1-r) of the native field.
+    for r in [0usize, ny / 2, ny - 1] {
+        let native_r = if native_north_first { r } else { ny - 1 - r };
+        assert!(
+            (lats_up[r * nx] - native_lats[native_r * nx]).abs() < 1e-9,
+            "lat row {r} misaligned"
+        );
+    }
+    let _ = lngs_up;
 }
 
 #[test]
