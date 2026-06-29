@@ -1246,3 +1246,106 @@ fn read_pdt107_anomaly_with_reference() {
         "PDT 107 key should contain :anom"
     );
 }
+
+/// ECMWF AIFS v2 wave forecast. Exercises:
+///  - Product Definition Template 4.103 (waves selected by period range), used
+///    by the period-banded significant wave height parameters (h1012, h1214 ...)
+///  - Oceanographic sub-surface parameters (discipline 10, category 4), used by
+///    the wave model bathymetry (wmb)
+///
+/// See https://github.com/mpiannucci/gribberish/issues/167
+#[test]
+fn read_aifs_wave_period_range() {
+    let grib_data = read_grib_messages("../test-data/aifs-single-wave.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    assert_eq!(
+        messages.len(),
+        4,
+        "Expected 4 messages in AIFS wave fixture"
+    );
+
+    // Every message should produce a unique key. Before template 4.103 was
+    // supported the two period-banded wave heights decoded to identical keys.
+    let keys = messages
+        .iter()
+        .map(|m| m.key().expect("key should resolve"))
+        .collect::<Vec<_>>();
+    let unique = keys.iter().collect::<std::collections::HashSet<_>>();
+    assert_eq!(unique.len(), keys.len(), "Found duplicate keys: {keys:?}");
+
+    // Message 0: h1012 - significant wave height for periods in [10, 12] s.
+    let h1012 = &messages[0];
+    assert_eq!(
+        h1012.product_template_id().unwrap(),
+        103,
+        "h1012 product template"
+    );
+    assert_eq!(h1012.variable_abbrev().unwrap(), "HTSGW", "h1012 abbrev");
+    assert_eq!(h1012.unit().unwrap(), "m", "h1012 unit");
+    assert_eq!(
+        h1012.wave_period_range().unwrap(),
+        Some((Some(10.0), Some(12.0))),
+        "h1012 wave period range"
+    );
+    assert!(
+        h1012.key().unwrap().contains(":per10-12s"),
+        "h1012 key should encode its period band: {}",
+        h1012.key().unwrap()
+    );
+
+    // Data still decodes correctly through the new template.
+    let h1012_data = h1012.data().unwrap();
+    assert_eq!(h1012_data.len(), 1038240, "h1012 data length (full grid)");
+    let finite = h1012_data.iter().filter(|v| v.is_finite()).count();
+    assert_eq!(finite, 665822, "h1012 defined value count");
+    let min = h1012_data
+        .iter()
+        .cloned()
+        .filter(|v| v.is_finite())
+        .fold(f64::INFINITY, f64::min);
+    let max = h1012_data
+        .iter()
+        .cloned()
+        .filter(|v| v.is_finite())
+        .fold(f64::NEG_INFINITY, f64::max);
+    assert!((min - 0.00124514).abs() < 1e-5, "h1012 min was {min}");
+    assert!((max - 4.59463).abs() < 1e-4, "h1012 max was {max}");
+
+    // Message 1: h1214 - distinct period band => distinct key.
+    let h1214 = &messages[1];
+    assert_eq!(h1214.product_template_id().unwrap(), 103, "h1214 template");
+    assert_eq!(
+        h1214.wave_period_range().unwrap(),
+        Some((Some(12.0), Some(14.0))),
+        "h1214 wave period range"
+    );
+    assert_ne!(
+        h1012.key().unwrap(),
+        h1214.key().unwrap(),
+        "period bands must produce distinct keys"
+    );
+
+    // Message 2: wmb - oceanographic sub-surface bathymetry (cat 4, param 7).
+    let wmb = &messages[2];
+    assert_eq!(wmb.variable_abbrev().unwrap(), "WMB", "wmb abbrev");
+    assert_eq!(wmb.variable_name().unwrap(), "bathymetry", "wmb name");
+    assert_eq!(wmb.unit().unwrap(), "m", "wmb unit");
+    assert_eq!(
+        wmb.wave_period_range().unwrap(),
+        None,
+        "wmb has no wave period range"
+    );
+
+    // Message 3: swh - ordinary template 4.0 significant wave height. Confirms
+    // the standard path is unaffected and carries no period band in its key.
+    let swh = &messages[3];
+    assert_eq!(swh.product_template_id().unwrap(), 0, "swh template");
+    assert_eq!(swh.variable_abbrev().unwrap(), "HTSGW", "swh abbrev");
+    assert_eq!(swh.wave_period_range().unwrap(), None, "swh period range");
+    assert!(
+        !swh.key().unwrap().contains(":per"),
+        "swh key should not encode a period band: {}",
+        swh.key().unwrap()
+    );
+}
