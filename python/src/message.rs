@@ -3,6 +3,7 @@ use std::convert::TryFrom;
 
 use gribberish::message::Message;
 use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
+use gribberish::templates::product::product_template::WavePeriodRange;
 use numpy::{PyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -62,6 +63,13 @@ impl GribMessageMetadata {
     #[getter]
     fn perturbation_number(&self) -> Option<u8> {
         self.inner.perturbation_number
+    }
+
+    /// Inclusive `(lower, upper)` wave period range in seconds for period-banded
+    /// wave fields (template 4.103), or `None` for any other product.
+    #[getter]
+    fn wave_period_range(&self) -> Option<WavePeriodRange> {
+        self.inner.wave_period_range
     }
 
     #[getter]

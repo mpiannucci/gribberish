@@ -64,6 +64,16 @@ fn message_kind(meta: &MessageMetadata) -> String {
         tokens.push("anom".to_string());
     }
 
+    // Period-banded wave fields (template 4.103) share a parameter number with
+    // plain significant wave height, so the period band is the only thing that
+    // separates them. Fold it into the kind - like between-limit probability
+    // thresholds - so each band becomes its own hypercube instead of colliding.
+    if let Some((lower, upper)) = meta.wave_period_range {
+        let lower = lower.map_or("".to_string(), |v| format!("{v:.0}"));
+        let upper = upper.map_or("".to_string(), |v| format!("{v:.0}"));
+        tokens.push(format!("per{lower}-{upper}s"));
+    }
+
     if tokens.is_empty() {
         "instant".to_string()
     } else {

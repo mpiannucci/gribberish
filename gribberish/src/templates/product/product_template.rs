@@ -9,6 +9,10 @@ use super::{
     },
 };
 
+/// Inclusive wave period range `(lower, upper)` in seconds. Either limit is
+/// `None` when the corresponding limit is open ended (encoded as missing).
+pub type WavePeriodRange = (Option<f64>, Option<f64>);
+
 pub trait ProductTemplate {
     fn discipline(&self) -> u8;
     fn category_value(&self) -> u8;
@@ -61,6 +65,14 @@ pub trait ProductTemplate {
 
     fn is_anomaly(&self) -> bool {
         false
+    }
+
+    /// Returns the inclusive wave period range `(lower, upper)` in seconds for
+    /// templates that select waves by period band (e.g. template 4.103). Either
+    /// limit may be `None` if the range is open ended. Returns `None` for
+    /// templates that do not define a wave period range.
+    fn wave_period_range(&self) -> Option<WavePeriodRange> {
+        None
     }
 
     fn category(&self) -> &'static str {

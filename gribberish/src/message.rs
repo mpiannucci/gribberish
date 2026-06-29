@@ -2,7 +2,7 @@ use crate::error::GribberishError;
 use crate::grib1::Grib1Message;
 use crate::sections::{indicator::Discipline, section::Section, section::SectionIterator};
 use crate::templates::grid_definition::GridDefinitionTemplate;
-use crate::templates::product::product_template::ProductTemplate;
+use crate::templates::product::product_template::{ProductTemplate, WavePeriodRange};
 use crate::templates::product::tables::{
     DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit,
     TypeOfStatisticalProcessing,
@@ -235,8 +235,19 @@ impl<'a> Message<'a> {
             ""
         };
 
+        // Wave period band (template 4.103) - distinguishes otherwise identical
+        // period-banded significant wave height messages from one another.
+        let wave_period = match self.wave_period_range().unwrap_or(None) {
+            Some((lower, upper)) => {
+                let lower = lower.map_or("".to_string(), |v| format!("{v:.0}"));
+                let upper = upper.map_or("".to_string(), |v| format!("{v:.0}"));
+                format!(":per{lower}-{upper}s")
+            }
+            None => "".to_string(),
+        };
+
         Ok(format!(
-            "{var}{time}{first_level}{second_level}{perturbation}{percentile}{probability}{anomaly}:{statistical_process}{generating_process}{derived_forecast_type}"
+            "{var}{time}{first_level}{second_level}{perturbation}{percentile}{probability}{wave_period}{anomaly}:{statistical_process}{generating_process}{derived_forecast_type}"
         ))
     }
 
@@ -586,6 +597,19 @@ impl<'a> Message<'a> {
             Message::Grib2 { .. } => {
                 let product_template = self.product_template()?;
                 Ok(product_template.percentile_value())
+            }
+        }
+    }
+
+    /// Returns the inclusive wave period range `(lower, upper)` in seconds for
+    /// messages that select waves by period band (template 4.103). Returns
+    /// `None` for any other product template.
+    pub fn wave_period_range(&self) -> Result<Option<WavePeriodRange>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.wave_period_range())
             }
         }
     }
