@@ -151,6 +151,7 @@ pub fn extract_jpeg_data(raw_data: &[u8]) -> Result<Vec<i32>, GribberishError> {
 
         let mut image: *mut openjpeg_sys::opj_image = null_mut();
         if openjpeg_sys::opj_read_header(stream, dinfo, &mut image) != 1 {
+            openjpeg_sys::opj_stream_destroy(stream);
             openjpeg_sys::opj_destroy_codec(dinfo);
             openjpeg_sys::opj_image_destroy(image);
             return Err(GribberishError::JpegError(
@@ -159,6 +160,7 @@ pub fn extract_jpeg_data(raw_data: &[u8]) -> Result<Vec<i32>, GribberishError> {
         }
 
         if openjpeg_sys::opj_decode(dinfo, stream, image) != 1 {
+            openjpeg_sys::opj_stream_destroy(stream);
             openjpeg_sys::opj_destroy_codec(dinfo);
             openjpeg_sys::opj_image_destroy(image);
             return Err(GribberishError::JpegError(
@@ -180,6 +182,7 @@ pub fn extract_jpeg_data(raw_data: &[u8]) -> Result<Vec<i32>, GribberishError> {
             output_data.push(data_point);
         }
 
+        openjpeg_sys::opj_stream_destroy(stream);
         openjpeg_sys::opj_destroy_codec(dinfo);
         openjpeg_sys::opj_image_destroy(image);
     }
