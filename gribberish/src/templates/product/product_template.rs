@@ -4,10 +4,14 @@ use gribberish_types::Parameter;
 use super::{
     parameters::{category, parameter},
     tables::{
-        DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit,
+        DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit,
         TypeOfStatisticalProcessing,
     },
 };
+
+/// Inclusive wave period range `(lower, upper)` in seconds. Either limit is
+/// `None` when the corresponding limit is open ended (encoded as missing).
+pub type WavePeriodRange = (Option<f64>, Option<f64>);
 
 pub trait ProductTemplate {
     fn discipline(&self) -> u8;
@@ -36,6 +40,38 @@ pub trait ProductTemplate {
     /// Returns the total number of ensemble members for ensemble forecast templates.
     /// Returns None for non-ensemble templates.
     fn number_of_ensemble_members(&self) -> Option<u8> {
+        None
+    }
+
+    fn percentile_value(&self) -> Option<u8> {
+        None
+    }
+
+    fn probability_type(&self) -> Option<ProbabilityType> {
+        None
+    }
+
+    fn forecast_probability_number(&self) -> Option<u8> {
+        None
+    }
+
+    fn probability_lower_limit(&self) -> Option<f64> {
+        None
+    }
+
+    fn probability_upper_limit(&self) -> Option<f64> {
+        None
+    }
+
+    fn is_anomaly(&self) -> bool {
+        false
+    }
+
+    /// Returns the inclusive wave period range `(lower, upper)` in seconds for
+    /// templates that select waves by period band (e.g. template 4.103). Either
+    /// limit may be `None` if the range is open ended. Returns `None` for
+    /// templates that do not define a wave period range.
+    fn wave_period_range(&self) -> Option<WavePeriodRange> {
         None
     }
 

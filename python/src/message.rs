@@ -3,6 +3,7 @@ use std::convert::TryFrom;
 
 use gribberish::message::Message;
 use gribberish::message_metadata::{scan_message_metadata, MessageMetadata};
+use gribberish::templates::product::product_template::WavePeriodRange;
 use numpy::{PyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -57,6 +58,18 @@ impl GribMessageMetadata {
     #[getter]
     fn level_value(&self) -> Option<f64> {
         self.inner.first_fixed_surface_value
+    }
+
+    #[getter]
+    fn perturbation_number(&self) -> Option<u8> {
+        self.inner.perturbation_number
+    }
+
+    /// Inclusive `(lower, upper)` wave period range in seconds for period-banded
+    /// wave fields (template 4.103), or `None` for any other product.
+    #[getter]
+    fn wave_period_range(&self) -> Option<WavePeriodRange> {
+        self.inner.wave_period_range
     }
 
     #[getter]
@@ -147,11 +160,13 @@ impl GribMessageMetadata {
         )
     }
 
+    #[pyo3(signature = (adjust_longitude_range=false))]
     fn latlng<'py>(
         &self,
         py: Python<'py>,
+        adjust_longitude_range: bool,
     ) -> (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>) {
-        let (lat, lng) = self.inner.latlng();
+        let (lat, lng) = self.inner.latlng_adjusted(adjust_longitude_range);
         (PyArray::from_vec(py, lat), PyArray::from_vec(py, lng))
     }
 
@@ -171,39 +186,68 @@ pub struct GribMessage {
 
 #[pymethods]
 impl GribMessage {
-    fn data<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
-        parse_grib_array(py, &self.raw_data, self.offset)
+    fn data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<f64>>> {
+        parse_grib_array(py, &self.raw_data, self.offset, false)
     }
 }
 
 #[pyfunction]
+#[pyo3(signature = (data, offset, adjust_longitude_range=false))]
 pub fn parse_grib_array<'py>(
     py: Python<'py>,
     data: &[u8],
     offset: usize,
-) -> Bound<'py, PyArray1<f64>> {
-    let message = Message::from_data(data, offset).unwrap();
-    let data = message.data().unwrap();
-    PyArray::from_vec(py, data)
+    adjust_longitude_range: bool,
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
+    let message = Message::from_data(data, offset)
+        .ok_or_else(|| PyTypeError::new_err("Failed to read GRIB message"))?;
+    let values = message
+        .data()
+        .map_err(|e| PyTypeError::new_err(format!("Failed to decode GRIB data: {e}")))?;
+    // For eligible global grids, roll the data columns so longitudes run
+    // -180..180 monotonically, matching the wrapped coordinates. The projector
+    // decides eligibility and the exact roll, so data and coords stay aligned.
+    let values = if adjust_longitude_range {
+        let projector = message
+            .latlng_projector()
+            .map_err(|e| PyTypeError::new_err(format!("Failed to build projection: {e}")))?;
+        projector.adjust_data_longitude(values, true)
+    } else {
+        values
+    };
+    Ok(PyArray::from_vec(py, values))
+}
+
+/// Wrap a global 0–360° longitude coordinate to a monotonic −180…180° axis,
+/// matching the data roll the codec applies. A no-op for grids that don't span
+/// the globe. Used by the VirtualiZarr parser to rewrap the inlined longitude
+/// coordinate at the boundary, keeping the eager dataset reader projection-faithful.
+#[pyfunction]
+pub fn adjust_longitude_values(py: Python<'_>, longitudes: Vec<f64>) -> Bound<'_, PyArray1<f64>> {
+    PyArray::from_vec(py, gribberish::adjust_longitude_values(longitudes))
 }
 
 #[pyfunction]
 pub fn parse_grib_message_metadata(data: &[u8], offset: usize) -> PyResult<GribMessageMetadata> {
-    let message = Message::from_data(data, offset).unwrap();
-    let metadata = MessageMetadata::try_from(&message).unwrap();
+    let message = Message::from_data(data, offset)
+        .ok_or_else(|| PyTypeError::new_err("Failed to read GRIB message"))?;
+    let metadata = MessageMetadata::try_from(&message)
+        .map_err(|e| PyTypeError::new_err(format!("Failed to parse metadata: {e}")))?;
     Ok(GribMessageMetadata { inner: metadata })
 }
 
 #[pyfunction]
 pub fn parse_grib_message(data: &[u8], offset: usize) -> PyResult<GribMessage> {
     match Message::from_data(data, offset) {
-        Some(m) => Ok(GribMessage {
-            offset,
-            raw_data: data.to_vec(),
-            metadata: GribMessageMetadata {
-                inner: MessageMetadata::try_from(&m).unwrap(),
-            },
-        }),
+        Some(m) => {
+            let metadata = MessageMetadata::try_from(&m)
+                .map_err(|e| PyTypeError::new_err(format!("Failed to parse metadata: {e}")))?;
+            Ok(GribMessage {
+                offset,
+                raw_data: data.to_vec(),
+                metadata: GribMessageMetadata { inner: metadata },
+            })
+        }
         None => Err(PyTypeError::new_err("Failed to read GribMessage")),
     }
 }

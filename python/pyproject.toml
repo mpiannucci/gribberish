@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "gribberish"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -15,32 +15,29 @@ dynamic = ["version"]
 dependencies = ["numpy >= 2"]
 
 [project.optional-dependencies]
-xarray = ["xarray", "fsspec"]
-kerchunk = ["kerchunk", "zarr", "numcodecs", "fsspec"]
+xarray = ["xarray>=2025.6.0", "obstore"]
 zarr = ["zarr>=3.1.1"]
+virtualizarr = ["virtualizarr>=2.6", "zarr>=3.1.1", "obstore"]
 dev = [
     "matplotlib",
     "cf_xarray",
     "zarr>=3.1.1",
-    "numcodecs",
-    "fsspec",
+    "virtualizarr>=2.6",
+    "obstore",
     "ujson",
     "dask[complete]",
     "ipywidgets",
     "scipy",
-    "gcsfs",
-    "s3fs",
     "cfgrib",
     "pyproj",
+    "xoak",
+    "scikit-learn",
     "pytest",
     "pytest-asyncio",
 ]
 
 [project.entry-points."xarray.backends"]
 gribberish = "gribberish.gribberish_backend:GribberishBackend"
-
-[project.entry-points."numcodecs.codecs"]
-gribberish = "gribberish.kerchunk:GribberishCodec"
 
 [project.entry-points."zarr.codecs"]
 gribberish = "gribberish.zarr:GribberishCodec"

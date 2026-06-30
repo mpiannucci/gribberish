@@ -2,9 +2,10 @@ use crate::error::GribberishError;
 use crate::grib1::Grib1Message;
 use crate::sections::{indicator::Discipline, section::Section, section::SectionIterator};
 use crate::templates::grid_definition::GridDefinitionTemplate;
-use crate::templates::product::product_template::ProductTemplate;
+use crate::templates::product::product_template::{ProductTemplate, WavePeriodRange};
 use crate::templates::product::tables::{
-    DerivedForecastType, FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing,
+    DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit,
+    TypeOfStatisticalProcessing,
 };
 use crate::utils::iter::projection::LatLngProjection;
 use bitvec::view::BitView;
@@ -208,8 +209,45 @@ impl<'a> Message<'a> {
             .unwrap_or(None)
             .map_or("".to_string(), |p| format!(":ens{p}"));
 
+        let percentile = self
+            .percentile_value()
+            .unwrap_or(None)
+            .map_or("".to_string(), |p| format!(":pctl{p}"));
+
+        let probability = match self.probability_type().unwrap_or(None) {
+            Some(pt) => {
+                let lower = self
+                    .probability_lower_limit()
+                    .unwrap_or(None)
+                    .map_or("".to_string(), |v| format!("_{v:.0}"));
+                let upper = self
+                    .probability_upper_limit()
+                    .unwrap_or(None)
+                    .map_or("".to_string(), |v| format!("_{v:.0}"));
+                format!(":probt{}{lower}{upper}", pt as u8)
+            }
+            None => "".to_string(),
+        };
+
+        let anomaly = if self.is_anomaly().unwrap_or(false) {
+            ":anom"
+        } else {
+            ""
+        };
+
+        // Wave period band (template 4.103) - distinguishes otherwise identical
+        // period-banded significant wave height messages from one another.
+        let wave_period = match self.wave_period_range().unwrap_or(None) {
+            Some((lower, upper)) => {
+                let lower = lower.map_or("".to_string(), |v| format!("{v:.0}"));
+                let upper = upper.map_or("".to_string(), |v| format!("{v:.0}"));
+                format!(":per{lower}-{upper}s")
+            }
+            None => "".to_string(),
+        };
+
         Ok(format!(
-            "{var}{time}{first_level}{second_level}{perturbation}:{statistical_process}{generating_process}{derived_forecast_type}"
+            "{var}{time}{first_level}{second_level}{perturbation}{percentile}{probability}{wave_period}{anomaly}:{statistical_process}{generating_process}{derived_forecast_type}"
         ))
     }
 
@@ -511,9 +549,19 @@ impl<'a> Message<'a> {
         }
     }
 
+    pub fn is_anomaly(&self) -> Result<bool, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(false),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.is_anomaly())
+            }
+        }
+    }
+
     pub fn perturbation_number(&self) -> Result<Option<u8>, GribberishError> {
         match self {
-            Message::Grib1 { .. } => Ok(None),
+            Message::Grib1 { message, .. } => Ok(message.ensemble_number()),
             Message::Grib2 { .. } => {
                 let product_template = self.product_template()?;
                 Ok(product_template.perturbation_number())
@@ -523,7 +571,7 @@ impl<'a> Message<'a> {
 
     pub fn number_of_ensemble_members(&self) -> Result<Option<u8>, GribberishError> {
         match self {
-            Message::Grib1 { .. } => Ok(None),
+            Message::Grib1 { message, .. } => Ok(message.number_of_ensemble_members()),
             Message::Grib2 { .. } => {
                 let product_template = self.product_template()?;
                 Ok(product_template.number_of_ensemble_members())
@@ -539,6 +587,69 @@ impl<'a> Message<'a> {
             Message::Grib2 { .. } => {
                 let product_template = self.product_template()?;
                 Ok(product_template.statistical_process_type())
+            }
+        }
+    }
+
+    pub fn percentile_value(&self) -> Result<Option<u8>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.percentile_value())
+            }
+        }
+    }
+
+    /// Returns the inclusive wave period range `(lower, upper)` in seconds for
+    /// messages that select waves by period band (template 4.103). Returns
+    /// `None` for any other product template.
+    pub fn wave_period_range(&self) -> Result<Option<WavePeriodRange>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.wave_period_range())
+            }
+        }
+    }
+
+    pub fn probability_type(&self) -> Result<Option<ProbabilityType>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.probability_type())
+            }
+        }
+    }
+
+    pub fn forecast_probability_number(&self) -> Result<Option<u8>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.forecast_probability_number())
+            }
+        }
+    }
+
+    pub fn probability_lower_limit(&self) -> Result<Option<f64>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.probability_lower_limit())
+            }
+        }
+    }
+
+    pub fn probability_upper_limit(&self) -> Result<Option<f64>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let product_template = self.product_template()?;
+                Ok(product_template.probability_upper_limit())
             }
         }
     }
@@ -825,8 +936,17 @@ impl<'a> Message<'a> {
                     scaled_unpacked_data
                 };
 
-                let shape = self.grid_dimensions()?;
-                let count = shape.0 * shape.1;
+                let count = unwrap_or_return!(
+                    self.sections().find_map(|s| match s {
+                        Section::GridDefinition(grid_definition) => {
+                            Some(grid_definition.data_point_count())
+                        }
+                        _ => None,
+                    }),
+                    GribberishError::MessageError(
+                        "Grid definition section not found when reading message data".into()
+                    )
+                );
                 data.resize(count, 0.0);
                 Ok(data)
             }

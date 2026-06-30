@@ -210,4 +210,20 @@ impl ProductTemplate for ProbabilityHorizontalForecastTemplate {
     fn statistical_process_type(&self) -> Option<super::tables::TypeOfStatisticalProcessing> {
         None
     }
+
+    fn probability_type(&self) -> Option<super::tables::ProbabilityType> {
+        Some(self.data.get(36).copied().unwrap_or(0).into())
+    }
+
+    fn forecast_probability_number(&self) -> Option<u8> {
+        Some(self.data.get(34).copied().unwrap_or(0))
+    }
+
+    fn probability_lower_limit(&self) -> Option<f64> {
+        self.lower_limit()
+    }
+
+    fn probability_upper_limit(&self) -> Option<f64> {
+        self.upper_limit()
+    }
 }

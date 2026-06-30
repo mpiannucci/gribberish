@@ -1,11 +1,14 @@
 use super::grib_section::GribSection;
 use crate::{
     templates::product::{
+        derived_ensemble_forecast_time_interval_reference_template::DerivedEnsembleForecastTimeIntervalReferenceTemplate,
         derived_ensemble_horizontal_forecast_time_interval_template::DerivedEnsembleHorizontalForecastTimeIntervalTemplate,
         product_template::ProductTemplate,
         AverageAccumulationExtremeHorizontalAnalysisForecastTemplate,
-        DerivedEnsembleHorizontalAnalysisForecastTemplate, HorizontalAnalysisForecastTemplate,
-        HorizontalEnsembleForecastTemplate,
+        DerivedEnsembleHorizontalAnalysisForecastTemplate, EnsembleForecastTimeIntervalTemplate,
+        HorizontalAnalysisForecastTemplate, HorizontalEnsembleForecastTemplate,
+        PercentileHorizontalTimeIntervalTemplate, ProbabilityHorizontalForecastTemplate,
+        ProbabilityHorizontalTimeIntervalTemplate, WavePeriodRangeHorizontalForecastTemplate,
     },
     utils::{read_u16_from_bytes, read_u32_from_bytes},
 };
@@ -49,8 +52,34 @@ impl<'a> ProductDefinitionSection<'a> {
                     discipline,
                 ),
             )),
+            5 => Some(Box::new(ProbabilityHorizontalForecastTemplate::new(
+                self.data.to_vec(),
+                discipline,
+            ))),
+            9 => Some(Box::new(ProbabilityHorizontalTimeIntervalTemplate::new(
+                self.data.to_vec(),
+                discipline,
+            ))),
+            10 => Some(Box::new(PercentileHorizontalTimeIntervalTemplate::new(
+                self.data.to_vec(),
+                discipline,
+            ))),
+            11 => Some(Box::new(EnsembleForecastTimeIntervalTemplate::new(
+                self.data.to_vec(),
+                discipline,
+            ))),
             12 => Some(Box::new(
                 DerivedEnsembleHorizontalForecastTimeIntervalTemplate::new(
+                    self.data.to_vec(),
+                    discipline,
+                ),
+            )),
+            103 => Some(Box::new(WavePeriodRangeHorizontalForecastTemplate::new(
+                self.data.to_vec(),
+                discipline,
+            ))),
+            107 => Some(Box::new(
+                DerivedEnsembleForecastTimeIntervalReferenceTemplate::new(
                     self.data.to_vec(),
                     discipline,
                 ),

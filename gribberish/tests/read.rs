@@ -1,6 +1,7 @@
 extern crate gribberish;
 
 use gribberish::message::{read_messages, Message};
+use gribberish::templates::product::tables::{DerivedForecastType, TypeOfStatisticalProcessing};
 use std::time::Instant;
 use std::vec::Vec;
 
@@ -151,6 +152,39 @@ fn read_spatial_differenced_complex() {
         data.len()
     );
     assert!((data[1000] - 303.7372741699219).abs() < 0.0000001);
+}
+
+#[test]
+fn read_spatial_differenced_complex_with_missing() {
+    // GFS temperature on the potential-vorticity surface: complex packing with
+    // 2nd-order spatial differencing AND primary missing values (large regions
+    // of the grid are missing). Validated against cfgrib/eccodes. Regression
+    // test for the missing-value handling -- previously the all-ones group
+    // references were decoded as real data and the second-order reconstruction
+    // diverged into ~2^31 garbage across 99% of the grid.
+    let read_data =
+        read_grib_messages("../test-data/gfs.t12z.pgrb2.0p25.f023-PV-TMP-missing.grib2");
+    let message = read_messages(read_data.as_slice())
+        .next()
+        .expect("a message");
+    let data = message.data().expect("decode");
+
+    assert_eq!(data.len(), 1038240);
+    let defined: Vec<f64> = data.iter().copied().filter(|v| v.is_finite()).collect();
+    let missing = data.len() - defined.len();
+    assert_eq!(defined.len(), 629160, "defined value count");
+    assert_eq!(missing, 409080, "missing (NaN) value count");
+
+    let min = defined.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max = defined.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    assert!((min - 184.98).abs() < 0.01, "min was {min}");
+    assert!((max - 289.58).abs() < 0.01, "max was {max}");
+    // first row is fully defined and constant in this message
+    assert!(
+        (data[0] - 248.6795898).abs() < 1e-4,
+        "data[0] was {}",
+        data[0]
+    );
 }
 
 #[test]
@@ -452,9 +486,12 @@ fn read_grib1_era5_levels_members() {
         "Message 0 grid dimensions"
     );
 
-    // Validate key format
+    // Validate key format (message 0 is ensemble member 0)
     let key = msg_0.key().unwrap();
-    assert_eq!(key, "z:201701010000:500 in mb:forecast", "Message 0 key");
+    assert_eq!(
+        key, "z:201701010000:500 in mb:ens0:forecast",
+        "Message 0 key"
+    );
 
     // Validate data at multiple points
     let data_0 = msg_0.data().unwrap();
@@ -520,7 +557,8 @@ fn test_iterator_scans_past_padding() {
         "Expected 160 messages in ERA5 GRIB1 file (iterator should scan past padding)"
     );
 
-    // Verify we have 16 unique variable/time/level combinations
+    // Every message has a unique key: the ensemble member number is part of
+    // the key, so the 10 members no longer collide.
     let mut unique_keys = std::collections::HashSet::new();
     for message in &messages {
         let key = message.key().unwrap();
@@ -529,8 +567,8 @@ fn test_iterator_scans_past_padding() {
 
     assert_eq!(
         unique_keys.len(),
-        16,
-        "Expected 16 unique keys (2 vars x 4 times x 2 levels)"
+        160,
+        "Expected 160 unique keys (2 vars x 4 times x 2 levels x 10 members)"
     );
 }
 
@@ -642,6 +680,151 @@ fn test_longitude_normalization_era5_grib1() {
 }
 
 #[test]
+fn read_nbm_lambert_specified_radius_projection() {
+    // Regression test: NBM uses a Lambert Conformal grid whose earth shape is
+    // "spherical with a producer-specified radius" (shape code 1). That radius
+    // lives in the "radius of spherical earth" fields, not the major/minor axis
+    // fields (which are set to missing). Reading the missing axis fields gave a
+    // radius of ~2.5e-253 m, producing garbage lat/lon (and an inverse-project
+    // panic for some grids). The first CONUS grid point must land near
+    // 19.229°N, 233.72°E (-126.28°).
+    let grib_data = read_grib_messages("../test-data/nbm-pwat-prob-above.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    assert!(!messages.is_empty(), "Expected at least one message");
+
+    let msg = &messages[0];
+
+    // The producer-specified spherical radius must be read from the radius
+    // fields (6,371,200 m), not the missing major/minor axis fields.
+    let params = msg.grid_template().unwrap().proj_params();
+    assert!(
+        (params["a"] - 6_371_200.0).abs() < 1.0,
+        "a = {}",
+        params["a"]
+    );
+    assert!(
+        (params["b"] - 6_371_200.0).abs() < 1.0,
+        "b = {}",
+        params["b"]
+    );
+
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+    let (lats, lngs) = projector.lat_lng();
+    assert_eq!(lats.len(), 1597 * 2345);
+    assert_eq!(lngs.len(), 1597 * 2345);
+
+    // First grid point: ~19.229°N, ~-126.28°.
+    assert!((lats[0] - 19.229).abs() < 0.01, "first lat = {}", lats[0]);
+    assert!(
+        (lngs[0] - (-126.28)).abs() < 0.01,
+        "first lng = {}",
+        lngs[0]
+    );
+
+    // Every point must fall inside the physical NBM CONUS footprint — not the
+    // degenerate values the bad radius produced (e.g. 90°N / -307°).
+    for lat in &lats {
+        assert!(
+            (15.0..=60.0).contains(lat),
+            "latitude {} outside CONUS range",
+            lat
+        );
+    }
+    for lng in &lngs {
+        assert!(
+            (-140.0..=-50.0).contains(lng),
+            "longitude {} outside CONUS range",
+            lng
+        );
+    }
+}
+
+#[test]
+fn test_longitude_adjustment_geavg() {
+    // GEFS 0.5° global grid (0..359.5): opt-in wrap to -180..180.
+    let grib_data = read_grib_messages("../test-data/geavg.t12z.pgrb2a.0p50.f000");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    let msg = &messages[0];
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+
+    let (lats, lngs) = projector.lat_lng_adjusted(true);
+
+    // Latitudes untouched; longitudes wrapped, monotonic, in [-180, 180).
+    assert_eq!(lats, projector.lat_lng().0);
+    assert_eq!(lngs.len(), 720);
+    assert!(
+        (lngs[0] - (-180.0)).abs() < 0.001,
+        "first lng should be -180"
+    );
+    assert!(
+        (lngs[360] - 0.0).abs() < 0.001,
+        "lng at index 360 should be 0"
+    );
+    assert!(
+        (lngs[719] - 179.5).abs() < 0.001,
+        "last lng should be 179.5"
+    );
+    for i in 1..lngs.len() {
+        assert!(lngs[i] > lngs[i - 1], "longitudes must be monotonic");
+        assert!((-180.0..180.0).contains(&lngs[i]), "lng out of range");
+    }
+
+    // Data is rolled by the same amount (360) so it stays aligned with coords.
+    let native = msg.data().expect("Failed to decode data");
+    let adjusted = projector.adjust_data_longitude(native.clone(), true);
+    assert_eq!(adjusted.len(), native.len());
+    let nx = 720usize;
+    for (i, value) in adjusted.iter().enumerate() {
+        let (row, col) = (i / nx, i % nx);
+        let expected = native[row * nx + (col + 360) % nx];
+        assert_eq!(*value, expected, "data not rolled correctly at {i}");
+    }
+
+    // Disabled / no-op path returns the originals unchanged.
+    assert_eq!(projector.lat_lng_adjusted(false), projector.lat_lng());
+    assert_eq!(
+        projector.adjust_data_longitude(native.clone(), false),
+        native
+    );
+}
+
+#[test]
+fn test_longitude_adjustment_era5_grib1() {
+    // ERA5 GRIB1 3° global grid (0..357): wrap to -180..180, roll 60.
+    let grib_data = read_grib_messages("../test-data/era5-levels-members.grib");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    let msg = &messages[0];
+    let projector = msg.latlng_projector().expect("Failed to get projector");
+
+    let (_, lngs) = projector.lat_lng_adjusted(true);
+    assert_eq!(lngs.len(), 120);
+    assert!(
+        (lngs[0] - (-180.0)).abs() < 0.001,
+        "first lng should be -180"
+    );
+    assert!(
+        (lngs[60] - 0.0).abs() < 0.001,
+        "lng at index 60 should be 0"
+    );
+    assert!((lngs[119] - 177.0).abs() < 0.001, "last lng should be 177");
+    for i in 1..lngs.len() {
+        assert!(lngs[i] > lngs[i - 1], "longitudes must be monotonic");
+    }
+
+    let native = msg.data().expect("Failed to decode data");
+    let adjusted = projector.adjust_data_longitude(native.clone(), true);
+    let nx = 120usize;
+    for (i, value) in adjusted.iter().enumerate() {
+        let (row, col) = (i / nx, i % nx);
+        assert_eq!(
+            *value,
+            native[row * nx + (col + 60) % nx],
+            "roll mismatch at {i}"
+        );
+    }
+}
+
+#[test]
 fn read_hrrr_hpbl_parameter() {
     // Test the new PlanetaryBoundaryLayerHeight (HPBL) meteorological parameter
     // disc=0 (meteorological), cat=3 (mass), num=18
@@ -696,4 +879,525 @@ fn read_hrrr_cfrzr_metadata() {
     let data = message.data().unwrap();
     assert_eq!(data.len(), 1905141);
     assert!((data[1000] - 0.0).abs() < 0.0000001);
+}
+
+#[test]
+fn read_hrrr_atmospheric_chemistry() {
+    // GRIB2 discipline 0 (meteorological), category 20 (atmospheric chemical constituents),
+    // parameter 0 (mass density). Reference: GRIB2 Table 4.2-0-20
+    // Source: HRRR wrfprsf00 smoke/dust fields
+    let read_data = read_grib_messages("../test-data/hrrr.t00z.wrfprsf00-atmo-chem.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.variable_abbrev().unwrap(), "MASSDEN");
+    assert_eq!(message.variable_name().unwrap(), "massdensity");
+    assert_eq!(message.unit().unwrap(), "kg m-3");
+    assert_eq!(message.grid_dimensions().unwrap(), (1059, 1799));
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1905141);
+}
+
+#[test]
+fn read_hrrr_hydrology() {
+    // GRIB2 discipline 1 (hydrology), category 0 (basic), parameter 6 (storm surface runoff).
+    // Reference: GRIB2 Table 4.2-1-0
+    // Source: HRRR wrfprsf00 surface runoff fields
+    let read_data = read_grib_messages("../test-data/hrrr.t00z.wrfprsf00-hydrology.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.variable_abbrev().unwrap(), "SSRUN");
+    assert_eq!(message.variable_name().unwrap(), "stormsurfacerunoff");
+    assert_eq!(message.unit().unwrap(), "kg m-2");
+    assert_eq!(message.grid_dimensions().unwrap(), (1059, 1799));
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1905141);
+    // Constant field — all values should be 0.0
+    assert!((data[0] - 0.0).abs() < 0.0000001, "data[0]");
+}
+
+#[test]
+fn read_hrrr_space_products() {
+    // GRIB2 discipline 3 (space products), category 192 (NCEP local),
+    // parameter 1 (simulated brightness temp GOES 12 ch 3).
+    // Reference: GRIB2 Table 4.2-3-192 (NCEP local use)
+    // Source: HRRR wrfprsf00 simulated satellite fields
+    let read_data = read_grib_messages("../test-data/hrrr.t00z.wrfprsf00-space.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.variable_abbrev().unwrap(), "SBT123");
+    assert_eq!(
+        message.variable_name().unwrap(),
+        "simulatedbrightnesstempgoes12ch3"
+    );
+    assert_eq!(message.unit().unwrap(), "K");
+    assert_eq!(message.grid_dimensions().unwrap(), (1059, 1799));
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1905141);
+    assert!((data[0] - 246.05).abs() < 0.01, "data[0]");
+    assert!((data[1000] - 250.81).abs() < 0.01, "data[1000]");
+}
+
+#[test]
+fn read_hrrr_template_8_time_interval() {
+    // GRIB2 Product Definition Template 4.8: average/accumulation in statistical time interval.
+    // Reference: GRIB2 Table 4.0, Template 4.8
+    // disc=0/cat=2/param=220 is NCEP local (not in standard tables), so var_name is "missing".
+    // Source: HRRR wrfprsf00 time-interval accumulated fields
+    let read_data = read_grib_messages("../test-data/hrrr.t00z.wrfprsf00-template8.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    // Template 8 should parse successfully even for unknown parameters
+    assert_eq!(message.product_template_id().unwrap(), 8);
+    assert_eq!(message.grid_dimensions().unwrap(), (1059, 1799));
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1905141);
+}
+
+#[test]
+fn read_grib1_ecmwf_visibility() {
+    // GRIB1 WMO standard table 2, parameter 20 (visibility).
+    // Reference: WMO GRIB1 Code Table 2 (FM 92-XII Ext. GRIB, Table 2)
+    // Source: IFS/ECMWF global forecast, 0.125° grid
+    let read_data = read_grib_messages("../test-data/ecmwf.t00z.pgrb.0p125.f000-vis.grib1");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.variable_abbrev().unwrap(), "vis");
+    assert_eq!(message.variable_name().unwrap(), "Visibility");
+    assert_eq!(message.unit().unwrap(), "m");
+    assert_eq!(message.grid_dimensions().unwrap(), (1441, 2880));
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 4150080);
+    assert!((data[0] - 80459.04).abs() < 0.01, "data[0]");
+}
+
+#[test]
+fn read_grib1_ecmwf_table_140_wave() {
+    // GRIB1 ECMWF local table 140, parameter 229 (significant height of combined wind waves
+    // and swell). Reference: ECMWF Parameter Database, Table 140
+    // Source: IFS/ECMWF global forecast wave model fields, 0.125° grid
+    let read_data = read_grib_messages("../test-data/ecmwf.t00z.pgrb.0p125.f000-wave.grib1");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.variable_abbrev().unwrap(), "swh");
+    assert_eq!(
+        message.variable_name().unwrap(),
+        "Significant height of combined wind waves and swell"
+    );
+    assert_eq!(message.unit().unwrap(), "m");
+    assert_eq!(message.grid_dimensions().unwrap(), (1441, 2880));
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 4150080);
+    // First data point is over land (NaN/missing)
+    assert!(data[0].is_nan(), "data[0] should be NaN (over land)");
+}
+
+#[test]
+fn read_aifs_single_temperature() {
+    // ECMWF AIFS single deterministic forecast, 0.25° global grid.
+    // GRIB2 Product Definition Template 4.0 (analysis/forecast at horizontal level).
+    // Discipline 0 (meteorological), category 0 (temperature), parameter 0 (temperature).
+    // Reference: GRIB2 Table 4.2-0-0
+    // Source: public ECMWF AIFS data (s3://ecmwf-forecasts/)
+    let read_data = read_grib_messages("../test-data/aifs-single-t500.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.variable_abbrev().unwrap(), "TMP");
+    assert_eq!(message.variable_name().unwrap(), "temperature");
+    assert_eq!(message.unit().unwrap(), "K");
+    assert_eq!(message.grid_dimensions().unwrap(), (721, 1440));
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1038240);
+
+    // Values cross-verified against eccodes (max_diff = 0.0)
+    assert!((data[0] - 236.256073).abs() < 0.001, "data[0]");
+    assert!((data[1000] - 236.256073).abs() < 0.001, "data[1000]");
+    assert!((data[100000] - 236.677948).abs() < 0.001, "data[100000]");
+}
+
+#[test]
+fn read_aifs_ensemble_temperature() {
+    // ECMWF AIFS ensemble control forecast, 0.25° global grid.
+    // GRIB2 Product Definition Template 4.1 (individual ensemble forecast at horizontal level).
+    // Discipline 0 (meteorological), category 0 (temperature), parameter 0 (temperature).
+    // Reference: GRIB2 Table 4.2-0-0, Template 4.1
+    // Source: public ECMWF AIFS ensemble data (s3://ecmwf-forecasts/)
+    let read_data = read_grib_messages("../test-data/aifs-ens-cf-t500.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.variable_abbrev().unwrap(), "TMP");
+    assert_eq!(message.variable_name().unwrap(), "temperature");
+    assert_eq!(message.unit().unwrap(), "K");
+    assert_eq!(message.product_template_id().unwrap(), 1);
+    assert_eq!(message.grid_dimensions().unwrap(), (721, 1440));
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1038240);
+
+    // Values cross-verified against eccodes (max_diff = 0.0)
+    assert!((data[0] - 236.822784).abs() < 0.001, "data[0]");
+    assert!((data[1000] - 236.822784).abs() < 0.001, "data[1000]");
+    assert!((data[100000] - 233.666534).abs() < 0.001, "data[100000]");
+}
+
+#[test]
+fn read_ecmwf_ifs_oper_surface() {
+    // ECMWF IFS operational 0.25° global analysis, surface fields.
+    // Tests ECMWF-specific parameters within standard WMO disciplines:
+    //   - Snow albedo (d=0/c=19/p=192, ECMWF local-use)
+    //   - Precipitation type (d=0/c=1/p=19, WMO table 4.2-0-1)
+    //   - Snow density (d=0/c=1/p=61, WMO table 4.2-0-1)
+    //   - Snow depth water equivalent (d=0/c=1/p=254, ECMWF local-use)
+    //   - Total cloud cover (d=0/c=6/p=192, ECMWF local-use)
+    // Data from public ECMWF forecasts: s3://ecmwf-forecasts/
+    let read_data = read_grib_messages("../test-data/ecmwf-ifs-oper-surface.grib2");
+    let messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 5);
+
+    // Snow albedo
+    let asn = &messages[0];
+    assert_eq!(asn.variable_abbrev().unwrap(), "ASN");
+    assert_eq!(asn.variable_name().unwrap(), "snowalbedo");
+    assert_eq!(asn.grid_dimensions().unwrap(), (721, 1440));
+    let data = asn.data().unwrap();
+    assert!((data[0] - 0.849609).abs() < 0.001, "asn data[0]");
+
+    // Precipitation type
+    let ptype = &messages[1];
+    assert_eq!(ptype.variable_abbrev().unwrap(), "PTYPE");
+    assert_eq!(ptype.variable_name().unwrap(), "precipitationtype");
+    let data = ptype.data().unwrap();
+    assert!((data[0] - 5.0).abs() < 0.001, "ptype data[0]");
+
+    // Snow density
+    let rsn = &messages[2];
+    assert_eq!(rsn.variable_abbrev().unwrap(), "RSN");
+    assert_eq!(rsn.variable_name().unwrap(), "snowdensity");
+    let data = rsn.data().unwrap();
+    assert!((data[0] - 100.005066).abs() < 0.001, "rsn data[0]");
+
+    // Snow depth water equivalent
+    let sd = &messages[3];
+    assert_eq!(sd.variable_abbrev().unwrap(), "SD");
+    assert_eq!(sd.variable_name().unwrap(), "snowdepthwaterequivalent");
+
+    // Total cloud cover (ECMWF local-use d=0/c=6/p=192)
+    let tcc = &messages[4];
+    assert_eq!(tcc.variable_abbrev().unwrap(), "TCC");
+    assert_eq!(tcc.variable_name().unwrap(), "totalcloudcoverecmwf");
+    let data = tcc.data().unwrap();
+    assert!((data[0] - 0.109375).abs() < 0.001, "tcc data[0]");
+}
+
+#[test]
+fn read_percentile_and_probability_templates() {
+    // Subset with PDTs 9 (probability), 10 (percentile), and 12 (derived ensemble).
+    // Tests that percentile and probability messages are parsed with unique keys
+    // and correct metadata.
+    // Fixture: 10 messages with constant data, 0.5° global grid.
+    let grib_data = read_grib_messages("../test-data/s2s-pdt9-pdt10-pdt12.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    assert_eq!(messages.len(), 10, "Expected 10 messages in subset");
+
+    // --- PDT 12: Derived ensemble (messages 0, 1) ---
+    let msg_0 = &messages[0];
+    assert_eq!(msg_0.variable_abbrev().unwrap(), "TMP");
+    assert_eq!(msg_0.product_template_id().unwrap(), 12);
+    assert_eq!(msg_0.grid_dimensions().unwrap(), (361, 720));
+    assert_eq!(msg_0.percentile_value().unwrap(), None);
+    assert_eq!(msg_0.probability_type().unwrap(), None);
+    let data = msg_0.data().unwrap();
+    assert_eq!(data.len(), 259920);
+    // Constant-value packing: all data points are identical
+    assert!(
+        data.iter().all(|&v| (v - data[0]).abs() < 0.001),
+        "All data should be constant"
+    );
+
+    // --- PDT 10: Percentile (messages 2, 3, 4) ---
+    let pctl_1 = &messages[2];
+    assert_eq!(pctl_1.product_template_id().unwrap(), 10);
+    assert_eq!(pctl_1.percentile_value().unwrap(), Some(1));
+
+    let pctl_50 = &messages[3];
+    assert_eq!(pctl_50.product_template_id().unwrap(), 10);
+    assert_eq!(pctl_50.percentile_value().unwrap(), Some(50));
+
+    let pctl_99 = &messages[4];
+    assert_eq!(pctl_99.product_template_id().unwrap(), 10);
+    assert_eq!(pctl_99.percentile_value().unwrap(), Some(99));
+
+    // --- PDT 9: Probability (messages 5, 6, 7) ---
+    let prob_above = &messages[5];
+    assert_eq!(prob_above.product_template_id().unwrap(), 9);
+    assert!(prob_above.probability_type().unwrap().is_some());
+    assert!(prob_above.forecast_probability_number().unwrap().is_some());
+
+    let prob_avg = &messages[6];
+    assert_eq!(prob_avg.product_template_id().unwrap(), 9);
+
+    let prob_limits = &messages[7];
+    assert_eq!(prob_limits.product_template_id().unwrap(), 9);
+    // This message has probability type 10 (between limits inclusive)
+    // with lower=1, upper=10
+    assert_eq!(prob_limits.probability_lower_limit().unwrap(), Some(1.0));
+    assert_eq!(prob_limits.probability_upper_limit().unwrap(), Some(10.0));
+
+    // --- PDT 9: Probability with varying thresholds (messages 8, 9) ---
+    // Same variable and probability type as message 7, but different limits.
+    // These exercise the threshold coordinate dimension.
+    let prob_thresh_3 = &messages[8];
+    assert_eq!(prob_thresh_3.product_template_id().unwrap(), 9);
+    assert_eq!(prob_thresh_3.probability_lower_limit().unwrap(), Some(3.0));
+    assert_eq!(prob_thresh_3.probability_upper_limit().unwrap(), Some(3.0));
+
+    let prob_thresh_10 = &messages[9];
+    assert_eq!(prob_thresh_10.product_template_id().unwrap(), 9);
+    assert_eq!(
+        prob_thresh_10.probability_lower_limit().unwrap(),
+        Some(10.0)
+    );
+    assert_eq!(
+        prob_thresh_10.probability_upper_limit().unwrap(),
+        Some(10.0)
+    );
+
+    // --- All 10 messages should have unique keys ---
+    let mut keys = Vec::new();
+    let mut dups = Vec::new();
+    for message in &messages {
+        let key = message.key().unwrap();
+        if keys.contains(&key) {
+            dups.push(key);
+        } else {
+            keys.push(key);
+        }
+    }
+    assert_eq!(
+        dups.len(),
+        0,
+        "Found {} duplicate keys: {:?}",
+        dups.len(),
+        dups
+    );
+}
+
+#[test]
+fn read_pdt107_anomaly_with_reference() {
+    // Fixture: 4 messages with zeroed data, 0.5° global grid.
+    // Messages 0-1: PDT 12 (derived ensemble time interval)
+    // Messages 2-3: PDT 107 (same, with reference to normal — anomaly)
+    // Messages 0 and 2 share the same variable/level/stat/derived type
+    // and would collide without the :anom key suffix.
+    let grib_data = read_grib_messages("../test-data/s2s-pdt12-pdt107-anomaly.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    assert_eq!(messages.len(), 4, "Expected 4 messages in fixture");
+
+    // --- PDT 12: TMP 2m Max UnweightedMean ---
+    let pdt12_max = &messages[0];
+    assert_eq!(pdt12_max.product_template_id().unwrap(), 12);
+    assert_eq!(pdt12_max.variable_abbrev().unwrap(), "TMP");
+    assert!(!pdt12_max.is_anomaly().unwrap());
+
+    // --- PDT 12: TMP 2m Avg UnweightedMean ---
+    let pdt12_avg = &messages[1];
+    assert_eq!(pdt12_avg.product_template_id().unwrap(), 12);
+    assert_eq!(pdt12_avg.variable_abbrev().unwrap(), "TMP");
+    assert!(!pdt12_avg.is_anomaly().unwrap());
+
+    // --- PDT 107: TMP 2m Max UnweightedMean (anomaly) ---
+    let pdt107_max = &messages[2];
+    assert_eq!(pdt107_max.product_template_id().unwrap(), 107);
+    assert_eq!(pdt107_max.variable_abbrev().unwrap(), "TMP");
+    assert!(pdt107_max.is_anomaly().unwrap());
+    assert_eq!(
+        pdt107_max.derived_forecast_type().unwrap(),
+        Some(DerivedForecastType::UnweightedMean)
+    );
+    assert_eq!(
+        pdt107_max.statistical_process_type().unwrap(),
+        Some(TypeOfStatisticalProcessing::Maximum)
+    );
+    let data = pdt107_max.data().unwrap();
+    assert_eq!(data.len(), 259920);
+
+    // --- PDT 107: TMP 1000hPa Avg UnweightedMean (anomaly) ---
+    let pdt107_avg = &messages[3];
+    assert_eq!(pdt107_avg.product_template_id().unwrap(), 107);
+    assert_eq!(pdt107_avg.variable_abbrev().unwrap(), "TMP");
+    assert!(pdt107_avg.is_anomaly().unwrap());
+    assert_eq!(
+        pdt107_avg.derived_forecast_type().unwrap(),
+        Some(DerivedForecastType::UnweightedMean)
+    );
+    assert_eq!(
+        pdt107_avg.statistical_process_type().unwrap(),
+        Some(TypeOfStatisticalProcessing::Average)
+    );
+
+    // --- All 4 messages should have unique keys ---
+    let mut keys = Vec::new();
+    let mut dups = Vec::new();
+    for message in &messages {
+        let key = message.key().unwrap();
+        if keys.contains(&key) {
+            dups.push(key);
+        } else {
+            keys.push(key);
+        }
+    }
+    assert_eq!(
+        dups.len(),
+        0,
+        "Found {} duplicate keys: {:?}",
+        dups.len(),
+        dups
+    );
+
+    // Verify the anomaly key contains :anom and the non-anomaly does not
+    let pdt12_key = pdt12_max.key().unwrap();
+    let pdt107_key = pdt107_max.key().unwrap();
+    assert!(
+        !pdt12_key.contains(":anom"),
+        "PDT 12 key should not contain :anom"
+    );
+    assert!(
+        pdt107_key.contains(":anom"),
+        "PDT 107 key should contain :anom"
+    );
+}
+
+/// ECMWF AIFS v2 wave forecast. Exercises:
+///  - Product Definition Template 4.103 (waves selected by period range), used
+///    by the period-banded significant wave height parameters (h1012, h1214 ...)
+///  - Oceanographic sub-surface parameters (discipline 10, category 4), used by
+///    the wave model bathymetry (wmb)
+///
+/// See https://github.com/mpiannucci/gribberish/issues/167
+#[test]
+fn read_aifs_wave_period_range() {
+    let grib_data = read_grib_messages("../test-data/aifs-single-wave.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    assert_eq!(
+        messages.len(),
+        4,
+        "Expected 4 messages in AIFS wave fixture"
+    );
+
+    // Every message should produce a unique key. Before template 4.103 was
+    // supported the two period-banded wave heights decoded to identical keys.
+    let keys = messages
+        .iter()
+        .map(|m| m.key().expect("key should resolve"))
+        .collect::<Vec<_>>();
+    let unique = keys.iter().collect::<std::collections::HashSet<_>>();
+    assert_eq!(unique.len(), keys.len(), "Found duplicate keys: {keys:?}");
+
+    // Message 0: h1012 - significant wave height for periods in [10, 12] s.
+    let h1012 = &messages[0];
+    assert_eq!(
+        h1012.product_template_id().unwrap(),
+        103,
+        "h1012 product template"
+    );
+    assert_eq!(h1012.variable_abbrev().unwrap(), "HTSGW", "h1012 abbrev");
+    assert_eq!(h1012.unit().unwrap(), "m", "h1012 unit");
+    assert_eq!(
+        h1012.wave_period_range().unwrap(),
+        Some((Some(10.0), Some(12.0))),
+        "h1012 wave period range"
+    );
+    assert!(
+        h1012.key().unwrap().contains(":per10-12s"),
+        "h1012 key should encode its period band: {}",
+        h1012.key().unwrap()
+    );
+
+    // Data still decodes correctly through the new template.
+    let h1012_data = h1012.data().unwrap();
+    assert_eq!(h1012_data.len(), 1038240, "h1012 data length (full grid)");
+    let finite = h1012_data.iter().filter(|v| v.is_finite()).count();
+    assert_eq!(finite, 665822, "h1012 defined value count");
+    let min = h1012_data
+        .iter()
+        .cloned()
+        .filter(|v| v.is_finite())
+        .fold(f64::INFINITY, f64::min);
+    let max = h1012_data
+        .iter()
+        .cloned()
+        .filter(|v| v.is_finite())
+        .fold(f64::NEG_INFINITY, f64::max);
+    assert!((min - 0.00124514).abs() < 1e-5, "h1012 min was {min}");
+    assert!((max - 4.59463).abs() < 1e-4, "h1012 max was {max}");
+
+    // Message 1: h1214 - distinct period band => distinct key.
+    let h1214 = &messages[1];
+    assert_eq!(h1214.product_template_id().unwrap(), 103, "h1214 template");
+    assert_eq!(
+        h1214.wave_period_range().unwrap(),
+        Some((Some(12.0), Some(14.0))),
+        "h1214 wave period range"
+    );
+    assert_ne!(
+        h1012.key().unwrap(),
+        h1214.key().unwrap(),
+        "period bands must produce distinct keys"
+    );
+
+    // Message 2: wmb - oceanographic sub-surface bathymetry (cat 4, param 7).
+    let wmb = &messages[2];
+    assert_eq!(wmb.variable_abbrev().unwrap(), "WMB", "wmb abbrev");
+    assert_eq!(wmb.variable_name().unwrap(), "bathymetry", "wmb name");
+    assert_eq!(wmb.unit().unwrap(), "m", "wmb unit");
+    assert_eq!(
+        wmb.wave_period_range().unwrap(),
+        None,
+        "wmb has no wave period range"
+    );
+
+    // Message 3: swh - ordinary template 4.0 significant wave height. Confirms
+    // the standard path is unaffected and carries no period band in its key.
+    let swh = &messages[3];
+    assert_eq!(swh.product_template_id().unwrap(), 0, "swh template");
+    assert_eq!(swh.variable_abbrev().unwrap(), "HTSGW", "swh abbrev");
+    assert_eq!(swh.wave_period_range().unwrap(), None, "swh period range");
+    assert!(
+        !swh.key().unwrap().contains(":per"),
+        "swh key should not encode a period band: {}",
+        swh.key().unwrap()
+    );
 }
