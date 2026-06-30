@@ -93,8 +93,6 @@ fn read_jpeg_does_not_leak() {
     }
     let before = resident_bytes();
 
-    // 19 JPEG2000 messages x 40 iterations = 760 decodes. With the old leak this
-    // grows by ~760 MB; fixed, it stays within normal allocator working set.
     for _ in 0..40 {
         decode_all();
     }
