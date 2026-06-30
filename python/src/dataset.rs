@@ -74,6 +74,13 @@ fn message_kind(meta: &MessageMetadata) -> String {
         tokens.push(format!("per{lower}-{upper}s"));
     }
 
+    // Drop any empty tokens defensively: an empty token would join into a
+    // malformed kind (e.g. "acc__mean") or, on its own, an empty kind string,
+    // which becomes an unnamed group and corrupts the datatree hierarchy. The
+    // contributing abbreviations should already be non-empty, but a missing /
+    // unrecognized code can render blank.
+    tokens.retain(|t| !t.is_empty());
+
     if tokens.is_empty() {
         "instant".to_string()
     } else {
@@ -399,7 +406,11 @@ fn build_grib_dataset<'py>(
         if partition_by_level && !level.is_empty() {
             path.push(level.clone());
         }
-        if partition_by_kind {
+        // A kind segment must never be empty: an empty path segment produces
+        // an unnamed group that collides with its parent and breaks the
+        // Zarr/datatree hierarchy. `message_kind` already guarantees a
+        // non-empty string, so this guard is purely defensive.
+        if partition_by_kind && !kind.is_empty() {
             let process_conflict = kind_processes
                 .get(&(var.clone(), level.clone(), kind.clone()))
                 .map(|processes| processes.len() > 1)

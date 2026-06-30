@@ -474,7 +474,12 @@ impl DerivedForecastType {
             DerivedForecastType::TwentyFifthPercentile => "25%".to_string(),
             DerivedForecastType::SeventyFifthPercentile => "75%".to_string(),
             DerivedForecastType::NinetyFifthPercentile => "90%".to_string(),
-            DerivedForecastType::Missing => "".to_string(),
+            // An unrecognized derived-forecast-type code (PDT 4.2/4.12/...)
+            // falls through to `Missing`. It must still produce a non-empty
+            // token: it feeds the product-kind segment of the dataset group
+            // path, and an empty segment yields an unnamed ("") group that
+            // breaks the Zarr/datatree hierarchy.
+            DerivedForecastType::Missing => "derived".to_string(),
         }
     }
 }
@@ -524,5 +529,22 @@ impl ProbabilityType {
             ProbabilityType::BetweenLimitsInclusive => "prob_between_inc".to_string(),
             ProbabilityType::Missing => "".to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DerivedForecastType;
+
+    // Regression: an unrecognized derived-forecast-type code (PDT 4.2/4.12)
+    // must not render as an empty abbreviation. The abbreviation feeds the
+    // product-kind segment of the dataset group path, and an empty segment
+    // produces an unnamed ("") group that breaks the VirtualiZarr datatree.
+    #[test]
+    fn unrecognized_derived_forecast_type_abbv_is_non_empty() {
+        // 250 is not a defined derived-forecast-type, so it maps to Missing.
+        let derived = DerivedForecastType::from(250u8);
+        assert_eq!(derived, DerivedForecastType::Missing);
+        assert!(!derived.abbv().is_empty());
     }
 }
