@@ -54,6 +54,58 @@ fn read_jpeg() {
     println!("jpeg unpacking data() took an average of {duration_mean}ms per message");
 }
 
+/// Resident set size of this process, in bytes, via `ps` (portable across Linux
+/// and macOS). `ps -o rss=` reports RSS in KiB.
+#[cfg(unix)]
+fn resident_bytes() -> usize {
+    let pid = std::process::id().to_string();
+    let output = std::process::Command::new("ps")
+        .args(["-o", "rss=", "-p", &pid])
+        .output()
+        .expect("failed to run ps");
+    let kib: usize = String::from_utf8_lossy(&output.stdout)
+        .trim()
+        .parse()
+        .expect("failed to parse RSS from ps");
+    kib * 1024
+}
+
+/// Regression test for the openjpeg resource leak: decoding a JPEG2000-packed
+/// (DRT 5.40) message used to leak ~1 MB of native memory per `data()` call
+/// because `opj_stream_destroy` was never called. That memory is allocated by
+/// openjpeg (a C library) outside Rust's allocator, so it is invisible to Rust
+/// allocation-tracking tools — RSS is the only observable. We decode the same
+/// 19-message file many times and assert RSS stays roughly flat; with the leak
+/// this grows by hundreds of MB. Unix-only (uses `ps`).
+#[test]
+#[cfg(all(unix, feature = "jpeg"))]
+fn read_jpeg_does_not_leak() {
+    let grib_data = read_grib_messages("../test-data/multi_1.at_10m.t12z.f147.grib2");
+
+    let decode_all = || {
+        for message in read_messages(grib_data.as_slice()) {
+            message.data().expect("jpeg data() should decode");
+        }
+    };
+
+    // Warm up the allocator and any lazy initialization so the baseline is stable.
+    for _ in 0..3 {
+        decode_all();
+    }
+    let before = resident_bytes();
+
+    for _ in 0..40 {
+        decode_all();
+    }
+    let growth_mb = resident_bytes().saturating_sub(before) / (1024 * 1024);
+    eprintln!("read_jpeg_does_not_leak: RSS grew {growth_mb} MB over 760 JPEG2000 decodes");
+
+    assert!(
+        growth_mb < 100,
+        "RSS grew {growth_mb} MB over 760 JPEG2000 decodes — an openjpeg resource leak was likely reintroduced"
+    );
+}
+
 #[test]
 fn read_simple() {
     let read_data = read_grib_messages("../test-data/hrrr.t06z.wrfsfcf01-UGRD.grib2");

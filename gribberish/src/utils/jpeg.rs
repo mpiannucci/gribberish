@@ -110,8 +110,34 @@ pub unsafe extern "C" fn jpeg_opj_stream_seek_fn(p_nb_bytes: i64, p_user_data: *
     }
 }
 
+// RAII guards so each openjpeg resource is freed on every exit path, including
+// the early returns below. This makes a missing destroy (the bug these wrap)
+// impossible to reintroduce. All three opj_*_destroy functions are null-safe,
+// so dropping a guard around a null pointer (e.g. the image before the header
+// is read, or a failed create) is fine.
+struct OpjCodec(*mut openjpeg_sys::opj_codec_t);
+impl Drop for OpjCodec {
+    fn drop(&mut self) {
+        unsafe { openjpeg_sys::opj_destroy_codec(self.0) }
+    }
+}
+
+struct OpjStream(*mut openjpeg_sys::opj_stream_t);
+impl Drop for OpjStream {
+    fn drop(&mut self) {
+        unsafe { openjpeg_sys::opj_stream_destroy(self.0) }
+    }
+}
+
+struct OpjImage(*mut openjpeg_sys::opj_image);
+impl Drop for OpjImage {
+    fn drop(&mut self) {
+        unsafe { openjpeg_sys::opj_image_destroy(self.0) }
+    }
+}
+
 pub fn extract_jpeg_data(raw_data: &[u8]) -> Result<Vec<i32>, GribberishError> {
-    let mut output_data: Vec<i32>;
+    let output_data: Vec<i32>;
 
     unsafe {
         let parameters = &mut openjpeg_sys::opj_dparameters {
@@ -134,54 +160,52 @@ pub fn extract_jpeg_data(raw_data: &[u8]) -> Result<Vec<i32>, GribberishError> {
             flags: 0,
         } as *mut openjpeg_sys::opj_dparameters_t;
         openjpeg_sys::opj_set_default_decoder_parameters(parameters);
-        let dinfo = openjpeg_sys::opj_create_decompress(openjpeg_sys::CODEC_FORMAT::OPJ_CODEC_J2K);
-        openjpeg_sys::opj_setup_decoder(dinfo, parameters);
+        let codec = OpjCodec(openjpeg_sys::opj_create_decompress(
+            openjpeg_sys::CODEC_FORMAT::OPJ_CODEC_J2K,
+        ));
+        openjpeg_sys::opj_setup_decoder(codec.0, parameters);
 
-        // TODO: Actually decode
         let mut userdata = JpegUserData::new_input(raw_data);
-        let stream = openjpeg_sys::opj_stream_default_create(1);
-        openjpeg_sys::opj_stream_set_read_function(stream, Some(jpeg_opj_stream_read_fn));
-        openjpeg_sys::opj_stream_set_write_function(stream, Some(jpeg_opj_stream_write_fn));
-        openjpeg_sys::opj_stream_set_skip_function(stream, Some(jpeg_opj_stream_skip_fn));
-        openjpeg_sys::opj_stream_set_seek_function(stream, Some(jpeg_opj_stream_seek_fn));
+        let stream = OpjStream(openjpeg_sys::opj_stream_default_create(1));
+        openjpeg_sys::opj_stream_set_read_function(stream.0, Some(jpeg_opj_stream_read_fn));
+        openjpeg_sys::opj_stream_set_write_function(stream.0, Some(jpeg_opj_stream_write_fn));
+        openjpeg_sys::opj_stream_set_skip_function(stream.0, Some(jpeg_opj_stream_skip_fn));
+        openjpeg_sys::opj_stream_set_seek_function(stream.0, Some(jpeg_opj_stream_seek_fn));
 
         let userdata_ptr: *mut JpegUserData = &mut userdata;
-        openjpeg_sys::opj_stream_set_user_data_length(stream, raw_data.len().try_into().unwrap());
-        openjpeg_sys::opj_stream_set_user_data(stream, userdata_ptr as *mut c_void, None);
+        openjpeg_sys::opj_stream_set_user_data_length(stream.0, raw_data.len().try_into().unwrap());
+        openjpeg_sys::opj_stream_set_user_data(stream.0, userdata_ptr as *mut c_void, None);
 
-        let mut image: *mut openjpeg_sys::opj_image = null_mut();
-        if openjpeg_sys::opj_read_header(stream, dinfo, &mut image) != 1 {
-            openjpeg_sys::opj_destroy_codec(dinfo);
-            openjpeg_sys::opj_image_destroy(image);
+        let mut image = OpjImage(null_mut());
+        if openjpeg_sys::opj_read_header(stream.0, codec.0, &mut image.0) != 1 {
             return Err(GribberishError::JpegError(
                 "Failed to decode JPEG byte stream header".into(),
             ));
         }
 
-        if openjpeg_sys::opj_decode(dinfo, stream, image) != 1 {
-            openjpeg_sys::opj_destroy_codec(dinfo);
-            openjpeg_sys::opj_image_destroy(image);
+        if openjpeg_sys::opj_decode(codec.0, stream.0, image.0) != 1 {
             return Err(GribberishError::JpegError(
                 "Failed to decode JPEG byte stream".into(),
             ));
         }
 
         // Do things to the data
-        let comp = (*image).comps.offset(0);
-        let raw_data = (*comp).data;
+        let comp = (*image.0).comps.offset(0);
+        let component_data = (*comp).data;
         let mask = (1 << (*comp).prec) - 1;
 
         let count = (*comp).w * (*comp).h;
 
-        output_data = Vec::new();
+        let mut data = Vec::new();
         for i in 0..count {
             let index: isize = i.try_into().unwrap();
-            let data_point = *raw_data.offset(index) & mask;
-            output_data.push(data_point);
+            let data_point = *component_data.offset(index) & mask;
+            data.push(data_point);
         }
+        output_data = data;
 
-        openjpeg_sys::opj_destroy_codec(dinfo);
-        openjpeg_sys::opj_image_destroy(image);
+        // codec, stream, and image are dropped here, freeing the openjpeg
+        // resources on this path and on every early return above.
     }
 
     if output_data.is_empty() {
