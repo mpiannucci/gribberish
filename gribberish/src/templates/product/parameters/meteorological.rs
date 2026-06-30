@@ -486,6 +486,10 @@ pub enum CloudProduct {
     #[abbrev = "CDCA"]
     #[unit = "%"]
     CloudAmount = 7,
+    #[description = "thunderstorm coverage"]
+    #[abbrev = "THUNC"]
+    #[unit = "see table 4.204"]
+    ThunderstormCoverage = 10,
     #[description = "cloud base"]
     #[abbrev = "CDCB"]
     #[unit = "m"]
@@ -717,6 +721,10 @@ pub enum MassProduct {
     #[abbrev = "HGT"]
     #[unit = "gpm"]
     GeopotentialHeight = 5,
+    #[description = "geometric height"]
+    #[abbrev = "DIST"]
+    #[unit = "m"]
+    GeometricHeight = 6,
     #[description = "geopotential height anomaly"]
     #[abbrev = "GPA"]
     #[unit = "gpm"]
