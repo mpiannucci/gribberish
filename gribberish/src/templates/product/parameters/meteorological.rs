@@ -67,6 +67,10 @@ pub enum TemperatureProduct {
     #[abbrev = "SKINT"]
     #[unit = "K"]
     SkinTemperature = 17,
+    #[description = "wet bulb globe temperature"]
+    #[abbrev = "WETGLBT"]
+    #[unit = "K"]
+    WetBulbGlobeTemperature = 206,
     Missing = 255,
 }
 
@@ -1149,5 +1153,20 @@ pub fn meteorological_category(category: u8) -> &'static str {
         20 => "atmospheric chemical constituents",
         191 => "miscellaneous",
         _ => "other",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::meteorological_parameter;
+
+    // Regression: NBM emits Wet Bulb Globe Temperature at (0,0,206). Without a
+    // table entry it resolves to the "missing" parameter and is filtered out of
+    // the dataset.
+    #[test]
+    fn wet_bulb_globe_temperature_resolves() {
+        let param = meteorological_parameter(0, 206).expect("category 0 is supported");
+        assert_eq!(param.abbrev, "WETGLBT");
+        assert_ne!(param.name.to_lowercase(), "missing");
     }
 }
