@@ -216,13 +216,6 @@ impl<'a> Message<'a> {
 
         let probability = match self.probability_type().unwrap_or(None) {
             Some(pt) => {
-                // Format limits with enough precision to keep distinct
-                // thresholds distinct in the key. NBM snow-exceedance products
-                // use sub-unit thresholds (e.g. 0.00254 m / 0.0127 m); at zero
-                // decimals they all render "0" and collapse to one key, so
-                // every threshold but the last is silently dropped when keys
-                // are deduplicated. 5 decimals matches the precision the
-                // dataset builder uses for its `threshold` coordinate.
                 let lower = self
                     .probability_lower_limit()
                     .unwrap_or(None)

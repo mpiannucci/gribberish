@@ -474,11 +474,6 @@ impl DerivedForecastType {
             DerivedForecastType::TwentyFifthPercentile => "25%".to_string(),
             DerivedForecastType::SeventyFifthPercentile => "75%".to_string(),
             DerivedForecastType::NinetyFifthPercentile => "90%".to_string(),
-            // An unrecognized derived-forecast-type code (PDT 4.2/4.12/...)
-            // falls through to `Missing`. It must still produce a non-empty
-            // token: it feeds the product-kind segment of the dataset group
-            // path, and an empty segment yields an unnamed ("") group that
-            // breaks the Zarr/datatree hierarchy.
             DerivedForecastType::Missing => "derived".to_string(),
         }
     }

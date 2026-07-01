@@ -8,8 +8,8 @@ use crate::{
         DerivedEnsembleHorizontalAnalysisForecastTemplate, EnsembleForecastTimeIntervalTemplate,
         HorizontalAnalysisForecastTemplate, HorizontalEnsembleForecastTemplate,
         PercentileHorizontalTemplate, PercentileHorizontalTimeIntervalTemplate,
-        ProbabilityHorizontalForecastTemplate,
-        ProbabilityHorizontalTimeIntervalTemplate, WavePeriodRangeHorizontalForecastTemplate,
+        ProbabilityHorizontalForecastTemplate, ProbabilityHorizontalTimeIntervalTemplate,
+        WavePeriodRangeHorizontalForecastTemplate,
     },
     utils::{read_u16_from_bytes, read_u32_from_bytes},
 };
