@@ -7,8 +7,9 @@ use crate::{
         AverageAccumulationExtremeHorizontalAnalysisForecastTemplate,
         DerivedEnsembleHorizontalAnalysisForecastTemplate, EnsembleForecastTimeIntervalTemplate,
         HorizontalAnalysisForecastTemplate, HorizontalEnsembleForecastTemplate,
-        PercentileHorizontalTimeIntervalTemplate, ProbabilityHorizontalForecastTemplate,
-        ProbabilityHorizontalTimeIntervalTemplate, WavePeriodRangeHorizontalForecastTemplate,
+        PercentileHorizontalTemplate, PercentileHorizontalTimeIntervalTemplate,
+        ProbabilityHorizontalForecastTemplate, ProbabilityHorizontalTimeIntervalTemplate,
+        WavePeriodRangeHorizontalForecastTemplate,
     },
     utils::{read_u16_from_bytes, read_u32_from_bytes},
 };
@@ -53,6 +54,10 @@ impl<'a> ProductDefinitionSection<'a> {
                 ),
             )),
             5 => Some(Box::new(ProbabilityHorizontalForecastTemplate::new(
+                self.data.to_vec(),
+                discipline,
+            ))),
+            6 => Some(Box::new(PercentileHorizontalTemplate::new(
                 self.data.to_vec(),
                 discipline,
             ))),

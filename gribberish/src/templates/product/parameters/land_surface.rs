@@ -144,6 +144,10 @@ pub enum FireWeatherProduct {
     #[abbrev = "HINDEX"]
     #[unit = "nondim"]
     HainesIndex = 2,
+    #[description = "fosberg index"]
+    #[abbrev = "FOSINDX"]
+    #[unit = "numeric"]
+    FosbergIndex = 4,
     Missing = 255,
 }
 
