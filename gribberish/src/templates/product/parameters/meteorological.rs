@@ -67,6 +67,10 @@ pub enum TemperatureProduct {
     #[abbrev = "SKINT"]
     #[unit = "K"]
     SkinTemperature = 17,
+    #[description = "wet bulb globe temperature"]
+    #[abbrev = "WETGLBT"]
+    #[unit = "K"]
+    WetBulbGlobeTemperature = 206,
     Missing = 255,
 }
 
