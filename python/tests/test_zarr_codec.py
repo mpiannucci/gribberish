@@ -111,6 +111,78 @@ def test_codec_config_roundtrips_adjust_flag():
     assert GribberishCodec.from_dict(plain.to_dict()) == plain
 
 
+HRRR = "hrrr.t06z.wrfsfcf01-TMP.grib2"
+HRRR_SHAPE = (1059, 1799)
+
+
+def test_codec_config_roundtrips_north_up_flag():
+    from gribberish.zarr.codec import GribberishCodec
+
+    codec = GribberishCodec("TMP", north_up=True)
+    assert codec.to_dict() == {
+        "name": "gribberish",
+        "configuration": {"var": "TMP", "north_up": True},
+    }
+    assert GribberishCodec.from_dict(codec.to_dict()) == codec
+
+    # both flags together round-trip independently
+    both = GribberishCodec("TMP", adjust_longitude_range=True, north_up=True)
+    assert both.to_dict() == {
+        "name": "gribberish",
+        "configuration": {
+            "var": "TMP",
+            "adjust_longitude_range": True,
+            "north_up": True,
+        },
+    }
+    assert GribberishCodec.from_dict(both.to_dict()) == both
+
+    # default off omits the flag, so existing stored metadata round-trips unchanged
+    plain = GribberishCodec("TMP")
+    assert plain.north_up is False
+    assert plain.to_dict() == {"name": "gribberish", "configuration": {"var": "TMP"}}
+    assert GribberishCodec.from_dict(plain.to_dict()) == plain
+
+
+async def test_north_up_flips_data_rows():
+    """HRRR (Lambert) is south-first, so north_up row-reverses the decoded data."""
+    from gribberish.zarr.codec import GribberishCodec
+
+    raw = (TEST_DATA / HRRR).read_bytes()
+    native = await _decode(GribberishCodec("TMP"), raw, HRRR_SHAPE)
+    flipped = await _decode(GribberishCodec("TMP", north_up=True), raw, HRRR_SHAPE)
+
+    lat_native = await _decode(GribberishCodec("latitude"), raw, HRRR_SHAPE)
+    assert lat_native[0, 0] < lat_native[-1, 0], "HRRR fixture expected south-first"
+    np.testing.assert_array_equal(flipped, native[::-1, :])
+
+
+async def test_north_up_flips_latitude_coordinate():
+    """With north_up the decoded latitude coord runs north-to-south (first row
+    north of last)."""
+    from gribberish.zarr.codec import GribberishCodec
+
+    raw = (TEST_DATA / HRRR).read_bytes()
+    lat = await _decode(GribberishCodec("latitude", north_up=True), raw, HRRR_SHAPE)
+    assert lat[0, 0] > lat[-1, 0]
+
+
+async def test_north_up_noop_for_north_first_grid():
+    """A north-first global grid (GEFS, lat 90..-90) is left untouched."""
+    from gribberish.zarr.codec import GribberishCodec
+
+    raw = (TEST_DATA / GEAVG).read_bytes()
+    native = await _decode(GribberishCodec("HGT"), raw, GEAVG_SHAPE)
+    flipped = await _decode(GribberishCodec("HGT", north_up=True), raw, GEAVG_SHAPE)
+    np.testing.assert_array_equal(native, flipped)
+
+    lat_native = await _decode(GribberishCodec("latitude"), raw, (GEAVG_SHAPE[0],))
+    lat_flipped = await _decode(
+        GribberishCodec("latitude", north_up=True), raw, (GEAVG_SHAPE[0],)
+    )
+    np.testing.assert_array_equal(lat_native, lat_flipped)
+
+
 @pytest.mark.parametrize(
     "dtype_str",
     ["float64", "float32"],

@@ -5,6 +5,7 @@ import { join, dirname } from 'node:path'
 import test from 'ava'
 
 import {
+  adjustLatitudeValues,
   adjustLongitudeValues,
   GribMessage,
   GribMessageFactory,
@@ -20,6 +21,9 @@ const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../test-data'
 const GEAVG = 'geavg.t12z.pgrb2a.0p50.f000'
 const GEAVG_COLS = 720
 const GEAVG_ROLL = 360
+
+// HRRR — a south-first Lambert Conformal grid.
+const HRRR = 'hrrr.t06z.wrfsfcf01-TMP.grib2'
 
 test('parseMessagesFromBuffer reads HRRR GRIB2 messages', (t) => {
   const data = readFileSync(join(DATA_DIR, 'hrrr.t06z.wrfsfcf01-TMP.grib2'))
@@ -124,7 +128,7 @@ test('latlngAdjusted wraps a global 0..360 grid to monotonic [-180, 180)', (t) =
   const msg = parseMessagesFromBuffer(data)[0]
 
   const native = msg.latlng
-  const wrapped = msg.latlngAdjusted(true)
+  const wrapped = msg.latlngAdjusted(true, false)
 
   // Default longitude axis is the native 0..360; latitudes are untouched.
   t.is(native.longitude[0], 0.0)
@@ -141,7 +145,7 @@ test('latlngAdjusted wraps a global 0..360 grid to monotonic [-180, 180)', (t) =
   t.true(wrappedLon.every((lon) => lon >= -180.0 && lon < 180.0))
 
   // adjustLongitudeRange=false is identical to the plain getter.
-  t.deepEqual(msg.latlngAdjusted(false).longitude, native.longitude)
+  t.deepEqual(msg.latlngAdjusted(false, false).longitude, native.longitude)
 })
 
 test('dataAdjusted rolls a global grid left by the split column', (t) => {
@@ -149,7 +153,7 @@ test('dataAdjusted rolls a global grid left by the split column', (t) => {
   const msg = parseMessagesFromBuffer(data)[0]
 
   const native = msg.data
-  const adjusted = msg.dataAdjusted(true)
+  const adjusted = msg.dataAdjusted(true, false)
   const rows = msg.gridShape.rows
   const cols = msg.gridShape.cols
   t.is(cols, GEAVG_COLS)
@@ -162,15 +166,75 @@ test('dataAdjusted rolls a global grid left by the split column', (t) => {
   }
 
   // Default and explicit-off both return the data unmoved.
-  t.deepEqual(msg.dataAdjusted(false), native)
+  t.deepEqual(msg.dataAdjusted(false, false), native)
 })
 
 test('adjusted accessors are a no-op for a non-global (HRRR Lambert) grid', (t) => {
-  const data = readFileSync(join(DATA_DIR, 'hrrr.t06z.wrfsfcf01-TMP.grib2'))
+  const data = readFileSync(join(DATA_DIR, HRRR))
   const msg = GribMessage.parseFromBuffer(data, 0)
 
-  t.deepEqual(msg.latlngAdjusted(true).longitude, msg.latlng.longitude)
-  t.deepEqual(msg.dataAdjusted(true), msg.data)
+  // The longitude wrap is a no-op on a non-global grid.
+  t.deepEqual(msg.latlngAdjusted(true, false).longitude, msg.latlng.longitude)
+  t.deepEqual(msg.dataAdjusted(true, false), msg.data)
+})
+
+test('northUp puts the northern-most row first on an HRRR Lambert grid', (t) => {
+  const data = readFileSync(join(DATA_DIR, HRRR))
+  const msg = GribMessage.parseFromBuffer(data, 0)
+
+  const rows = msg.gridShape.rows
+  const cols = msg.gridShape.cols
+  const nativeData = msg.data
+  const nativeLat = msg.latlng.latitude
+
+  const adjustedData = msg.dataAdjusted(false, true)
+  const adjustedLat = msg.latlngAdjusted(false, true).latitude
+
+  // The fixture is south-first (row 0 south of the last), so the flip moves.
+  t.true(nativeLat[0] < nativeLat[(rows - 1) * cols])
+
+  // northUp reverses whole rows of both data and coordinates.
+  const expectedData = new Array<number>(nativeData.length)
+  const expectedLat = new Array<number>(nativeLat.length)
+  for (let r = 0; r < rows; r++) {
+    const src = (rows - 1 - r) * cols
+    for (let c = 0; c < cols; c++) {
+      expectedData[r * cols + c] = nativeData[src + c]
+      expectedLat[r * cols + c] = nativeLat[src + c]
+    }
+  }
+  t.deepEqual(adjustedData, expectedData)
+  t.deepEqual(adjustedLat, expectedLat)
+  t.true(adjustedLat[0] > adjustedLat[(rows - 1) * cols])
+
+  // northUp=false leaves both untouched.
+  t.deepEqual(msg.dataAdjusted(false, false), nativeData)
+  t.deepEqual(msg.latlngAdjusted(false, false).latitude, nativeLat)
+})
+
+test('northUp is a no-op on an already-north-first global grid', (t) => {
+  const data = readFileSync(join(DATA_DIR, GEAVG))
+  const msg = parseMessagesFromBuffer(data)[0]
+
+  const nativeLat = msg.latlng.latitude
+  // GEFS fixtures are north-first (lat 90 -> -90), so north_up does nothing.
+  t.true(nativeLat[0] > nativeLat[nativeLat.length - 1])
+  t.deepEqual(msg.dataAdjusted(false, true), msg.data)
+  t.deepEqual(msg.latlngAdjusted(false, true).latitude, nativeLat)
+
+  // Composable with the longitude wrap: northUp leaves the wrap result alone.
+  t.deepEqual(msg.dataAdjusted(true, true), msg.dataAdjusted(true, false))
+  t.deepEqual(msg.latlngAdjusted(true, true).longitude, msg.latlngAdjusted(true, false).longitude)
+})
+
+test('northUp is optional: the one-arg form stays backward compatible', (t) => {
+  const data = readFileSync(join(DATA_DIR, GEAVG))
+  const msg = parseMessagesFromBuffer(data)[0]
+
+  // Omitting northUp defaults it to false.
+  t.deepEqual(msg.dataAdjusted(true), msg.dataAdjusted(true, false))
+  t.deepEqual(msg.latlngAdjusted(true).longitude, msg.latlngAdjusted(true, false).longitude)
+  t.deepEqual(msg.latlngAdjusted(true).latitude, msg.latlngAdjusted(true, false).latitude)
 })
 
 test('adjustLongitudeValues wraps a global axis and leaves a regional one unchanged', (t) => {
@@ -186,6 +250,21 @@ test('adjustLongitudeValues wraps a global axis and leaves a regional one unchan
   // A regional subset (not near-global) is returned unchanged.
   const regional = Array.from({ length: 100 }, (_, i) => 200 + i * 0.25)
   t.deepEqual(adjustLongitudeValues(regional), regional)
+})
+
+test('adjustLatitudeValues reverses an ascending axis and leaves a descending one unchanged', (t) => {
+  // Ascending (south-first) axis is reversed to descend north -> south.
+  const ascending = Array.from({ length: 181 }, (_, i) => -90 + i)
+  const reversed = adjustLatitudeValues(ascending)
+  t.is(reversed[0], 90)
+  t.is(reversed[reversed.length - 1], -90)
+  for (let i = 1; i < reversed.length; i++) {
+    t.true(reversed[i] < reversed[i - 1])
+  }
+
+  // Already-descending (north-first) axis is returned unchanged.
+  const descending = Array.from({ length: 181 }, (_, i) => 90 - i)
+  t.deepEqual(adjustLatitudeValues(descending), descending)
 })
 
 test('GribMessageFactory throws for unknown key', (t) => {

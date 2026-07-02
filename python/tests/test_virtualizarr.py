@@ -369,6 +369,144 @@ def test_adjust_longitude_values_helper():
     )
 
 
+def _gribberish_codecs_in_store(store):
+    """Collect every GribberishCodec in a ManifestStore's group tree, from data
+    variables and coordinates alike."""
+    codecs = []
+
+    def walk(node):
+        for name, arr in node.arrays.items():
+            for codec in arr.metadata.codecs:
+                if type(codec).__name__ == "GribberishCodec":
+                    codecs.append(codec)
+        for sub in node.groups.values():
+            walk(sub)
+
+    walk(store._group)
+    return codecs
+
+
+def test_north_up_threads_into_codecs_and_flips_latitude():
+    """north_up reaches every data-var codec and flips the inlined latitude
+    coordinate. GFS is already north-first, so the flip must be a no-op here."""
+    from gribberish import adjust_latitude_values
+
+    fname = "gfs.t18z.pgrb2.0p25.f186-RH.grib2"
+
+    plain_store = _collapsed_store_for(fname)
+    up_store = _collapsed_store_for(fname, north_up=True)
+
+    # the flag is threaded into every data-var codec
+    plain_codecs = _gribberish_codecs_in_store(plain_store)
+    up_codecs = _gribberish_codecs_in_store(up_store)
+    assert plain_codecs and all(c.north_up is False for c in plain_codecs)
+    assert up_codecs and all(c.north_up is True for c in up_codecs)
+
+    # the latitude coordinate is run through the flip kernel (a no-op north-first)
+    plain = plain_store.to_virtual_dataset()
+    up = up_store.to_virtual_dataset()
+    expected_lat = np.asarray(adjust_latitude_values(plain["latitude"].values))
+    np.testing.assert_array_equal(up["latitude"].values, expected_lat)
+    # first row is north of last (already true for GFS, must remain so)
+    assert up["latitude"].values[0] > up["latitude"].values[-1]
+
+
+def test_north_up_default_off_unchanged():
+    """north_up defaults to off: default and explicit-off stores carry
+    north_up=False codecs."""
+    fname = "geavg.t12z.pgrb2a.0p50.f000"
+    default = _store_for(fname)
+    explicit_off = _store_for(fname, north_up=False)
+    up = _store_for(fname, north_up=True)
+
+    # data-var codecs: default and explicit-off carry north_up=False; the
+    # north-first grid is unaffected by north_up=True at decode time anyway.
+    assert all(c.north_up is False for c in _gribberish_codecs_in_store(default))
+    assert all(c.north_up is False for c in _gribberish_codecs_in_store(explicit_off))
+    assert all(c.north_up is True for c in _gribberish_codecs_in_store(up))
+
+
+def test_north_up_noop_on_north_first_data():
+    """Reading a north-first global grid (GFS) with north_up=True returns the
+    same data and latitude as the default store."""
+    fname = "gfs.t18z.pgrb2.0p25.f186-RH.grib2"
+    z_plain = zarr.open(_collapsed_store_for(fname), mode="r")
+    z_up = zarr.open(_collapsed_store_for(fname, north_up=True), mode="r")
+    np.testing.assert_array_equal(
+        np.asarray(z_up["latitude"][:]), np.asarray(z_plain["latitude"][:])
+    )
+    np.testing.assert_array_equal(
+        np.asarray(z_up["rh"][...]), np.asarray(z_plain["rh"][...])
+    )
+
+
+def test_north_up_flips_projected_reference_coords_with_data():
+    """Lambert 2-D latitude/longitude are byte references decoded by the codec,
+    so their codecs must carry north_up like the data variables or data and
+    coords flip out of sync. HRRR is south-first, so the flip is observable."""
+    fname = "hrrr.t06z.wrfsfcf01-TMP.grib2"
+    plain_store = _collapsed_store_for(fname)
+    up_store = _collapsed_store_for(fname, north_up=True)
+
+    # Every gribberish codec in the north_up store — data vars AND the projected
+    # latitude/longitude reference coords — must be told to flip.
+    up_codecs = _gribberish_codecs_in_store(up_store)
+    by_var = {c.var: c for c in up_codecs}
+    assert "latitude" in by_var and "longitude" in by_var
+    assert all(c.north_up is True for c in up_codecs)
+
+    zp = zarr.open(plain_store, mode="r")
+    zu = zarr.open(up_store, mode="r")
+
+    # The latitude field is south-first natively and north-first under north_up,
+    # and is exactly the native field reversed along the y axis.
+    lat_p = np.asarray(zp["latitude"][:])
+    lat_u = np.asarray(zu["latitude"][:])
+    assert lat_p[0].mean() < lat_p[-1].mean()  # native: row 0 is southern-most
+    assert lat_u[0].mean() > lat_u[-1].mean()  # north_up: row 0 is northern-most
+    np.testing.assert_array_equal(lat_u, np.flip(lat_p, axis=-2))
+
+    # The 1-D `y` dimension coordinate (projected northing, inlined) must flip
+    # too, or the dimension coordinate xarray selects on would stay south-first
+    # while the data and 2-D latitude are north-first — inverting the axis.
+    y_p = np.asarray(zp["y"][:])
+    y_u = np.asarray(zu["y"][:])
+    assert y_p[0] < y_p[-1]  # native: ascending northing (south-first)
+    assert y_u[0] > y_u[-1]  # north_up: descending northing (north-first)
+    np.testing.assert_array_equal(y_u, y_p[::-1])
+    # `x` (the column axis) is untouched by a row flip.
+    np.testing.assert_array_equal(
+        np.asarray(zu["x"][:]), np.asarray(zp["x"][:])
+    )
+
+    # A data variable flips the same way, so data stays aligned with its coords.
+    data_vars = [
+        v for v in up_store.to_virtual_dataset().data_vars if v != "spatial_ref"
+    ]
+    assert data_vars
+    name = data_vars[0]
+    np.testing.assert_array_equal(
+        np.asarray(zu[name][...]), np.flip(np.asarray(zp[name][...]), axis=-2)
+    )
+
+
+def test_adjust_latitude_values_helper():
+    """The row-flip kernel the parser calls on the inlined latitude coordinate:
+    an ascending (south-first) axis is reversed to north-first; an already
+    north-first axis is returned unchanged."""
+    from gribberish import adjust_latitude_values
+
+    south_first = -90.0 + np.arange(181) * 1.0  # -90..90
+    flipped = np.asarray(adjust_latitude_values(south_first))
+    assert flipped[0] == 90.0 and flipped[-1] == -90.0
+    assert np.all(np.diff(flipped) < 0)
+
+    north_first = 90.0 - np.arange(181) * 1.0  # 90..-90
+    np.testing.assert_array_equal(
+        np.asarray(adjust_latitude_values(north_first)), north_first
+    )
+
+
 def test_layer_variable_distinguished_by_second_surface():
     """Layer quantities whose bottom surface is constant but top varies (HRRR
     0-1000m vs 0-6000m wind shear) must not collapse into a single chunk slot.

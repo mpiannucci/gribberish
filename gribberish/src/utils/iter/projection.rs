@@ -90,17 +90,55 @@ impl LatLngProjection {
         }
     }
 
-    /// Like [`lat_lng`](Self::lat_lng), but when `adjust` is set the longitudes
-    /// are wrapped to `[-180, 180)` and rotated so they are monotonically
-    /// increasing (see [`adjust_longitude_values`]). Latitudes are unchanged. A
-    /// no-op (identical to `lat_lng`) when `adjust` is false or the grid is not
-    /// eligible.
-    pub fn lat_lng_adjusted(&self, adjust: bool) -> (Vec<f64>, Vec<f64>) {
-        let (lats, lngs) = self.lat_lng();
-        if !adjust {
-            return (lats, lngs);
+    /// Whether rows must be reversed to put the northern-most row first, read
+    /// off the sign of the row-axis step: positive means the axis ascends, so
+    /// row 0 is the southern-most. The row axis is latitude for a regular grid
+    /// and projected `y` for Lambert Conformal, whose latitude is a 2-D field.
+    fn needs_north_up_flip(&self) -> bool {
+        match self {
+            LatLngProjection::PlateCaree(p) => p.latitudes.step > 0.0,
+            LatLngProjection::LambertConformal(p) => p.y.step > 0.0,
         }
-        (lats, adjust_longitude_values(lngs))
+    }
+
+    /// Grid dimensions as `(ny, nx)` for the row-major layout shared by the
+    /// decoded data and the flattened coordinate fields.
+    fn dims(&self) -> (usize, usize) {
+        match self {
+            LatLngProjection::PlateCaree(p) => (p.latitudes.count, p.longitudes.count),
+            LatLngProjection::LambertConformal(p) => (p.y.count, p.x.count),
+        }
+    }
+
+    /// Like [`lat_lng`](Self::lat_lng), but with the opt-in adjustments
+    /// applied: `adjust_longitude_range` wraps an eligible near-global grid's
+    /// longitudes to a monotonic `[-180, 180)` (see [`adjust_longitude_values`]);
+    /// `north_up` reorders rows so the 0th row is the northern-most. Each flag
+    /// is a no-op (identical to `lat_lng`) when the grid is not eligible.
+    pub fn lat_lng_adjusted(
+        &self,
+        adjust_longitude_range: bool,
+        north_up: bool,
+    ) -> (Vec<f64>, Vec<f64>) {
+        let (mut lats, mut lngs) = self.lat_lng();
+        // Wrap regular grids only, matching the data-side gate in
+        // `longitude_wrap_roll`: a projected grid's flattened 2-D longitude
+        // field must not be wrapped as if it were a 1-D axis.
+        if adjust_longitude_range && matches!(self, LatLngProjection::PlateCaree(_)) {
+            lngs = adjust_longitude_values(lngs);
+        }
+        if north_up && self.needs_north_up_flip() {
+            match self {
+                // Regular grid: 1-D latitude axis; longitudes are unaffected.
+                LatLngProjection::PlateCaree(_) => lats.reverse(),
+                // Lambert: lat/lng are flattened ny × nx fields; row-flip both.
+                LatLngProjection::LambertConformal(_) => {
+                    lats = self.adjust_data_north_up(lats, true);
+                    lngs = self.adjust_data_north_up(lngs, true);
+                }
+            }
+        }
+        (lats, lngs)
     }
 
     /// Apply the same longitude wrap as [`lat_lng_adjusted`](Self::lat_lng_adjusted)
@@ -113,13 +151,40 @@ impl LatLngProjection {
             return data;
         }
         match (self, self.longitude_wrap_roll()) {
-            (LatLngProjection::PlateCaree(projection), Some(roll)) => {
-                let nx = projection.longitudes.count;
-                let ny = projection.latitudes.count;
+            (LatLngProjection::PlateCaree(_), Some(roll)) => {
+                let (ny, nx) = self.dims();
                 rotate_rows_left(&data, ny, nx, roll)
             }
             _ => data,
         }
+    }
+
+    /// Reorder a decoded row-major `ny × nx` data buffer so the northern-most
+    /// row comes first, keeping it aligned with the coordinates from
+    /// [`lat_lng_adjusted`](Self::lat_lng_adjusted). A no-op when `north_up` is
+    /// false or the grid is already north-first.
+    pub fn adjust_data_north_up(&self, mut data: Vec<f64>, north_up: bool) -> Vec<f64> {
+        if !north_up || !self.needs_north_up_flip() {
+            return data;
+        }
+        let (ny, nx) = self.dims();
+        reverse_rows(&mut data, ny, nx);
+        data
+    }
+
+    /// Apply both opt-in data adjustments:
+    /// [`adjust_data_longitude`](Self::adjust_data_longitude), then
+    /// [`adjust_data_north_up`](Self::adjust_data_north_up). Matches the
+    /// coordinates from [`lat_lng_adjusted`](Self::lat_lng_adjusted) called
+    /// with the same flags.
+    pub fn adjust_data(
+        &self,
+        data: Vec<f64>,
+        adjust_longitude_range: bool,
+        north_up: bool,
+    ) -> Vec<f64> {
+        let data = self.adjust_data_longitude(data, adjust_longitude_range);
+        self.adjust_data_north_up(data, north_up)
     }
 
     pub fn x(&self) -> Vec<f64> {
@@ -329,6 +394,21 @@ pub fn adjust_longitude_values(longitudes: Vec<f64>) -> Vec<f64> {
     }
 }
 
+/// Reverse a regular 1-D latitude axis so it runs north-to-south (descending),
+/// returning it unchanged if it is already descending or too short to tell.
+/// Row-reverse the matching data with [`LatLngProjection::adjust_data_north_up`]
+/// so the coordinate and the data stay aligned. Operates on a 1-D axis only; a
+/// flattened 2-D latitude field would have its columns mirrored too.
+pub fn adjust_latitude_values(latitudes: Vec<f64>) -> Vec<f64> {
+    if latitudes.len() >= 2 && latitudes[1] > latitudes[0] {
+        let mut v = latitudes;
+        v.reverse();
+        v
+    } else {
+        latitudes
+    }
+}
+
 /// Rotate a slice left by `roll` positions: `out[i] = values[(i + roll) % n]`.
 fn rotate_left(values: &[f64], roll: usize) -> Vec<f64> {
     let n = values.len();
@@ -356,6 +436,19 @@ fn rotate_rows_left(data: &[f64], ny: usize, nx: usize, roll: usize) -> Vec<f64>
         }
     }
     out
+}
+
+/// Reverse the row order of a row-major `ny × nx` buffer in place, leaving the
+/// columns within each row untouched. Leaves the buffer unchanged if the
+/// dimensions don't match its length.
+fn reverse_rows(data: &mut [f64], ny: usize, nx: usize) {
+    if nx == 0 || ny * nx != data.len() {
+        return;
+    }
+    for r in 0..ny / 2 {
+        let (top, bottom) = data.split_at_mut((ny - 1 - r) * nx);
+        top[r * nx..(r + 1) * nx].swap_with_slice(&mut bottom[..nx]);
+    }
 }
 
 #[cfg(test)]
@@ -438,7 +531,20 @@ mod tests {
     }
 
     fn platecaree(lon_start: f64, lon_step: f64, lon_count: usize) -> super::LatLngProjection {
-        let latitudes = super::RegularCoordinateIterator::new(90.0, -1.0, 5);
+        platecaree_grid(90.0, -1.0, 5, lon_start, lon_step, lon_count)
+    }
+
+    /// Like [`platecaree`], but with a fully configurable latitude axis so tests
+    /// can build south-first (ascending) grids to exercise the north-up flip.
+    fn platecaree_grid(
+        lat_start: f64,
+        lat_step: f64,
+        lat_count: usize,
+        lon_start: f64,
+        lon_step: f64,
+        lon_count: usize,
+    ) -> super::LatLngProjection {
+        let latitudes = super::RegularCoordinateIterator::new(lat_start, lat_step, lat_count);
         let longitudes = super::RegularCoordinateIterator::new(lon_start, lon_step, lon_count);
         super::LatLngProjection::PlateCaree(crate::utils::iter::projection::PlateCareeProjection {
             latitudes,
@@ -479,7 +585,7 @@ mod tests {
     fn test_lat_lng_adjusted_monotonic() {
         let projection = platecaree(0.0, 0.5, 720);
         let (_, native) = projection.lat_lng();
-        let (lats, lngs) = projection.lat_lng_adjusted(true);
+        let (lats, lngs) = projection.lat_lng_adjusted(true, false);
 
         // Latitudes are untouched.
         assert_eq!(lats, projection.lat_lng().0);
@@ -511,7 +617,7 @@ mod tests {
         let projection = platecaree(0.5, 1.0, 360);
         assert_eq!(projection.longitude_wrap_roll(), Some(180));
 
-        let (_, lngs) = projection.lat_lng_adjusted(true);
+        let (_, lngs) = projection.lat_lng_adjusted(true, false);
         assert_eq!(lngs.len(), 360);
         assert!((lngs[0] - (-179.5)).abs() < f64::EPSILON);
         assert!((lngs[359] - 179.5).abs() < f64::EPSILON);
@@ -530,10 +636,10 @@ mod tests {
     #[test]
     fn test_lat_lng_adjusted_noop_when_disabled_or_ineligible() {
         let global = platecaree(0.0, 0.5, 720);
-        assert_eq!(global.lat_lng_adjusted(false), global.lat_lng());
+        assert_eq!(global.lat_lng_adjusted(false, false), global.lat_lng());
 
         let regional = platecaree(0.0, 0.25, 360);
-        assert_eq!(regional.lat_lng_adjusted(true), regional.lat_lng());
+        assert_eq!(regional.lat_lng_adjusted(true, false), regional.lat_lng());
     }
 
     #[test]
@@ -549,5 +655,137 @@ mod tests {
 
         // Mismatched dimensions return the input unchanged.
         assert_eq!(super::rotate_rows_left(&data, 3, 4, 1), data);
+    }
+
+    #[test]
+    fn test_needs_north_up_flip() {
+        // South-first (ascending) latitude axis: row 0 is the southern-most, so a
+        // flip is needed to put north first.
+        assert!(platecaree_grid(-90.0, 1.0, 5, 0.0, 1.0, 4).needs_north_up_flip());
+        // North-first (descending) latitude axis: already north-first, no flip.
+        assert!(!platecaree_grid(90.0, -1.0, 5, 0.0, 1.0, 4).needs_north_up_flip());
+    }
+
+    #[test]
+    fn test_reverse_rows() {
+        // 3 rows x 2 cols: reverse the row order, columns within each row intact.
+        let mut data = vec![0.0, 1.0, 10.0, 11.0, 20.0, 21.0];
+        super::reverse_rows(&mut data, 3, 2);
+        assert_eq!(data, vec![20.0, 21.0, 10.0, 11.0, 0.0, 1.0]);
+
+        // Even row count reverses cleanly too (2 rows x 3 cols).
+        let mut even = vec![0.0, 1.0, 2.0, 10.0, 11.0, 12.0];
+        super::reverse_rows(&mut even, 2, 3);
+        assert_eq!(even, vec![10.0, 11.0, 12.0, 0.0, 1.0, 2.0]);
+
+        // Mismatched dimensions leave the buffer unchanged.
+        let mut mismatched = vec![0.0, 1.0, 10.0, 11.0, 20.0, 21.0];
+        super::reverse_rows(&mut mismatched, 4, 2);
+        assert_eq!(mismatched, vec![0.0, 1.0, 10.0, 11.0, 20.0, 21.0]);
+        // Zero-width buffer leaves the buffer unchanged.
+        super::reverse_rows(&mut mismatched, 0, 0);
+        assert_eq!(mismatched, vec![0.0, 1.0, 10.0, 11.0, 20.0, 21.0]);
+    }
+
+    #[test]
+    fn test_adjust_data_north_up() {
+        // 3 rows x 2 cols of data aligned with the latitude axis row-for-row.
+        let data = vec![0.0, 1.0, 10.0, 11.0, 20.0, 21.0];
+
+        // South-first grid: rows are reversed so the northern-most row leads.
+        let south_first = platecaree_grid(-90.0, 1.0, 3, 0.0, 1.0, 2);
+        assert_eq!(
+            south_first.adjust_data_north_up(data.clone(), true),
+            vec![20.0, 21.0, 10.0, 11.0, 0.0, 1.0]
+        );
+        // ...but only when north_up is requested.
+        assert_eq!(south_first.adjust_data_north_up(data.clone(), false), data);
+
+        // North-first grid: already north-first, so it is a no-op even when set.
+        let north_first = platecaree_grid(90.0, -1.0, 3, 0.0, 1.0, 2);
+        assert_eq!(north_first.adjust_data_north_up(data.clone(), true), data);
+    }
+
+    #[test]
+    fn test_lat_lng_adjusted_north_up() {
+        // South-first axis: lat_lng_adjusted(_, true) reverses the latitude axis
+        // so it runs north-to-south (descending); longitudes are untouched.
+        let south_first = platecaree_grid(-90.0, 1.0, 5, 0.0, 1.0, 4);
+        let (lats, lngs) = south_first.lat_lng_adjusted(false, true);
+        for w in lats.windows(2) {
+            assert!(
+                w[1] < w[0],
+                "latitudes should descend: {} -> {}",
+                w[0],
+                w[1]
+            );
+        }
+        assert!((lats[0] - (-86.0)).abs() < f64::EPSILON);
+        assert!((lats[4] - (-90.0)).abs() < f64::EPSILON);
+        assert_eq!(lngs, south_first.lat_lng().1);
+
+        // North-first axis: already north-first, so north_up leaves it unchanged.
+        let north_first = platecaree_grid(90.0, -1.0, 5, 0.0, 1.0, 4);
+        assert_eq!(
+            north_first.lat_lng_adjusted(false, true),
+            north_first.lat_lng()
+        );
+    }
+
+    #[test]
+    fn test_adjust_latitude_values() {
+        // Ascending (south-first) axis is reversed to descending (north-first).
+        assert_eq!(
+            super::adjust_latitude_values(vec![-90.0, -45.0, 0.0, 45.0, 90.0]),
+            vec![90.0, 45.0, 0.0, -45.0, -90.0]
+        );
+        // Already-descending axis is left unchanged.
+        let descending = vec![90.0, 45.0, 0.0, -45.0, -90.0];
+        assert_eq!(
+            super::adjust_latitude_values(descending.clone()),
+            descending
+        );
+        // Idempotent: reversing an already-descending axis is a no-op.
+        let once = super::adjust_latitude_values(vec![-90.0, 0.0, 90.0]);
+        assert_eq!(super::adjust_latitude_values(once.clone()), once);
+        // Too short to tell: returned unchanged.
+        assert_eq!(super::adjust_latitude_values(vec![5.0]), vec![5.0]);
+    }
+
+    #[test]
+    fn test_north_up_and_longitude_wrap_composable() {
+        // Synthetic south-first global grid: ascending latitudes (flip needed) and
+        // an ascending [0, 360) longitude axis (wrap/roll needed). The two
+        // adjustments are orthogonal: north_up permutes rows, the wrap rolls
+        // columns, and both can be applied together.
+        let ny = 4usize;
+        let nx = 4usize; // 0, 90, 180, 270 -> rolls by 2 to lead with -180.
+        let projection = platecaree_grid(-90.0, 60.0, ny, 0.0, 90.0, nx);
+
+        // Coordinates: latitudes reversed (descending) and longitudes wrapped.
+        let (lats, lngs) = projection.lat_lng_adjusted(true, true);
+        for w in lats.windows(2) {
+            assert!(w[1] < w[0], "latitudes should descend");
+        }
+        assert!((lngs[0] - (-180.0)).abs() < f64::EPSILON);
+        for w in lngs.windows(2) {
+            assert!(w[1] > w[0], "longitudes should ascend monotonically");
+        }
+
+        // Data: build a buffer whose value encodes (row, col) so we can verify
+        // both the row reversal and the column roll happened together.
+        let data: Vec<f64> = (0..ny)
+            .flat_map(|r| (0..nx).map(move |c| (r * 10 + c) as f64))
+            .collect();
+        let rolled = projection.adjust_data_longitude(data.clone(), true);
+        let both = projection.adjust_data_north_up(rolled, true);
+        // Expected: rows reversed, then within each row columns rolled left by 2.
+        let mut expected = Vec::with_capacity(data.len());
+        for r in (0..ny).rev() {
+            for c in 0..nx {
+                expected.push((r * 10 + (c + 2) % nx) as f64);
+            }
+        }
+        assert_eq!(both, expected);
     }
 }

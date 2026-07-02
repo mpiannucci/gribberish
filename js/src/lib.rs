@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use gribberish::{
+  adjust_latitude_values as adjust_latitude_values_core,
   adjust_longitude_values as adjust_longitude_values_core,
   data_message::DataMessage,
   index::parse_index,
@@ -104,14 +105,17 @@ impl GribMessage {
     }
   }
 
-  /// Like the `latlng` getter, but when `adjustLongitudeRange` is set the
-  /// longitudes of an eligible near-global grid are wrapped from `[0, 360)` to a
-  /// monotonic `[-180, 180)` axis. Pair with `dataAdjusted(true)` so the values
-  /// stay aligned with the wrapped coordinates. A no-op for grids that don't
-  /// span the globe (returns the same as `latlng`).
+  /// Like the `latlng` getter: `adjustLongitudeRange` wraps an eligible
+  /// near-global grid's longitudes from `[0, 360)` to a monotonic `[-180, 180)`;
+  /// `northUp` reorders rows so the 0th row is the northern-most. Pair with
+  /// `dataAdjusted` using the same flags so the values stay aligned. Each flag
+  /// is a no-op when the grid is ineligible.
   #[napi]
-  pub fn latlng_adjusted(&self, adjust_longitude_range: bool) -> LatLng {
-    let (latitude, longitude) = self.inner.metadata.latlng_adjusted(adjust_longitude_range);
+  pub fn latlng_adjusted(&self, adjust_longitude_range: bool, north_up: Option<bool>) -> LatLng {
+    let (latitude, longitude) = self
+      .inner
+      .metadata
+      .latlng_adjusted(adjust_longitude_range, north_up.unwrap_or(false));
     LatLng {
       latitude,
       longitude,
@@ -147,17 +151,17 @@ impl GribMessage {
     self.inner.data.clone()
   }
 
-  /// Like the `data` getter, but when `adjustLongitudeRange` is set the decoded
-  /// values of an eligible near-global grid have their columns rolled to match a
-  /// `[-180, 180)` longitude axis, staying aligned with `latlngAdjusted(true)`.
-  /// A no-op for grids that don't span the globe (returns the same as `data`).
+  /// Like the `data` getter: `adjustLongitudeRange` rolls columns to match a
+  /// `[-180, 180)` longitude axis; `northUp` reverses rows so the 0th row is the
+  /// northern-most. Pair with `latlngAdjusted` using the same flags. Each flag
+  /// is a no-op when the grid is ineligible.
   #[napi]
-  pub fn data_adjusted(&self, adjust_longitude_range: bool) -> Vec<f64> {
-    self
-      .inner
-      .metadata
-      .projector
-      .adjust_data_longitude(self.inner.data.clone(), adjust_longitude_range)
+  pub fn data_adjusted(&self, adjust_longitude_range: bool, north_up: Option<bool>) -> Vec<f64> {
+    self.inner.metadata.projector.adjust_data(
+      self.inner.data.clone(),
+      adjust_longitude_range,
+      north_up.unwrap_or(false),
+    )
   }
 }
 
@@ -225,6 +229,15 @@ pub fn parse_grib_index(data: String, file_size: Option<i64>) -> napi::Result<Ve
 #[napi]
 pub fn adjust_longitude_values(longitudes: Vec<f64>) -> Vec<f64> {
   adjust_longitude_values_core(longitudes)
+}
+
+/// Reverse a 1-D latitude coordinate axis so it descends from north to south,
+/// matching the row reversal `dataAdjusted` applies under `northUp`. A no-op
+/// for axes that already descend. Operates on a 1-D axis only; a flattened 2-D
+/// latitude field would have its columns mirrored too.
+#[napi]
+pub fn adjust_latitude_values(latitudes: Vec<f64>) -> Vec<f64> {
+  adjust_latitude_values_core(latitudes)
 }
 
 #[napi]

@@ -23,6 +23,7 @@ import numpy as np
 # the codec pipeline when the array metadata is constructed below).
 from gribberish.zarr.codec import GribberishCodec  # noqa: F401
 from gribberish import (
+    adjust_latitude_values,
     adjust_longitude_values,
     parse_grib_dataset,
     parse_grib_dataset_from_headers,
@@ -54,16 +55,22 @@ _N_SPATIAL = 2
 
 
 def _gribberish_codecs(
-    var: str, adjust_longitude_range: bool = False
+    var: str, adjust_longitude_range: bool = False, north_up: bool = False
 ) -> list[dict[str, Any]]:
     configuration: dict[str, Any] = {"var": var}
     if adjust_longitude_range:
         configuration["adjust_longitude_range"] = True
+    if north_up:
+        configuration["north_up"] = True
     return [{"name": _GRIBBERISH_CODEC, "configuration": configuration}]
 
 
 def _data_manifest_array(
-    url: str, name: str, var: dict[str, Any], adjust_longitude_range: bool = False
+    url: str,
+    name: str,
+    var: dict[str, Any],
+    adjust_longitude_range: bool = False,
+    north_up: bool = False,
 ) -> ManifestArray:
     """One ManifestArray per data variable; each GRIB message is one chunk."""
     dims = tuple(var["dims"])
@@ -103,7 +110,7 @@ def _data_manifest_array(
         data_type=np.dtype("float64"),
         chunk_shape=chunk_shape,
         fill_value=float("nan"),
-        codecs=_gribberish_codecs(name, adjust_longitude_range),
+        codecs=_gribberish_codecs(name, adjust_longitude_range, north_up),
         attributes=dict(var["attrs"]),
         dimension_names=dims,
     )
@@ -111,9 +118,17 @@ def _data_manifest_array(
 
 
 def _reference_coord_array(
-    url: str, name: str, coord: dict[str, Any]
+    url: str,
+    name: str,
+    coord: dict[str, Any],
+    adjust_longitude_range: bool = False,
+    north_up: bool = False,
 ) -> ManifestArray:
-    """A coordinate stored as a byte range in the file (projected lat/lon)."""
+    """A coordinate stored as a byte range in the file (projected lat/lon).
+
+    Decoded by the gribberish codec at read time, so it must carry the same
+    adjustment flags as the data variables or data and coords flip out of sync.
+    """
     values = coord["values"]
     dims = tuple(coord["dims"])
     shape = tuple(int(s) for s in values["shape"])
@@ -132,7 +147,7 @@ def _reference_coord_array(
         data_type=np.dtype("float64"),
         chunk_shape=shape,
         fill_value=float("nan"),
-        codecs=_gribberish_codecs(name),
+        codecs=_gribberish_codecs(name, adjust_longitude_range, north_up),
         attributes=dict(coord["attrs"]),
         dimension_names=dims,
     )
@@ -140,20 +155,27 @@ def _reference_coord_array(
 
 
 def _inline_coord_array(
-    name: str, coord: dict[str, Any], adjust_longitude_range: bool = False
+    name: str,
+    coord: dict[str, Any],
+    adjust_longitude_range: bool = False,
+    north_up: bool = False,
 ) -> ManifestArray:
     """A small derived coordinate (time/level/number/...) inlined as raw bytes."""
     dims = tuple(coord["dims"])
     attrs = dict(coord["attrs"])
     arr = np.asarray(coord["values"])
 
-    # Rewrap an inlined 0–360° longitude axis to a monotonic −180…180° range,
-    # matching the roll the codec applies to each data chunk at read time. A
-    # no-op for grids that don't span the globe.
-    # Only the 1-D regular-grid axis is wrapped; a projected grid's 2-D longitude
-    # is stored as a reference (not inlined), so the ndim guard is also future-proofing.
+    # Wrap the 1-D longitude axis to match the roll the codec applies to each
+    # data chunk. A projected grid's 2-D longitude is a reference, not inlined,
+    # so the ndim guard never fires there.
     if adjust_longitude_range and name == "longitude" and arr.ndim == 1:
         arr = np.asarray(adjust_longitude_values(arr))
+
+    # Flip the 1-D row-axis coordinate (`latitude` on regular grids, projected
+    # `y` on Lambert) to north-first; a Lambert grid's 2-D `latitude` is a
+    # reference flipped by the codec, so the ndim guard skips it here.
+    if north_up and name in ("latitude", "y") and arr.ndim == 1:
+        arr = np.asarray(adjust_latitude_values(arr))
 
     if arr.dtype.kind == "M":
         # Store datetimes as CF-encoded int64 seconds so xarray can decode them.
@@ -197,29 +219,42 @@ def _inline_coord_array(
 
 
 def _coord_manifest_array(
-    url: str, name: str, coord: dict[str, Any], adjust_longitude_range: bool = False
+    url: str,
+    name: str,
+    coord: dict[str, Any],
+    adjust_longitude_range: bool = False,
+    north_up: bool = False,
 ) -> ManifestArray:
     if isinstance(coord["values"], dict):
-        return _reference_coord_array(url, name, coord)
-    return _inline_coord_array(name, coord, adjust_longitude_range)
+        return _reference_coord_array(
+            url, name, coord, adjust_longitude_range, north_up
+        )
+    return _inline_coord_array(name, coord, adjust_longitude_range, north_up)
 
 
 def _manifest_group(
-    url: str, node: dict[str, Any], adjust_longitude_range: bool = False
+    url: str,
+    node: dict[str, Any],
+    adjust_longitude_range: bool = False,
+    north_up: bool = False,
 ) -> ManifestGroup:
     """Recursively build a ManifestGroup (and its subgroups) from a tree node."""
     arrays: dict[str, ManifestArray] = {}
     coord_names: list[str] = []
 
     for name, coord in node.get("coords", {}).items():
-        arrays[name] = _coord_manifest_array(url, name, coord, adjust_longitude_range)
+        arrays[name] = _coord_manifest_array(
+            url, name, coord, adjust_longitude_range, north_up
+        )
         coord_names.append(name)
 
     for name, var in node.get("data_vars", {}).items():
-        arrays[name] = _data_manifest_array(url, name, var, adjust_longitude_range)
+        arrays[name] = _data_manifest_array(
+            url, name, var, adjust_longitude_range, north_up
+        )
 
     groups = {
-        gname: _manifest_group(url, gnode, adjust_longitude_range)
+        gname: _manifest_group(url, gnode, adjust_longitude_range, north_up)
         for gname, gnode in node.get("groups", {}).items()
     }
 
@@ -265,6 +300,11 @@ class GribberishParser:
         codec is told to roll its decoded chunk along the longitude axis to
         match, so the published store slices cleanly across the prime meridian.
         Default off; a no-op for grids that don't span the globe.
+    north_up
+        Reorder every grid so the 0th row is the northern-most: the emitted
+        ``latitude`` coordinate is flipped and every data variable's codec is told
+        to reverse its decoded chunk's rows to match. Default off; a no-op for
+        grids that are already north-first.
     collapse_groups
         Default off, which gives a **stable, content-independent** group layout:
         every variable is nested under its surface-type and product-kind
@@ -289,6 +329,7 @@ class GribberishParser:
         filter_by_variable_attrs: dict[str, Any] | None = None,
         use_index: bool | str = False,
         adjust_longitude_range: bool = False,
+        north_up: bool = False,
         collapse_groups: bool = False,
     ) -> None:
         self.drop_variables = drop_variables
@@ -298,6 +339,7 @@ class GribberishParser:
         self.filter_by_variable_attrs = filter_by_variable_attrs
         self.use_index = use_index
         self.adjust_longitude_range = adjust_longitude_range
+        self.north_up = north_up
         self.collapse_groups = collapse_groups
 
     def _filter_kwargs(self) -> dict[str, Any]:
@@ -357,5 +399,7 @@ class GribberishParser:
             data = _read_all(store, path_in_store)
             dataset = parse_grib_dataset(data, **self._filter_kwargs())
 
-        group = _manifest_group(url, dataset, self.adjust_longitude_range)
+        group = _manifest_group(
+            url, dataset, self.adjust_longitude_range, self.north_up
+        )
         return ManifestStore(group, registry=registry)
