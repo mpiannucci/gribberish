@@ -123,10 +123,6 @@ pub enum FixedSurfaceType {
     OrderedSequence = 241,
     #[description = "equilibrium level"]
     EquilibriumLevel = 247,
-    // NBM emits cloud fields (CDCB/CDCTOP/TCDC) at these three codes. NCEP
-    // Code Table 4.5 lists 195-197 as "Reserved for Local Use", so their exact
-    // meaning is undocumented; they are represented as distinct surfaces here
-    // only so the messages don't collapse onto one another.
     #[description = "reserved local surface type 195"]
     ReservedLocal195 = 195,
     #[description = "reserved local surface type 196"]
