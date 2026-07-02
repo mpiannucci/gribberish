@@ -145,11 +145,7 @@ def test_codec_config_roundtrips_north_up_flag():
 
 
 async def test_north_up_flips_data_rows():
-    """Opt-in north_up reverses the decoded data rows so row 0 is north-most.
-
-    HRRR (Lambert) is south-first, so the flip is observable: north_up data
-    equals a row-reversed native decode. Robust if HRRR were already north-first
-    (then both branches assert a no-op)."""
+    """HRRR (Lambert) is south-first, so north_up row-reverses the decoded data."""
     from gribberish.zarr.codec import GribberishCodec
 
     raw = (TEST_DATA / HRRR).read_bytes()
@@ -157,13 +153,8 @@ async def test_north_up_flips_data_rows():
     flipped = await _decode(GribberishCodec("TMP", north_up=True), raw, HRRR_SHAPE)
 
     lat_native = await _decode(GribberishCodec("latitude"), raw, HRRR_SHAPE)
-    south_first = lat_native[0, 0] < lat_native[-1, 0]
-
-    if south_first:
-        np.testing.assert_array_equal(flipped, native[::-1, :])
-        assert not np.array_equal(flipped, native)  # data really moved
-    else:
-        np.testing.assert_array_equal(flipped, native)  # already north-first: no-op
+    assert lat_native[0, 0] < lat_native[-1, 0], "HRRR fixture expected south-first"
+    np.testing.assert_array_equal(flipped, native[::-1, :])
 
 
 async def test_north_up_flips_latitude_coordinate():

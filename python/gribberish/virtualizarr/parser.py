@@ -126,10 +126,8 @@ def _reference_coord_array(
 ) -> ManifestArray:
     """A coordinate stored as a byte range in the file (projected lat/lon).
 
-    A projected grid's 2-D ``latitude``/``longitude`` are decoded from the file
-    at read time, so the codec must carry the same adjustment flags as the data
-    variables — otherwise (e.g. ``north_up`` on a Lambert grid) the data rows
-    would be flipped while the coordinate fields are not, inverting north/south.
+    Decoded by the gribberish codec at read time, so it must carry the same
+    adjustment flags as the data variables or data and coords flip out of sync.
     """
     values = coord["values"]
     dims = tuple(coord["dims"])
@@ -167,20 +165,15 @@ def _inline_coord_array(
     attrs = dict(coord["attrs"])
     arr = np.asarray(coord["values"])
 
-    # Rewrap an inlined 0–360° longitude axis to a monotonic −180…180° range,
-    # matching the roll the codec applies to each data chunk at read time. A
-    # no-op for grids that don't span the globe.
-    # Only the 1-D regular-grid axis is wrapped; a projected grid's 2-D longitude
-    # is stored as a reference (not inlined), so the ndim guard is also future-proofing.
+    # Wrap the 1-D longitude axis to match the roll the codec applies to each
+    # data chunk. A projected grid's 2-D longitude is a reference, not inlined,
+    # so the ndim guard never fires there.
     if adjust_longitude_range and name == "longitude" and arr.ndim == 1:
         arr = np.asarray(adjust_longitude_values(arr))
 
-    # Flip an inlined south-first row axis to north-first, matching the row
-    # reversal the codec applies to each data chunk at read time. A no-op for an
-    # axis that already runs north-to-south. This is the 1-D *dimension*
-    # coordinate of the row axis: `latitude` for a regular grid, or the projected
-    # `y` (northing) coordinate for a Lambert grid (whose 2-D `latitude` is a
-    # reference, flipped by the codec instead — the ndim guard skips it here).
+    # Flip the 1-D row-axis coordinate (`latitude` on regular grids, projected
+    # `y` on Lambert) to north-first; a Lambert grid's 2-D `latitude` is a
+    # reference flipped by the codec, so the ndim guard skips it here.
     if north_up and name in ("latitude", "y") and arr.ndim == 1:
         arr = np.asarray(adjust_latitude_values(arr))
 
@@ -310,10 +303,8 @@ class GribberishParser:
     north_up
         Reorder every grid so the 0th row is the northern-most: the emitted
         ``latitude`` coordinate is flipped and every data variable's codec is told
-        to reverse its decoded chunk's rows to match. An independent, composable
-        sibling of ``adjust_longitude_range`` (that one permutes columns, this one
-        permutes whole rows). Default off; a no-op for grids that are already
-        north-first.
+        to reverse its decoded chunk's rows to match. Default off; a no-op for
+        grids that are already north-first.
     collapse_groups
         Default off, which gives a **stable, content-independent** group layout:
         every variable is nested under its surface-type and product-kind

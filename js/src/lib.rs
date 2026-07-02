@@ -105,16 +105,11 @@ impl GribMessage {
     }
   }
 
-  /// Like the `latlng` getter, but with two independent, composable on-the-fly
-  /// adjustments. When `adjustLongitudeRange` is set the longitudes of an
-  /// eligible near-global grid are wrapped from `[0, 360)` to a monotonic
-  /// `[-180, 180)` axis (a column permutation). When `northUp` is set the
-  /// latitude/y coordinate is reordered so the 0th row is the northern-most (a
-  /// row permutation), doing nothing if the grid is already north-first. Pair
-  /// with `dataAdjusted(adjustLongitudeRange, northUp)` so the values stay
-  /// aligned with the adjusted coordinates. Each flag is a no-op when its
-  /// condition doesn't apply (returns the same as `latlng`). `northUp` is
-  /// optional and defaults to `false`.
+  /// Like the `latlng` getter: `adjustLongitudeRange` wraps an eligible
+  /// near-global grid's longitudes from `[0, 360)` to a monotonic `[-180, 180)`;
+  /// `northUp` reorders rows so the 0th row is the northern-most. Pair with
+  /// `dataAdjusted` using the same flags so the values stay aligned. Each flag
+  /// is a no-op when the grid is ineligible.
   #[napi]
   pub fn latlng_adjusted(&self, adjust_longitude_range: bool, north_up: Option<bool>) -> LatLng {
     let (latitude, longitude) = self
@@ -156,20 +151,17 @@ impl GribMessage {
     self.inner.data.clone()
   }
 
-  /// Like the `data` getter, but with two independent, composable on-the-fly
-  /// adjustments. When `adjustLongitudeRange` is set the decoded values of an
-  /// eligible near-global grid have their columns rolled to match a
-  /// `[-180, 180)` longitude axis. When `northUp` is set whole rows are
-  /// reversed so the 0th row is the northern-most, doing nothing if the grid is
-  /// already north-first. Both stay aligned with
-  /// `latlngAdjusted(adjustLongitudeRange, northUp)`. Each flag is a no-op when
-  /// its condition doesn't apply (returns the same as `data`). `northUp` is
-  /// optional and defaults to `false`.
+  /// Like the `data` getter: `adjustLongitudeRange` rolls columns to match a
+  /// `[-180, 180)` longitude axis; `northUp` reverses rows so the 0th row is the
+  /// northern-most. Pair with `latlngAdjusted` using the same flags. Each flag
+  /// is a no-op when the grid is ineligible.
   #[napi]
   pub fn data_adjusted(&self, adjust_longitude_range: bool, north_up: Option<bool>) -> Vec<f64> {
-    let projector = &self.inner.metadata.projector;
-    let data = projector.adjust_data_longitude(self.inner.data.clone(), adjust_longitude_range);
-    projector.adjust_data_north_up(data, north_up.unwrap_or(false))
+    self.inner.metadata.projector.adjust_data(
+      self.inner.data.clone(),
+      adjust_longitude_range,
+      north_up.unwrap_or(false),
+    )
   }
 }
 
@@ -241,8 +233,8 @@ pub fn adjust_longitude_values(longitudes: Vec<f64>) -> Vec<f64> {
 
 /// Reverse a 1-D latitude coordinate axis so it descends from north to south,
 /// matching the row reversal `dataAdjusted` applies under `northUp`. A no-op
-/// for axes that already descend (returns the input unchanged), so it is safe
-/// to call on any latitude array.
+/// for axes that already descend. Operates on a 1-D axis only; a flattened 2-D
+/// latitude field would have its columns mirrored too.
 #[napi]
 pub fn adjust_latitude_values(latitudes: Vec<f64>) -> Vec<f64> {
   adjust_latitude_values_core(latitudes)

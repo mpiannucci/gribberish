@@ -198,19 +198,14 @@ pub fn parse_grib_array<'py>(
     let values = message
         .data()
         .map_err(|e| PyTypeError::new_err(format!("Failed to decode GRIB data: {e}")))?;
-    // Two independent, composable on-the-fly adjustments, both decided by the
-    // projector so data and coordinates stay aligned:
-    //   - adjust_longitude_range rolls the data columns so longitudes run
-    //     -180..180 monotonically, matching the wrapped longitude coordinate;
-    //   - north_up reverses the data rows so row 0 is the northern-most,
-    //     matching the flipped latitude/y coordinate.
-    // Each is a no-op on ineligible grids; build the projector only when needed.
+    // The projector decides eligibility for both adjustments so data and
+    // coordinates stay aligned; each is a no-op on ineligible grids. Build the
+    // projector only when at least one is requested.
     let values = if adjust_longitude_range || north_up {
         let projector = message
             .latlng_projector()
             .map_err(|e| PyTypeError::new_err(format!("Failed to build projection: {e}")))?;
-        let values = projector.adjust_data_longitude(values, adjust_longitude_range);
-        projector.adjust_data_north_up(values, north_up)
+        projector.adjust_data(values, adjust_longitude_range, north_up)
     } else {
         values
     };
@@ -219,8 +214,7 @@ pub fn parse_grib_array<'py>(
 
 /// Wrap a global 0–360° longitude coordinate to a monotonic −180…180° axis,
 /// matching the data roll the codec applies. A no-op for grids that don't span
-/// the globe. Used by the VirtualiZarr parser to rewrap the inlined longitude
-/// coordinate at the boundary, keeping the eager dataset reader projection-faithful.
+/// the globe.
 #[pyfunction]
 pub fn adjust_longitude_values(py: Python<'_>, longitudes: Vec<f64>) -> Bound<'_, PyArray1<f64>> {
     PyArray::from_vec(py, gribberish::adjust_longitude_values(longitudes))
@@ -229,8 +223,6 @@ pub fn adjust_longitude_values(py: Python<'_>, longitudes: Vec<f64>) -> Bound<'_
 /// Reverse an ascending (south-first) 1-D latitude coordinate to a descending
 /// north-first axis, matching the row flip the codec applies to each data chunk
 /// when ``north_up`` is set. A no-op for an axis that already runs north-to-south.
-/// Used by the VirtualiZarr parser to flip the inlined 1-D latitude coordinate
-/// at the boundary, keeping the eager dataset reader projection-faithful.
 #[pyfunction]
 pub fn adjust_latitude_values(py: Python<'_>, latitudes: Vec<f64>) -> Bound<'_, PyArray1<f64>> {
     PyArray::from_vec(py, gribberish::adjust_latitude_values(latitudes))

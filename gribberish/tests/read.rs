@@ -792,43 +792,21 @@ fn test_north_up_hrrr_lambert() {
     let native = msg.data().expect("Failed to decode data");
     assert_eq!(native.len(), ny * nx);
 
-    // Determine the native orientation from the 2-D latitude field: compare the
-    // latitude of the first and last data rows at the same column.
-    let (native_lats, _) = projector.lat_lng();
-    let first_row_lat = native_lats[0];
-    let last_row_lat = native_lats[(ny - 1) * nx];
-    let native_north_first = first_row_lat > last_row_lat;
-    eprintln!(
-        "HRRR native orientation: first row lat {first_row_lat}, last row lat \
-         {last_row_lat} => {}",
-        if native_north_first {
-            "north-first"
-        } else {
-            "south-first"
-        }
+    // This fixture is south-first: the 2-D latitude field's first row is south
+    // of its last. That is what makes the row flip observable here.
+    let (native_lats, native_lngs) = projector.lat_lng();
+    assert!(
+        native_lats[0] < native_lats[(ny - 1) * nx],
+        "HRRR fixture expected south-first"
     );
 
-    // north_up data adjustment.
+    // north_up reverses whole rows, putting the northern-most row first.
     let north_up = projector.adjust_data_north_up(native.clone(), true);
-    assert_eq!(north_up.len(), native.len());
-
-    if native_north_first {
-        // Already north-first: north_up is a no-op.
-        assert_eq!(
-            north_up, native,
-            "north_up should be a no-op when north-first"
-        );
-    } else {
-        // South-first: north_up must equal a manual row reversal of the native
-        // buffer, putting the northern-most row first.
-        let mut expected = Vec::with_capacity(native.len());
-        for r in (0..ny).rev() {
-            expected.extend_from_slice(&native[r * nx..(r + 1) * nx]);
-        }
-        assert_eq!(north_up, expected, "north_up should reverse rows");
-        // And it must differ from native (this fixture is genuinely south-first).
-        assert_ne!(north_up, native);
+    let mut expected = Vec::with_capacity(native.len());
+    for r in (0..ny).rev() {
+        expected.extend_from_slice(&native[r * nx..(r + 1) * nx]);
     }
+    assert_eq!(north_up, expected, "north_up should reverse rows");
 
     // north_up=false is always a no-op.
     assert_eq!(
@@ -836,26 +814,28 @@ fn test_north_up_hrrr_lambert() {
         native
     );
 
-    // The north-up latitude field has its first row north of its last row.
+    // The north-up coordinates stay aligned with the north-up data: row r of
+    // each north-up coordinate field matches row (ny-1-r) of the native field.
     let (lats_up, lngs_up) = projector.lat_lng_adjusted(false, true);
     assert_eq!(lats_up.len(), ny * nx);
+    assert_eq!(lngs_up.len(), ny * nx);
     assert!(
         lats_up[0] > lats_up[(ny - 1) * nx],
         "north-up first row ({}) should be north of last row ({})",
         lats_up[0],
         lats_up[(ny - 1) * nx]
     );
-
-    // The north-up coordinates stay aligned with the north-up data: row r of the
-    // north-up latitude field matches row (ny-1-r) of the native field.
     for r in [0usize, ny / 2, ny - 1] {
-        let native_r = if native_north_first { r } else { ny - 1 - r };
+        let native_r = ny - 1 - r;
         assert!(
             (lats_up[r * nx] - native_lats[native_r * nx]).abs() < 1e-9,
             "lat row {r} misaligned"
         );
+        assert!(
+            (lngs_up[r * nx] - native_lngs[native_r * nx]).abs() < 1e-9,
+            "lng row {r} misaligned"
+        );
     }
-    let _ = lngs_up;
 }
 
 #[test]

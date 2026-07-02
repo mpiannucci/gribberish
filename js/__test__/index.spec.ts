@@ -22,8 +22,7 @@ const GEAVG = 'geavg.t12z.pgrb2a.0p50.f000'
 const GEAVG_COLS = 720
 const GEAVG_ROLL = 360
 
-// HRRR — a Lambert Conformal grid. north_up reorders whole rows so the 0th row
-// is the northern-most; the longitude wrap is a no-op on this non-global grid.
+// HRRR — a south-first Lambert Conformal grid.
 const HRRR = 'hrrr.t06z.wrfsfcf01-TMP.grib2'
 
 test('parseMessagesFromBuffer reads HRRR GRIB2 messages', (t) => {
@@ -189,39 +188,24 @@ test('northUp puts the northern-most row first on an HRRR Lambert grid', (t) => 
   const nativeLat = msg.latlng.latitude
 
   const adjustedData = msg.dataAdjusted(false, true)
-  const adjustedLatLng = msg.latlngAdjusted(false, true)
-  const adjustedLat = adjustedLatLng.latitude
+  const adjustedLat = msg.latlngAdjusted(false, true).latitude
 
-  // For Lambert grids latitude is a full 2-D field; row r spans [r*cols, ...).
-  const nativeFirstRowLat = nativeLat[0]
-  const nativeLastRowLat = nativeLat[(rows - 1) * cols]
-  const nativeNorthFirst = nativeFirstRowLat >= nativeLastRowLat
+  // The fixture is south-first (row 0 south of the last), so the flip moves.
+  t.true(nativeLat[0] < nativeLat[(rows - 1) * cols])
 
-  if (nativeNorthFirst) {
-    // Already north-first => north_up is a no-op, regardless of orientation.
-    t.deepEqual(adjustedData, nativeData)
-    t.deepEqual(adjustedLat, nativeLat)
-  } else {
-    // South-first => north_up reverses whole rows of both data and coords.
-    const expectedData = new Array<number>(nativeData.length)
-    const expectedLat = new Array<number>(nativeLat.length)
-    for (let r = 0; r < rows; r++) {
-      const src = (rows - 1 - r) * cols
-      for (let c = 0; c < cols; c++) {
-        expectedData[r * cols + c] = nativeData[src + c]
-        expectedLat[r * cols + c] = nativeLat[src + c]
-      }
+  // northUp reverses whole rows of both data and coordinates.
+  const expectedData = new Array<number>(nativeData.length)
+  const expectedLat = new Array<number>(nativeLat.length)
+  for (let r = 0; r < rows; r++) {
+    const src = (rows - 1 - r) * cols
+    for (let c = 0; c < cols; c++) {
+      expectedData[r * cols + c] = nativeData[src + c]
+      expectedLat[r * cols + c] = nativeLat[src + c]
     }
-    t.deepEqual(adjustedData, expectedData)
-    t.deepEqual(adjustedLat, expectedLat)
-    t.notDeepEqual(adjustedData, nativeData)
   }
-
-  // Either way the 0th row ends up north of (or equal to) the last row, and
-  // the flipped coordinates stay aligned with the flipped data.
-  t.true(adjustedLat[0] >= adjustedLat[(rows - 1) * cols])
-  t.is(adjustedData.length, rows * cols)
-  t.is(adjustedLat.length, rows * cols)
+  t.deepEqual(adjustedData, expectedData)
+  t.deepEqual(adjustedLat, expectedLat)
+  t.true(adjustedLat[0] > adjustedLat[(rows - 1) * cols])
 
   // northUp=false leaves both untouched.
   t.deepEqual(msg.dataAdjusted(false, false), nativeData)
@@ -247,8 +231,7 @@ test('northUp is optional: the one-arg form stays backward compatible', (t) => {
   const data = readFileSync(join(DATA_DIR, GEAVG))
   const msg = parseMessagesFromBuffer(data)[0]
 
-  // Omitting northUp must behave exactly like passing false (defaults to false),
-  // so existing single-argument callers keep working.
+  // Omitting northUp defaults it to false.
   t.deepEqual(msg.dataAdjusted(true), msg.dataAdjusted(true, false))
   t.deepEqual(msg.latlngAdjusted(true).longitude, msg.latlngAdjusted(true, false).longitude)
   t.deepEqual(msg.latlngAdjusted(true).latitude, msg.latlngAdjusted(true, false).latitude)

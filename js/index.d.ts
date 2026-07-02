@@ -14,16 +14,11 @@ export declare class GribMessage {
   get gridShape(): GridShape
   get latlng(): LatLng
   /**
-   * Like the `latlng` getter, but with two independent, composable on-the-fly
-   * adjustments. When `adjustLongitudeRange` is set the longitudes of an
-   * eligible near-global grid are wrapped from `[0, 360)` to a monotonic
-   * `[-180, 180)` axis (a column permutation). When `northUp` is set the
-   * latitude/y coordinate is reordered so the 0th row is the northern-most (a
-   * row permutation), doing nothing if the grid is already north-first. Pair
-   * with `dataAdjusted(adjustLongitudeRange, northUp)` so the values stay
-   * aligned with the adjusted coordinates. Each flag is a no-op when its
-   * condition doesn't apply (returns the same as `latlng`). `northUp` is
-   * optional and defaults to `false`.
+   * Like the `latlng` getter: `adjustLongitudeRange` wraps an eligible
+   * near-global grid's longitudes from `[0, 360)` to a monotonic `[-180, 180)`;
+   * `northUp` reorders rows so the 0th row is the northern-most. Pair with
+   * `dataAdjusted` using the same flags so the values stay aligned. Each flag
+   * is a no-op when the grid is ineligible.
    */
   latlngAdjusted(adjustLongitudeRange: boolean, northUp?: boolean | undefined | null): LatLng
   get isRegularGrid(): boolean
@@ -32,15 +27,10 @@ export declare class GribMessage {
   get numberOfEnsembleMembers(): number | null
   get data(): Array<number>
   /**
-   * Like the `data` getter, but with two independent, composable on-the-fly
-   * adjustments. When `adjustLongitudeRange` is set the decoded values of an
-   * eligible near-global grid have their columns rolled to match a
-   * `[-180, 180)` longitude axis. When `northUp` is set whole rows are
-   * reversed so the 0th row is the northern-most, doing nothing if the grid is
-   * already north-first. Both stay aligned with
-   * `latlngAdjusted(adjustLongitudeRange, northUp)`. Each flag is a no-op when
-   * its condition doesn't apply (returns the same as `data`). `northUp` is
-   * optional and defaults to `false`.
+   * Like the `data` getter: `adjustLongitudeRange` rolls columns to match a
+   * `[-180, 180)` longitude axis; `northUp` reverses rows so the 0th row is the
+   * northern-most. Pair with `latlngAdjusted` using the same flags. Each flag
+   * is a no-op when the grid is ineligible.
    */
   dataAdjusted(adjustLongitudeRange: boolean, northUp?: boolean | undefined | null): Array<number>
 }
@@ -60,8 +50,8 @@ export declare class GribMessageMetadataFactory {
 /**
  * Reverse a 1-D latitude coordinate axis so it descends from north to south,
  * matching the row reversal `dataAdjusted` applies under `northUp`. A no-op
- * for axes that already descend (returns the input unchanged), so it is safe
- * to call on any latitude array.
+ * for axes that already descend. Operates on a 1-D axis only; a flattened 2-D
+ * latitude field would have its columns mirrored too.
  */
 export declare function adjustLatitudeValues(latitudes: Array<number>): Array<number>
 

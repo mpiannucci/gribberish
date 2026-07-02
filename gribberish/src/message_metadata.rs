@@ -65,11 +65,9 @@ impl MessageMetadata {
         self.projector.lat_lng()
     }
 
-    /// `latlng`, but with the two opt-in on-the-fly coordinate adjustments. When
-    /// `adjust_longitude_range` is set the longitudes are wrapped to
-    /// `[-180, 180)` and made monotonic for eligible global grids; when
-    /// `north_up` is set the rows are reordered so the northern-most row comes
-    /// first. The two are orthogonal and may be combined. See
+    /// `latlng`, but with the opt-in coordinate adjustments applied:
+    /// `adjust_longitude_range` wraps eligible global longitudes to a monotonic
+    /// `[-180, 180)`; `north_up` reorders rows northern-most first. See
     /// [`LatLngProjection::lat_lng_adjusted`].
     pub fn latlng_adjusted(
         &self,

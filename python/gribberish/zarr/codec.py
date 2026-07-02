@@ -20,10 +20,8 @@ class GribberishCodec(ArrayBytesCodec):
     no-op for grids that don't span the globe.
 
     When ``north_up`` is set, the decoded data rows and the latitude/y coordinate
-    are reordered so the 0th row is the northern-most. This is an independent,
-    composable sibling of ``adjust_longitude_range``: the longitude wrap permutes
-    columns within each row, while ``north_up`` permutes whole rows. It is a no-op
-    for grids that are already north-first.
+    are reordered so the 0th row is the northern-most. It is a no-op for grids
+    that are already north-first.
     """
 
     var: str | None

@@ -369,8 +369,9 @@ def test_adjust_longitude_values_helper():
     )
 
 
-def _data_var_codecs(store):
-    """Collect every gribberish data-var codec in a ManifestStore's group tree."""
+def _gribberish_codecs_in_store(store):
+    """Collect every GribberishCodec in a ManifestStore's group tree, from data
+    variables and coordinates alike."""
     codecs = []
 
     def walk(node):
@@ -386,11 +387,8 @@ def _data_var_codecs(store):
 
 
 def test_north_up_threads_into_codecs_and_flips_latitude():
-    """Opt-in north_up: every data variable's codec is told to flip its rows, and
-    the inlined 1-D latitude coordinate is flipped to match. GFS is already
-    north-first (lat 90..-90), so the coordinate flip is a no-op here — the
-    observable row flip lives in the codec tests (HRRR Lambert); this asserts the
-    parser wiring and that it never corrupts an already-north-first grid."""
+    """north_up reaches every data-var codec and flips the inlined latitude
+    coordinate. GFS is already north-first, so the flip must be a no-op here."""
     from gribberish import adjust_latitude_values
 
     fname = "gfs.t18z.pgrb2.0p25.f186-RH.grib2"
@@ -399,8 +397,8 @@ def test_north_up_threads_into_codecs_and_flips_latitude():
     up_store = _collapsed_store_for(fname, north_up=True)
 
     # the flag is threaded into every data-var codec
-    plain_codecs = _data_var_codecs(plain_store)
-    up_codecs = _data_var_codecs(up_store)
+    plain_codecs = _gribberish_codecs_in_store(plain_store)
+    up_codecs = _gribberish_codecs_in_store(up_store)
     assert plain_codecs and all(c.north_up is False for c in plain_codecs)
     assert up_codecs and all(c.north_up is True for c in up_codecs)
 
@@ -414,8 +412,8 @@ def test_north_up_threads_into_codecs_and_flips_latitude():
 
 
 def test_north_up_default_off_unchanged():
-    """Default-off parser is byte-for-byte the existing behaviour on a
-    north-first fixture."""
+    """north_up defaults to off: default and explicit-off stores carry
+    north_up=False codecs."""
     fname = "geavg.t12z.pgrb2a.0p50.f000"
     default = _store_for(fname)
     explicit_off = _store_for(fname, north_up=False)
@@ -423,9 +421,9 @@ def test_north_up_default_off_unchanged():
 
     # data-var codecs: default and explicit-off carry north_up=False; the
     # north-first grid is unaffected by north_up=True at decode time anyway.
-    assert all(c.north_up is False for c in _data_var_codecs(default))
-    assert all(c.north_up is False for c in _data_var_codecs(explicit_off))
-    assert all(c.north_up is True for c in _data_var_codecs(up))
+    assert all(c.north_up is False for c in _gribberish_codecs_in_store(default))
+    assert all(c.north_up is False for c in _gribberish_codecs_in_store(explicit_off))
+    assert all(c.north_up is True for c in _gribberish_codecs_in_store(up))
 
 
 def test_north_up_noop_on_north_first_data():
@@ -443,20 +441,16 @@ def test_north_up_noop_on_north_first_data():
 
 
 def test_north_up_flips_projected_reference_coords_with_data():
-    """Regression (Lambert): the 2-D latitude/longitude are byte references
-    decoded by the gribberish codec at read time, so their codec must carry
-    north_up just like the data variables. Otherwise the data rows get flipped
-    while the coordinate fields do not, inverting north/south.
-
-    HRRR is south-first, so north_up row-reverses both the coordinate fields and
-    the data, and they must stay aligned (reversed along the y axis together)."""
+    """Lambert 2-D latitude/longitude are byte references decoded by the codec,
+    so their codecs must carry north_up like the data variables or data and
+    coords flip out of sync. HRRR is south-first, so the flip is observable."""
     fname = "hrrr.t06z.wrfsfcf01-TMP.grib2"
     plain_store = _collapsed_store_for(fname)
     up_store = _collapsed_store_for(fname, north_up=True)
 
     # Every gribberish codec in the north_up store — data vars AND the projected
     # latitude/longitude reference coords — must be told to flip.
-    up_codecs = _data_var_codecs(up_store)
+    up_codecs = _gribberish_codecs_in_store(up_store)
     by_var = {c.var: c for c in up_codecs}
     assert "latitude" in by_var and "longitude" in by_var
     assert all(c.north_up is True for c in up_codecs)
