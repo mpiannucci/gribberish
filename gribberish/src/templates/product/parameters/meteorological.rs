@@ -1155,4 +1155,3 @@ pub fn meteorological_category(category: u8) -> &'static str {
         _ => "other",
     }
 }
-
