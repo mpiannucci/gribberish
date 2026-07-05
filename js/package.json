@@ -56,8 +56,8 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@emnapi/core": "^1.5.0",
-    "@emnapi/runtime": "^1.5.0",
+    "@emnapi/core": "^1.11.2",
+    "@emnapi/runtime": "^1.11.2",
     "@napi-rs/cli": "^3.7.2",
     "@oxc-node/core": "^0.0.35",
     "@taplo/cli": "^0.7.0",
