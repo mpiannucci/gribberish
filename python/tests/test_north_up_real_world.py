@@ -1,10 +1,5 @@
-"""End-to-end north_up coverage over the 2x2 of {south-first, north-first}
-real GRIB fixtures x {north_up off, on}, driving the public decode API the way
-a caller does (`parse_grib_array` + `parse_grib_message_metadata(...).latlng`).
-
-HRRR (Lambert) is encoded south-first, so north_up must flip it; GEFS (global
-lat/lon) is encoded north-first, so north_up must leave it untouched.
-"""
+"""north_up over real fixtures: HRRR (Lambert) is south-first so it must flip;
+GEFS (global lat/lon) is north-first so it must not move."""
 
 from pathlib import Path
 
@@ -21,8 +16,8 @@ NORTH_FIRST = "geavg.t12z.pgrb2a.0p50.f000"
 
 
 def _decode(fname, north_up):
-    """Return (data, lat, lng) for one message: data is ny x nx; lat/lng are the
-    2-D fields for a projected grid or the 1-D axes for a regular grid."""
+    """lat/lng come back as flattened ny*nx fields for a projected grid, or 1-D
+    axes for a regular grid; reshape only the former."""
     raw = (TEST_DATA / fname).read_bytes()
     meta = g.parse_grib_message_metadata(raw, 0)
     ny, nx = meta.grid_shape
@@ -47,8 +42,6 @@ def test_south_first_source_flips_only_when_requested(north_up):
 
     data, lat, lng = _decode(SOUTH_FIRST, north_up=north_up)
     if north_up:
-        # Whole rows reversed: row 0 is now the northern-most, and data and
-        # both (2-D) coordinate fields moved together.
         assert _row_lat(lat)[0] > _row_lat(lat)[-1]
         np.testing.assert_array_equal(data, native_data[::-1, :])
         np.testing.assert_array_equal(lat, native_lat[::-1, :])
