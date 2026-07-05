@@ -245,7 +245,7 @@ jobs:
       - name: Test bindings
         run: yarn test
         env:
-          NAPI_RS_FORCE_WASI: 1
+          NAPI_RS_FORCE_WASI: 'true'
 
   publish:
     name: Publish

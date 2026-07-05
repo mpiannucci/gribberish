@@ -95,7 +95,7 @@ supportedArchitectures:
 
 Then run `yarn install`.
 
-In Node, set `NAPI_RS_FORCE_WASI=1` (or `NAPI_RS_FORCE_WASI=error`) if you want to force the WASM runtime path.
+In Node, set `NAPI_RS_FORCE_WASI=true` (or `NAPI_RS_FORCE_WASI=error`) if you want to force the WASM runtime path.
 
 ## Build and test
 
