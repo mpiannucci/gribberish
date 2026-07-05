@@ -777,10 +777,8 @@ fn test_longitude_adjustment_era5_grib1() {
 
 #[test]
 fn test_north_up_hrrr_lambert() {
-    // HRRR is a Lambert Conformal grid where "north up" means north-up in
-    // projected y/northing space (latitude is a 2-D field, not a 1-D axis). The
-    // PlateCaree fixtures are all north-first already, so this Lambert grid is
-    // what actually exercises the row flip.
+    // HRRR is south-first Lambert Conformal: latitude is a 2-D field, so
+    // north_up must row-flip data and both coordinate fields together.
     let grib_data = read_grib_messages("../test-data/hrrr.t06z.wrfsfcf01-TMP.grib2");
     let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
     let msg = &messages[0];

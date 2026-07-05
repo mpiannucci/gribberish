@@ -207,7 +207,6 @@ test('northUp puts the northern-most row first on an HRRR Lambert grid', (t) => 
   t.deepEqual(adjustedLat, expectedLat)
   t.true(adjustedLat[0] > adjustedLat[(rows - 1) * cols])
 
-  // northUp=false leaves both untouched.
   t.deepEqual(msg.dataAdjusted(false, false), nativeData)
   t.deepEqual(msg.latlngAdjusted(false, false).latitude, nativeLat)
 })
@@ -231,7 +230,6 @@ test('northUp is optional: the one-arg form stays backward compatible', (t) => {
   const data = readFileSync(join(DATA_DIR, GEAVG))
   const msg = parseMessagesFromBuffer(data)[0]
 
-  // Omitting northUp defaults it to false.
   t.deepEqual(msg.dataAdjusted(true), msg.dataAdjusted(true, false))
   t.deepEqual(msg.latlngAdjusted(true).longitude, msg.latlngAdjusted(true, false).longitude)
   t.deepEqual(msg.latlngAdjusted(true).latitude, msg.latlngAdjusted(true, false).latitude)

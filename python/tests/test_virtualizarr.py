@@ -441,9 +441,9 @@ def test_north_up_noop_on_north_first_data():
 
 
 def test_north_up_flips_projected_reference_coords_with_data():
-    """Lambert 2-D latitude/longitude are byte references decoded by the codec,
-    so their codecs must carry north_up like the data variables or data and
-    coords flip out of sync. HRRR is south-first, so the flip is observable."""
+    """Lambert 2-D latitude/longitude are byte references decoded by the codec
+    with the same north_up flag as the data variables. HRRR is south-first, so
+    the flip is observable."""
     fname = "hrrr.t06z.wrfsfcf01-TMP.grib2"
     plain_store = _collapsed_store_for(fname)
     up_store = _collapsed_store_for(fname, north_up=True)
@@ -466,9 +466,8 @@ def test_north_up_flips_projected_reference_coords_with_data():
     assert lat_u[0].mean() > lat_u[-1].mean()  # north_up: row 0 is northern-most
     np.testing.assert_array_equal(lat_u, np.flip(lat_p, axis=-2))
 
-    # The 1-D `y` dimension coordinate (projected northing, inlined) must flip
-    # too, or the dimension coordinate xarray selects on would stay south-first
-    # while the data and 2-D latitude are north-first — inverting the axis.
+    # The 1-D `y` dimension coordinate (projected northing, inlined) flips with
+    # the data.
     y_p = np.asarray(zp["y"][:])
     y_u = np.asarray(zu["y"][:])
     assert y_p[0] < y_p[-1]  # native: ascending northing (south-first)

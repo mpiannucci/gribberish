@@ -121,16 +121,15 @@ impl LatLngProjection {
         north_up: bool,
     ) -> (Vec<f64>, Vec<f64>) {
         let (mut lats, mut lngs) = self.lat_lng();
-        // Wrap regular grids only, matching the data-side gate in
-        // `longitude_wrap_roll`: a projected grid's flattened 2-D longitude
-        // field must not be wrapped as if it were a 1-D axis.
-        if adjust_longitude_range && matches!(self, LatLngProjection::PlateCaree(_)) {
+        // Same eligibility gate as the data-side roll in `adjust_data_longitude`,
+        // so the coordinate and data adjustments stay aligned.
+        if adjust_longitude_range && self.longitude_wrap_roll().is_some() {
             lngs = adjust_longitude_values(lngs);
         }
-        if north_up && self.needs_north_up_flip() {
+        if north_up {
             match self {
                 // Regular grid: 1-D latitude axis; longitudes are unaffected.
-                LatLngProjection::PlateCaree(_) => lats.reverse(),
+                LatLngProjection::PlateCaree(_) => lats = adjust_latitude_values(lats),
                 // Lambert: lat/lng are flattened ny × nx fields; row-flip both.
                 LatLngProjection::LambertConformal(_) => {
                     lats = self.adjust_data_north_up(lats, true);
@@ -396,9 +395,11 @@ pub fn adjust_longitude_values(longitudes: Vec<f64>) -> Vec<f64> {
 
 /// Reverse a regular 1-D latitude axis so it runs north-to-south (descending),
 /// returning it unchanged if it is already descending or too short to tell.
-/// Row-reverse the matching data with [`LatLngProjection::adjust_data_north_up`]
-/// so the coordinate and the data stay aligned. Operates on a 1-D axis only; a
-/// flattened 2-D latitude field would have its columns mirrored too.
+/// The realized-values form of the projector's step-sign test
+/// (`needs_north_up_flip`); the two must agree. Row-reverse the matching data
+/// with [`LatLngProjection::adjust_data_north_up`] so the coordinate and the
+/// data stay aligned. Operates on a 1-D axis only; a flattened 2-D latitude
+/// field would have its columns mirrored too.
 pub fn adjust_latitude_values(latitudes: Vec<f64>) -> Vec<f64> {
     if latitudes.len() >= 2 && latitudes[1] > latitudes[0] {
         let mut v = latitudes;
