@@ -271,6 +271,64 @@ pub enum SurfacePropertiesProduct {
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum SubSurfacePropertiesProduct {
+    #[description = "main thermocline depth"]
+    #[abbrev = "MTHD"]
+    #[unit = "m"]
+    MainThermoclineDepth = 0,
+    #[description = "main thermocline anomaly"]
+    #[abbrev = "MTHA"]
+    #[unit = "m"]
+    MainThermoclineAnomaly = 1,
+    #[description = "transient thermocline depth"]
+    #[abbrev = "TTHDP"]
+    #[unit = "m"]
+    TransientThermoclineDepth = 2,
+    #[description = "salinity"]
+    #[abbrev = "SALTY"]
+    #[unit = "kg kg-1"]
+    Salinity = 3,
+    #[description = "ocean vertical heat diffusivity"]
+    #[abbrev = "OVHD"]
+    #[unit = "m2 s-1"]
+    OceanVerticalHeatDiffusivity = 4,
+    #[description = "ocean vertical salt diffusivity"]
+    #[abbrev = "OVSD"]
+    #[unit = "m2 s-1"]
+    OceanVerticalSaltDiffusivity = 5,
+    #[description = "ocean vertical momentum diffusivity"]
+    #[abbrev = "OVMD"]
+    #[unit = "m2 s-1"]
+    OceanVerticalMomentumDiffusivity = 6,
+    #[description = "bathymetry"]
+    #[abbrev = "WMB"]
+    #[unit = "m"]
+    Bathymetry = 7,
+    #[description = "shape factor with respect to salinity profile"]
+    #[abbrev = "SFSALP"]
+    #[unit = "-"]
+    SalinityProfileShapeFactor = 11,
+    #[description = "shape factor with respect to temperature profile in thermocline"]
+    #[abbrev = "SFTMPP"]
+    #[unit = "-"]
+    ThermoclineTemperatureProfileShapeFactor = 12,
+    #[description = "attenuation coefficient of water with respect to solar radiation"]
+    #[abbrev = "ACWSR"]
+    #[unit = "m-1"]
+    SolarRadiationAttenuationCoefficient = 13,
+    #[description = "water depth"]
+    #[abbrev = "WDEPTH"]
+    #[unit = "m"]
+    WaterDepth = 14,
+    #[description = "water temperature"]
+    #[abbrev = "WTMP"]
+    #[unit = "K"]
+    WaterTemperature = 15,
+    Missing = 255,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
 pub enum IceProduct {
     #[description = "ice cover"]
     #[abbrev = "ICEC"]
@@ -297,6 +355,9 @@ pub fn oceanographic_parameter(category: u8, parameter: u8) -> Option<Parameter>
         1 => Some(Parameter::from(CurrentsProduct::from(parameter))),
         2 => Some(Parameter::from(IceProduct::from(parameter))),
         3 => Some(Parameter::from(SurfacePropertiesProduct::from(parameter))),
+        4 => Some(Parameter::from(SubSurfacePropertiesProduct::from(
+            parameter,
+        ))),
         _ => None,
     }
 }

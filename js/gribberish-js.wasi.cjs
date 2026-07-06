@@ -39,7 +39,7 @@ if (__nodeFs.existsSync(__wasmDebugFilePath)) {
   __wasmFilePath = __wasmDebugFilePath
 } else if (!__nodeFs.existsSync(__wasmFilePath)) {
   try {
-    __wasmFilePath = __nodePath.resolve('@mattnucc/gribberish-wasm32-wasi')
+    __wasmFilePath = require.resolve('@mattnucc/gribberish-wasm32-wasi/gribberish-js.wasm32-wasi.wasm')
   } catch {
     throw new Error('Cannot find gribberish-js.wasm32-wasi.wasm file, and @mattnucc/gribberish-wasm32-wasi package is not installed.')
   }
