@@ -144,27 +144,20 @@ def test_codec_config_roundtrips_north_up_flag():
     assert GribberishCodec.from_dict(plain.to_dict()) == plain
 
 
-async def test_north_up_flips_data_rows():
-    """HRRR (Lambert) is south-first, so north_up row-reverses the decoded data."""
+async def test_north_up_flips_south_first_data_and_coordinate():
+    """HRRR (Lambert) is south-first, so north_up row-reverses both the decoded
+    data and the latitude coordinate."""
     from gribberish.zarr.codec import GribberishCodec
 
     raw = (TEST_DATA / HRRR).read_bytes()
     native = await _decode(GribberishCodec("TMP"), raw, HRRR_SHAPE)
     flipped = await _decode(GribberishCodec("TMP", north_up=True), raw, HRRR_SHAPE)
-
     lat_native = await _decode(GribberishCodec("latitude"), raw, HRRR_SHAPE)
+    lat_up = await _decode(GribberishCodec("latitude", north_up=True), raw, HRRR_SHAPE)
+
     assert lat_native[0, 0] < lat_native[-1, 0], "HRRR fixture expected south-first"
     np.testing.assert_array_equal(flipped, native[::-1, :])
-
-
-async def test_north_up_flips_latitude_coordinate():
-    """With north_up the decoded latitude coord runs north-to-south (first row
-    north of last)."""
-    from gribberish.zarr.codec import GribberishCodec
-
-    raw = (TEST_DATA / HRRR).read_bytes()
-    lat = await _decode(GribberishCodec("latitude", north_up=True), raw, HRRR_SHAPE)
-    assert lat[0, 0] > lat[-1, 0]
+    assert lat_up[0, 0] > lat_up[-1, 0]
 
 
 async def test_north_up_noop_for_north_first_grid():
