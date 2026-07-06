@@ -444,7 +444,7 @@ checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
 
 [[package]]
 name = "gribberish"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "bitflags 2.6.0",
  "bitvec",
@@ -464,7 +464,7 @@ dependencies = [
 
 [[package]]
 name = "gribberish-macros"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "gribberish-types",
  "quote",
@@ -473,11 +473,11 @@ dependencies = [
 
 [[package]]
 name = "gribberish-types"
-version = "1.3.0"
+version = "1.4.0"
 
 [[package]]
 name = "gribberish_js"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "chrono",
  "gribberish",
@@ -488,7 +488,7 @@ dependencies = [
 
 [[package]]
 name = "gribberishpy"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "gribberish",
  "numpy",

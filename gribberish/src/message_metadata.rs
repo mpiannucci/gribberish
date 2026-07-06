@@ -5,9 +5,12 @@ use chrono::{DateTime, Utc};
 use crate::{
     error::GribberishError,
     message::{Message, MessageIterator},
-    templates::product::tables::{
-        DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit,
-        TypeOfStatisticalProcessing,
+    templates::product::{
+        product_template::WavePeriodRange,
+        tables::{
+            DerivedForecastType, FixedSurfaceType, GeneratingProcess, ProbabilityType, TimeUnit,
+            TypeOfStatisticalProcessing,
+        },
     },
     utils::iter::projection::LatLngProjection,
 };
@@ -54,6 +57,7 @@ pub struct MessageMetadata {
     pub probability_lower_limit: Option<f64>,
     pub probability_upper_limit: Option<f64>,
     pub is_anomaly: bool,
+    pub wave_period_range: Option<WavePeriodRange>,
 }
 
 impl MessageMetadata {
@@ -184,6 +188,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             probability_lower_limit: message.probability_lower_limit()?,
             probability_upper_limit: message.probability_upper_limit()?,
             is_anomaly: message.is_anomaly()?,
+            wave_period_range: message.wave_period_range()?,
         })
     }
 }

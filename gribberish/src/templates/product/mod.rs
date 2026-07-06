@@ -6,11 +6,13 @@ pub mod ensemble_forecast_time_interval_template;
 pub mod horizontal_analysis_template;
 pub mod horizontal_ensemble_template;
 pub mod parameters;
+pub mod percentile_horizontal_template;
 pub mod percentile_horizontal_time_interval_template;
 pub mod probability_horizontal_template;
 pub mod probability_horizontal_time_interval_template;
 pub mod product_template;
 pub mod tables;
+pub mod wave_period_range_horizontal_template;
 
 pub use average_accumulation_extreme_horizontal_analysis_template::AverageAccumulationExtremeHorizontalAnalysisForecastTemplate;
 pub use derived_ensemble_forecast_time_interval_reference_template::DerivedEnsembleForecastTimeIntervalReferenceTemplate;
@@ -18,6 +20,8 @@ pub use derived_ensemble_horizontal_analysis_template::DerivedEnsembleHorizontal
 pub use ensemble_forecast_time_interval_template::EnsembleForecastTimeIntervalTemplate;
 pub use horizontal_analysis_template::HorizontalAnalysisForecastTemplate;
 pub use horizontal_ensemble_template::HorizontalEnsembleForecastTemplate;
+pub use percentile_horizontal_template::PercentileHorizontalTemplate;
 pub use percentile_horizontal_time_interval_template::PercentileHorizontalTimeIntervalTemplate;
 pub use probability_horizontal_template::ProbabilityHorizontalForecastTemplate;
 pub use probability_horizontal_time_interval_template::ProbabilityHorizontalTimeIntervalTemplate;
+pub use wave_period_range_horizontal_template::WavePeriodRangeHorizontalForecastTemplate;

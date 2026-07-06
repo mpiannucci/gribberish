@@ -123,6 +123,12 @@ pub enum FixedSurfaceType {
     OrderedSequence = 241,
     #[description = "equilibrium level"]
     EquilibriumLevel = 247,
+    #[description = "reserved local surface type 195"]
+    ReservedLocal195 = 195,
+    #[description = "reserved local surface type 196"]
+    ReservedLocal196 = 196,
+    #[description = "reserved local surface type 197"]
+    ReservedLocal197 = 197,
     #[description = "missing"]
     Missing = 255,
 }
@@ -204,6 +210,9 @@ impl FixedSurfaceType {
             FixedSurfaceType::ConvectiveCloudBottomLevel => "ccl_bot",
             FixedSurfaceType::ConvectiveCloudTopLevel => "ccl_top",
             FixedSurfaceType::ConvectiveCloudLayer => "ccl",
+            FixedSurfaceType::ReservedLocal195 => "local195",
+            FixedSurfaceType::ReservedLocal196 => "local196",
+            FixedSurfaceType::ReservedLocal197 => "local197",
         }
     }
 }
@@ -474,7 +483,7 @@ impl DerivedForecastType {
             DerivedForecastType::TwentyFifthPercentile => "25%".to_string(),
             DerivedForecastType::SeventyFifthPercentile => "75%".to_string(),
             DerivedForecastType::NinetyFifthPercentile => "90%".to_string(),
-            DerivedForecastType::Missing => "".to_string(),
+            DerivedForecastType::Missing => "derived".to_string(),
         }
     }
 }
@@ -524,5 +533,44 @@ impl ProbabilityType {
             ProbabilityType::BetweenLimitsInclusive => "prob_between_inc".to_string(),
             ProbabilityType::Missing => "".to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DerivedForecastType, FixedSurfaceType};
+    use gribberish_types::Parameter;
+
+    // Regression: an unrecognized derived-forecast-type code (PDT 4.2/4.12)
+    // must not render as an empty abbreviation. The abbreviation feeds the
+    // product-kind segment of the dataset group path, and an empty segment
+    // produces an unnamed ("") group that breaks the VirtualiZarr datatree.
+    #[test]
+    fn unrecognized_derived_forecast_type_abbv_is_non_empty() {
+        // 250 is not a defined derived-forecast-type, so it maps to Missing.
+        let derived = DerivedForecastType::from(250u8);
+        assert_eq!(derived, DerivedForecastType::Missing);
+        assert!(!derived.abbv().is_empty());
+    }
+
+    // Regression: NBM emits cloud fields at reserved fixed-surface types
+    // 195/196/197. They must map to distinct surfaces with distinct, non-empty
+    // coordinate names and level names, otherwise the messages collapse to
+    // FixedSurfaceType::Missing, produce identical keys, and are silently
+    // dropped when keys are deduplicated.
+    #[test]
+    fn reserved_local_surface_types_are_distinct_and_named() {
+        let types = [195u8, 196, 197].map(FixedSurfaceType::from);
+        for t in &types {
+            assert_ne!(*t, FixedSurfaceType::Missing);
+            assert!(!t.coordinate_name().is_empty());
+            assert!(!Parameter::from(t.clone()).name.is_empty());
+        }
+        // pairwise distinct coordinate names
+        let names: Vec<_> = types.iter().map(|t| t.coordinate_name()).collect();
+        assert_eq!(names.len(), 3);
+        assert_ne!(names[0], names[1]);
+        assert_ne!(names[1], names[2]);
+        assert_ne!(names[0], names[2]);
     }
 }
