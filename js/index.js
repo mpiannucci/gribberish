@@ -590,6 +590,7 @@ module.exports = nativeBinding
 module.exports.GribMessage = nativeBinding.GribMessage
 module.exports.GribMessageFactory = nativeBinding.GribMessageFactory
 module.exports.GribMessageMetadataFactory = nativeBinding.GribMessageMetadataFactory
+module.exports.adjustLatitudeValues = nativeBinding.adjustLatitudeValues
 module.exports.adjustLongitudeValues = nativeBinding.adjustLongitudeValues
 module.exports.parseGribIndex = nativeBinding.parseGribIndex
 module.exports.parseMessagesFromBuffer = nativeBinding.parseMessagesFromBuffer
