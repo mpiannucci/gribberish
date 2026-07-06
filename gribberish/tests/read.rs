@@ -1401,3 +1401,36 @@ fn read_aifs_wave_period_range() {
         swh.key().unwrap()
     );
 }
+
+#[test]
+fn read_nbm_asnow_probability_thresholds() {
+    // Regression for a key collision that silently dropped NBM snow-exceedance
+    // probability thresholds. These three ASNOW messages (PDT 4.9, "above upper
+    // limit") differ only by their upper limit — sub-unit snow depths in metres
+    // (0.00254, 0.0127, 0.0254). When the key formatted limits at zero decimals
+    // they all rendered "0", collided, and only one survived deduplication.
+    let grib_data = read_grib_messages("../test-data/nbm-asnow-prob-thresholds.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    assert_eq!(messages.len(), 3, "expected 3 ASNOW probability messages");
+
+    let mut uppers = Vec::new();
+    let mut keys = Vec::new();
+    for message in &messages {
+        assert_eq!(message.product_template_id().unwrap(), 9);
+        assert_eq!(message.variable_abbrev().unwrap(), "ASNOW");
+        uppers.push(message.probability_upper_limit().unwrap());
+        keys.push(message.key().unwrap());
+    }
+
+    // The thresholds are distinct sub-unit values...
+    uppers.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    assert!(uppers[0].unwrap() < uppers[1].unwrap());
+    assert!(uppers[1].unwrap() < uppers[2].unwrap());
+    assert!(uppers[2].unwrap() < 1.0, "thresholds are sub-unit (metres)");
+
+    // ...and they must produce distinct keys so none is dropped.
+    keys.sort();
+    keys.dedup();
+    assert_eq!(keys.len(), 3, "each threshold must get a unique key");
+}

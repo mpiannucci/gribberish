@@ -219,11 +219,11 @@ impl<'a> Message<'a> {
                 let lower = self
                     .probability_lower_limit()
                     .unwrap_or(None)
-                    .map_or("".to_string(), |v| format!("_{v:.0}"));
+                    .map_or("".to_string(), |v| format!("_{v:.5}"));
                 let upper = self
                     .probability_upper_limit()
                     .unwrap_or(None)
-                    .map_or("".to_string(), |v| format!("_{v:.0}"));
+                    .map_or("".to_string(), |v| format!("_{v:.5}"));
                 format!(":probt{}{lower}{upper}", pt as u8)
             }
             None => "".to_string(),
