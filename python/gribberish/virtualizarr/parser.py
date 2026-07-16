@@ -34,6 +34,7 @@ from gribberish._index import (
     get_ranges_batched,
     select_ranges,
 )
+from gribberish.virtualizarr.accumulate import accumulate_vertical_dims
 
 from virtualizarr.manifests import (
     ChunkManifest,
@@ -380,6 +381,16 @@ class GribberishParser:
         for a single file but makes the layout content-dependent: the same
         variable can land at different paths across files (``/hag/instant`` in
         one, ``/instant`` in another), which breaks concatenation.
+    accumulate_dims
+        Default off. When on, the per-value-set vertical dimensions within a
+        group (``hag_0``, ``hag_1``, … — one per distinct level set) are merged
+        into a single accumulated dimension (``hag``) whose coordinate is the
+        sorted union of every level value present, and each variable is made
+        sparse over that axis: it carries chunk references only for the levels
+        it actually has, and absent levels read back as the fill value
+        (``NaN``). This gives one shared, schema-agnostic vertical coordinate
+        per group, so files with differing level sets align cleanly under
+        ``join="outer"``. VirtualiZarr path only.
     """
 
     def __init__(
@@ -393,6 +404,7 @@ class GribberishParser:
         adjust_longitude_range: bool = False,
         north_up: bool = False,
         collapse_groups: bool = False,
+        accumulate_dims: bool = False,
     ) -> None:
         self.drop_variables = drop_variables
         self.only_variables = only_variables
@@ -403,6 +415,7 @@ class GribberishParser:
         self.adjust_longitude_range = adjust_longitude_range
         self.north_up = north_up
         self.collapse_groups = collapse_groups
+        self.accumulate_dims = accumulate_dims
 
     def _filter_kwargs(self) -> dict[str, Any]:
         return dict(
@@ -460,6 +473,9 @@ class GribberishParser:
         if dataset is None:
             data = _read_all(store, path_in_store)
             dataset = parse_grib_dataset(data, **self._filter_kwargs())
+
+        if self.accumulate_dims:
+            dataset = accumulate_vertical_dims(dataset)
 
         group = _manifest_group(
             url,
