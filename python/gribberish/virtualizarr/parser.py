@@ -73,7 +73,13 @@ def _data_manifest_array(
     adjust_longitude_range: bool = False,
     north_up: bool = False,
 ) -> ManifestArray:
-    """One ManifestArray per data variable; each GRIB message is one chunk."""
+    """One ManifestArray per data variable; each GRIB message is one chunk.
+
+    When the variable was annotated by the accumulation transform
+    (``var["_accumulate"]``), its messages are placed at their mapped vertical
+    indices in the union axis and the unfilled cells are left as missing chunks
+    (empty path), which VirtualiZarr resolves to ``fill_value`` at read time.
+    """
     dims = tuple(var["dims"])
     shape = tuple(int(s) for s in var["values"]["shape"])
     offsets_sizes = var["values"]["offsets"]
@@ -84,24 +90,47 @@ def _data_manifest_array(
     grid_shape = tuple(list(shape[:-_N_SPATIAL]) + [1, 1])
     n_chunks = int(np.prod(grid_shape)) if grid_shape else 1
 
-    if len(offsets_sizes) != n_chunks:
-        raise ValueError(
-            f"variable {name!r}: expected {n_chunks} messages for shape {shape} "
-            f"but got {len(offsets_sizes)}"
-        )
+    paths = np.full(grid_shape, "", dtype=np.dtypes.StringDType())
+    offsets = np.zeros(grid_shape, dtype=np.uint64)
+    lengths = np.zeros(grid_shape, dtype=np.uint64)
 
-    paths = np.empty(grid_shape, dtype=np.dtypes.StringDType())
-    offsets = np.empty(grid_shape, dtype=np.uint64)
-    lengths = np.empty(grid_shape, dtype=np.uint64)
-    # Rust emits offsets pre-sorted in C order matching the dimension order, so
-    # a flat C-order fill lines each message up with its chunk-grid index.
-    flat_paths = paths.reshape(-1)
-    flat_offsets = offsets.reshape(-1)
-    flat_lengths = lengths.reshape(-1)
-    for i, (offset, size) in enumerate(offsets_sizes):
-        flat_paths[i] = url
-        flat_offsets[i] = offset
-        flat_lengths[i] = size
+    accumulate = var.get("_accumulate")
+    if accumulate is None:
+        # Dense: Rust emits offsets pre-sorted in C order matching the dimension
+        # order, so a flat C-order fill lines each message up with its cell.
+        if len(offsets_sizes) != n_chunks:
+            raise ValueError(
+                f"variable {name!r}: expected {n_chunks} messages for shape "
+                f"{shape} but got {len(offsets_sizes)}"
+            )
+        flat_paths = paths.reshape(-1)
+        flat_offsets = offsets.reshape(-1)
+        flat_lengths = lengths.reshape(-1)
+        for i, (offset, size) in enumerate(offsets_sizes):
+            flat_paths[i] = url
+            flat_offsets[i] = offset
+            flat_lengths[i] = size
+    else:
+        # Sparse: the vertical axis was widened to the union; messages remain in
+        # C order over the variable's OWN (narrower) grid. Unravel each message
+        # against that original grid and remap its vertical index into the union.
+        axis = accumulate["axis"]
+        index_map = accumulate["index_map"]
+        orig_grid = list(grid_shape)
+        orig_grid[axis] = len(index_map)
+        n_messages = int(np.prod(orig_grid))
+        if len(offsets_sizes) != n_messages:
+            raise ValueError(
+                f"variable {name!r}: expected {n_messages} messages for its own "
+                f"grid {tuple(orig_grid)} but got {len(offsets_sizes)}"
+            )
+        for i, (offset, size) in enumerate(offsets_sizes):
+            index = list(np.unravel_index(i, orig_grid))
+            index[axis] = index_map[index[axis]]
+            index = tuple(index)
+            paths[index] = url
+            offsets[index] = offset
+            lengths[index] = size
 
     manifest = ChunkManifest.from_arrays(
         paths=paths, offsets=offsets, lengths=lengths
@@ -116,7 +145,7 @@ def _data_manifest_array(
             adjust_longitude_range=adjust_longitude_range,
             north_up=north_up,
         ),
-        attributes=dict(var["attrs"]),
+        attributes={k: v for k, v in var["attrs"].items()},
         dimension_names=dims,
     )
     return ManifestArray(metadata=metadata, chunkmanifest=manifest)

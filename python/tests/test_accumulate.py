@@ -71,3 +71,57 @@ def test_recurses_into_subgroups():
     accumulate_vertical_dims(root)
     assert set(child["coords"]) == {"hag"}
     assert child["data_vars"]["a"]["_accumulate"] == {"axis": 0, "index_map": [0]}
+
+
+import numpy as np
+import pytest
+
+pytest.importorskip("virtualizarr")
+
+from virtualizarr.manifests import ChunkManifest
+from gribberish.virtualizarr.parser import _data_manifest_array
+
+
+def test_empty_path_cell_is_a_missing_chunk():
+    # Establishes the sentinel the sparse builder relies on: a cell with an
+    # empty-string path is absent from the manifest (and reads as fill_value).
+    paths = np.array([["file:///f"], [""]], dtype=np.dtypes.StringDType())
+    offsets = np.array([[0], [0]], dtype=np.uint64)
+    lengths = np.array([[5], [0]], dtype=np.uint64)
+    manifest = ChunkManifest.from_arrays(paths=paths, offsets=offsets, lengths=lengths)
+    keys = set(manifest.dict().keys())
+    assert "0.0" in keys
+    assert "1.0" not in keys
+
+
+def _accumulated_var(index_map, union_len):
+    # Shape already widened to the union by the transform; one message per own level.
+    return {
+        "dims": ["hag", "latitude", "longitude"],
+        "attrs": {},
+        "values": {
+            "shape": [union_len, 2, 2],
+            "offsets": [(100 * (i + 1), 10) for i in range(len(index_map))],
+        },
+        "_accumulate": {"axis": 0, "index_map": index_map},
+    }
+
+
+def test_sparse_placement_leaves_absent_levels_missing():
+    var = _accumulated_var(index_map=[0, 2], union_len=3)
+    ma = _data_manifest_array("file:///x.grib2", "t", var)
+
+    assert ma.metadata.shape == (3, 2, 2)
+    keys = set(ma.manifest.dict().keys())
+    assert keys == {"0.0.0", "2.0.0"}          # level 1 absent -> fill on read
+    assert ma.manifest.dict()["2.0.0"]["offset"] == 200
+
+
+def test_dense_variable_is_unchanged_without_annotation():
+    var = {
+        "dims": ["hag", "latitude", "longitude"],
+        "attrs": {},
+        "values": {"shape": [2, 2, 2], "offsets": [(100, 10), (200, 10)]},
+    }
+    ma = _data_manifest_array("file:///x.grib2", "t", var)
+    assert set(ma.manifest.dict().keys()) == {"0.0.0", "1.0.0"}
