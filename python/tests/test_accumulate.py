@@ -169,7 +169,7 @@ def _accumulated_var(index_map, union_len):
             "shape": [union_len, 2, 2],
             "offsets": [(100 * (i + 1), 10) for i in range(len(index_map))],
         },
-        "_accumulate": {"axis": 0, "index_map": index_map},
+        "_accumulate": [{"axis": 0, "index_map": index_map}],
     }
 
 
@@ -191,3 +191,25 @@ def test_dense_variable_is_unchanged_without_annotation():
     }
     ma = _data_manifest_array("file:///x.grib2", "t", var)
     assert set(ma.manifest.dict().keys()) == {"0.0.0", "1.0.0"}
+
+
+def test_multi_axis_sparse_placement():
+    # Vertical axis 0 (own len 2 -> union 3 at [0,2]) and percentile axis 1
+    # (own len 2 -> union 3 at [1,2]); 2x2 = 4 messages in C order.
+    var = {
+        "dims": ["hag", "percentile", "latitude", "longitude"],
+        "attrs": {},
+        "values": {
+            "shape": [3, 3, 2, 2],
+            "offsets": [(10, 1), (20, 1), (30, 1), (40, 1)],
+        },
+        "_accumulate": [
+            {"axis": 0, "index_map": [0, 2]},
+            {"axis": 1, "index_map": [1, 2]},
+        ],
+    }
+    ma = _data_manifest_array("file:///x.grib2", "p", var)
+    assert ma.metadata.shape == (3, 3, 2, 2)
+    keys = set(ma.manifest.dict().keys())
+    # own (v,p) in {(0,0),(0,1),(1,0),(1,1)} -> union (0,1),(0,2),(2,1),(2,2)
+    assert keys == {"0.1.0.0", "0.2.0.0", "2.1.0.0", "2.2.0.0"}

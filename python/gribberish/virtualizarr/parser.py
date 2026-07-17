@@ -96,7 +96,7 @@ def _data_manifest_array(
     lengths = np.zeros(grid_shape, dtype=np.uint64)
 
     accumulate = var.get("_accumulate")
-    if accumulate is None:
+    if not accumulate:
         # Dense: Rust emits offsets pre-sorted in C order matching the dimension
         # order, so a flat C-order fill lines each message up with its cell.
         if len(offsets_sizes) != n_chunks:
@@ -112,13 +112,12 @@ def _data_manifest_array(
             flat_offsets[i] = offset
             flat_lengths[i] = size
     else:
-        # Sparse: the vertical axis was widened to the union; messages remain in
-        # C order over the variable's OWN (narrower) grid. Unravel each message
-        # against that original grid and remap its vertical index into the union.
-        axis = accumulate["axis"]
-        index_map = accumulate["index_map"]
+        # Sparse: one or more axes were widened to their union. Messages remain
+        # in C order over the variable's OWN (narrower) grid; unravel against
+        # that grid and remap each accumulated axis into its union index.
         orig_grid = list(grid_shape)
-        orig_grid[axis] = len(index_map)
+        for acc in accumulate:
+            orig_grid[acc["axis"]] = len(acc["index_map"])
         n_messages = int(np.prod(orig_grid))
         if len(offsets_sizes) != n_messages:
             raise ValueError(
@@ -127,7 +126,8 @@ def _data_manifest_array(
             )
         for i, (offset, size) in enumerate(offsets_sizes):
             index = list(np.unravel_index(i, orig_grid))
-            index[axis] = index_map[index[axis]]
+            for acc in accumulate:
+                index[acc["axis"]] = acc["index_map"][index[acc["axis"]]]
             index = tuple(index)
             paths[index] = url
             offsets[index] = offset
