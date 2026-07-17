@@ -77,9 +77,10 @@ def _data_manifest_array(
     """One ManifestArray per data variable; each GRIB message is one chunk.
 
     When the variable was annotated by the accumulation transform
-    (``var["_accumulate"]``), its messages are placed at their mapped vertical
-    indices in the union axis and the unfilled cells are left as missing chunks
-    (empty path), which VirtualiZarr resolves to ``fill_value`` at read time.
+    (``var["_accumulate"]``, a list of per-axis mappings), its messages are
+    placed at their mapped indices along each accumulated axis and the unfilled
+    cells are left as missing chunks (empty path), which VirtualiZarr resolves
+    to ``fill_value`` at read time.
     """
     dims = tuple(var["dims"])
     shape = tuple(int(s) for s in var["values"]["shape"])

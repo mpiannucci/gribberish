@@ -213,3 +213,16 @@ def test_multi_axis_sparse_placement():
     keys = set(ma.manifest.dict().keys())
     # own (v,p) in {(0,0),(0,1),(1,0),(1,1)} -> union (0,1),(0,2),(2,1),(2,2)
     assert keys == {"0.1.0.0", "0.2.0.0", "2.1.0.0", "2.2.0.0"}
+
+
+def test_sparse_guard_rejects_wrong_message_count():
+    # index_map length 2 -> the variable's own grid expects 2 messages; supplying
+    # 1 must raise rather than silently mis-placing chunks.
+    var = {
+        "dims": ["hag", "latitude", "longitude"],
+        "attrs": {},
+        "values": {"shape": [3, 2, 2], "offsets": [(100, 10)]},
+        "_accumulate": [{"axis": 0, "index_map": [0, 2]}],
+    }
+    with pytest.raises(ValueError, match="expected 2 messages"):
+        _data_manifest_array("file:///x.grib2", "t", var)
