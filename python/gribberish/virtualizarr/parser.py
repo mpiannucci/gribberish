@@ -396,13 +396,14 @@ class GribberishParser:
         VirtualiZarr path only.
 
         Only dimensions that survive parsing are accumulated. A variable present
-        at a single level (e.g. 10 m wind) normally has its length-1 vertical
+        at a single value of any accumulatable family — one vertical level (e.g.
+        10 m wind), one percentile, or one threshold — normally has that length-1
         dimension dropped, so it does not appear on the accumulated axis. Pass
-        ``perserve_dims=["hag", ...]`` (and/or ``"percentile"`` / ``"threshold"``)
-        alongside ``accumulate_dims`` to keep those single-level dimensions: the
-        single-level variables then join the shared axis sparsely — real data at
-        their one value, ``NaN`` elsewhere, selectable with e.g.
-        ``ds["wind"].sel(hag=10.0)``.
+        the corresponding name(s) in ``perserve_dims`` (e.g. ``["hag"]``,
+        ``["percentile"]``, ``["threshold"]``) alongside ``accumulate_dims`` to
+        keep those single-value dimensions: the variables then join the shared
+        axis sparsely — real data at their one value, ``NaN`` elsewhere,
+        selectable by label, e.g. ``ds["wind"].sel(hag=10.0)``.
     """
 
     def __init__(

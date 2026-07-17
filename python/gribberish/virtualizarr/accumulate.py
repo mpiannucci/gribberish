@@ -1,6 +1,10 @@
-"""Merge per-value-set vertical dimensions within each group into a single
-accumulated vertical dimension, and annotate each affected data variable with
-the mapping needed to build its ManifestArray sparsely.
+"""Merge per-value-set dimensions within each group into a single accumulated
+dimension, and annotate each affected data variable with the mapping needed to
+build its ManifestArray sparsely.
+
+Accumulates every coordinate family that the Rust parser emits as one dimension
+per distinct value set: vertical levels (identified by ``axis == "Z"``) and
+``percentile`` / ``threshold`` coordinates (identified by ``standard_name``).
 
 This is an opt-in post-processing step on the dict tree returned by
 ``parse_grib_dataset`` (see ``GribberishParser(accumulate_dims=True)``). It does
