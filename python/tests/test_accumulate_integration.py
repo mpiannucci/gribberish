@@ -98,3 +98,20 @@ def test_absent_level_reads_as_fill_and_present_level_reads_data():
     got = np.asarray(acc_group["tmp"][0, present_acc_idx])
     assert not np.isnan(got).all()
     np.testing.assert_array_equal(got, want)
+
+
+def test_real_height_above_ground_is_tagged_vertical():
+    """The Rust fix: a real height-above-ground coordinate must carry axis='Z'
+    end-to-end (this is the metadata the accumulation transform keys on)."""
+    registry = ObjectStoreRegistry({"file://": LocalStore()})
+    url = (TEST_DATA / "hrrr.t01z.wrfsfcf01-VVCSH-VUCSH.grib2").as_uri()
+    store = GribberishParser()(url, registry)
+    vdt = store.to_virtual_datatree()
+    hag = None
+    for node in vdt.subtree:
+        ds = vdt[node.path].to_dataset()
+        if "hag" in ds.coords:
+            hag = ds["hag"]
+            break
+    assert hag is not None, "expected a hag coordinate in the fixture"
+    assert hag.attrs.get("axis") == "Z"
