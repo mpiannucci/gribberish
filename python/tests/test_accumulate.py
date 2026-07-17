@@ -169,7 +169,7 @@ def _accumulated_var(index_map, union_len):
             "shape": [union_len, 2, 2],
             "offsets": [(100 * (i + 1), 10) for i in range(len(index_map))],
         },
-        "_accumulate": [{"axis": 0, "index_map": index_map}],
+        "_accumulate": {"axis": 0, "index_map": index_map},
     }
 
 
