@@ -34,7 +34,7 @@ from gribberish._index import (
     get_ranges_batched,
     select_ranges,
 )
-from gribberish.virtualizarr.accumulate import accumulate_vertical_dims
+from gribberish.virtualizarr.accumulate import accumulate_dims
 
 from virtualizarr.manifests import (
     ChunkManifest,
@@ -488,7 +488,7 @@ class GribberishParser:
             dataset = parse_grib_dataset(data, **self._filter_kwargs())
 
         if self.accumulate_dims:
-            dataset = accumulate_vertical_dims(dataset)
+            dataset = accumulate_dims(dataset)
 
         group = _manifest_group(
             url,

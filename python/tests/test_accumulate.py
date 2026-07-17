@@ -1,4 +1,4 @@
-from gribberish.virtualizarr.accumulate import accumulate_vertical_dims
+from gribberish.virtualizarr.accumulate import accumulate_dims
 
 
 def _zcoord(values):
@@ -22,7 +22,7 @@ def _node(coords, data_vars, groups=None):
 
 def test_single_value_set_is_untouched():
     node = _node({"hag": _zcoord([2.0, 80.0])}, {"a": _var("hag", 2)})
-    accumulate_vertical_dims(node)
+    accumulate_dims(node)
     assert set(node["coords"]) == {"hag"}
     assert node["coords"]["hag"]["values"] == [2.0, 80.0]
     assert "_accumulate" not in node["data_vars"]["a"]
@@ -34,7 +34,7 @@ def test_two_value_sets_union_and_map():
         {"hag_0": _zcoord([2.0, 80.0]), "hag_1": _zcoord([2.0, 10.0, 80.0])},
         {"a": _var("hag_0", 2), "b": _var("hag_1", 3)},
     )
-    accumulate_vertical_dims(node)
+    accumulate_dims(node)
 
     # Old suffixed coords are gone; a single union coord remains.
     assert set(node["coords"]) == {"hag"}
@@ -58,7 +58,7 @@ def test_independent_bases_accumulate_separately():
          "isobar_0": _zcoord([500.0]), "isobar_1": _zcoord([500.0, 850.0])},
         {"h": _var("hag_1", 2), "i": _var("isobar_0", 1)},
     )
-    accumulate_vertical_dims(node)
+    accumulate_dims(node)
     assert node["coords"]["hag"]["values"] == [2.0, 10.0]
     assert node["coords"]["isobar"]["values"] == [500.0, 850.0]
     assert node["data_vars"]["i"]["_accumulate"] == [{"axis": 0, "index_map": [0]}]
@@ -68,7 +68,7 @@ def test_recurses_into_subgroups():
     child = _node({"hag_0": _zcoord([2.0]), "hag_1": _zcoord([2.0, 10.0])},
                   {"a": _var("hag_0", 1)})
     root = {"groups": {"hag": child}}
-    accumulate_vertical_dims(root)
+    accumulate_dims(root)
     assert set(child["coords"]) == {"hag"}
     assert child["data_vars"]["a"]["_accumulate"] == [{"axis": 0, "index_map": [0]}]
 
@@ -84,7 +84,7 @@ def test_percentile_is_accumulated_by_standard_name():
          "percentile_1": _pcoord([10, 50, 90], "percentile")},
         {"a": _var("percentile", 2), "b": _var("percentile_1", 3)},
     )
-    accumulate_vertical_dims(node)
+    accumulate_dims(node)
     assert set(node["coords"]) == {"percentile"}
     assert node["coords"]["percentile"]["values"] == [10, 50, 90]
     assert node["data_vars"]["a"]["_accumulate"] == [{"axis": 0, "index_map": [0, 1]}]
@@ -97,7 +97,7 @@ def test_threshold_is_accumulated_by_standard_name():
          "threshold_1": _pcoord([1.0, 5.0, 9.0], "threshold")},
         {"a": _var("threshold", 2)},
     )
-    accumulate_vertical_dims(node)
+    accumulate_dims(node)
     assert set(node["coords"]) == {"threshold"}
     assert node["coords"]["threshold"]["values"] == [1.0, 5.0, 9.0]
     assert node["data_vars"]["a"]["_accumulate"] == [{"axis": 0, "index_map": [0, 1]}]
@@ -113,7 +113,7 @@ def test_variable_accumulated_on_two_axes_gets_two_entries():
                "values": {"shape": [2, 2, 2, 2],
                           "offsets": [(100 * (i + 1), 10) for i in range(4)]}}},
     )
-    accumulate_vertical_dims(node)
+    accumulate_dims(node)
     v = node["data_vars"]["v"]
     assert v["dims"] == ["hag", "percentile", "y", "x"]
     assert v["values"]["shape"] == [2, 2, 2, 2]
@@ -133,7 +133,7 @@ def test_time_and_number_are_not_accumulated():
                       "attrs": {"standard_name": "realization"}}},
         {"a": _var("number_1", 3)},
     )
-    accumulate_vertical_dims(node)
+    accumulate_dims(node)
     # number_* left untouched (no axis=Z, standard_name not percentile/threshold)
     assert {"number", "number_1", "time"}.issubset(set(node["coords"]))
     assert "_accumulate" not in node["data_vars"]["a"]

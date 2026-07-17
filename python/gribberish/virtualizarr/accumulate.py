@@ -39,14 +39,14 @@ def _is_accumulatable(coord: dict[str, Any]) -> bool:
     )
 
 
-def accumulate_vertical_dims(node: dict[str, Any]) -> dict[str, Any]:
+def accumulate_dims(node: dict[str, Any]) -> dict[str, Any]:
     """Recursively accumulate per-value-set dimensions in ``node`` and its
     subgroups. Accumulates vertical levels (``axis == "Z"``) and percentile /
     threshold coordinates. Mutates and returns ``node``.
     """
     _accumulate_node(node)
     for child in node.get("groups", {}).values():
-        accumulate_vertical_dims(child)
+        accumulate_dims(child)
     return node
 
 
