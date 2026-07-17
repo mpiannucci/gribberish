@@ -13,8 +13,13 @@ import re
 from typing import Any
 
 # A positional suffix appended by the Rust dim namer when a coordinate has more
-# than one value set in a group (e.g. ``hag_0``, ``isobar_11``).
+# than one value set in a group (e.g. ``hag_0``, ``isobar_11``, ``percentile_1``).
 _SUFFIX = re.compile(r"^(?P<base>.+?)_(?P<idx>\d+)$")
+
+# Non-vertical coordinates that are still accumulatable, identified by their
+# standard_name (they carry no ``axis`` attribute). Vertical levels are
+# identified by ``axis == "Z"`` instead.
+_ACCUMULATE_STANDARD_NAMES = frozenset({"percentile", "threshold"})
 
 
 def _base_name(name: str) -> str:
@@ -22,10 +27,18 @@ def _base_name(name: str) -> str:
     return match.group("base") if match else name
 
 
-def accumulate_vertical_dims(node: dict[str, Any]) -> dict[str, Any]:
-    """Recursively accumulate vertical dims in ``node`` and its subgroups.
+def _is_accumulatable(coord: dict[str, Any]) -> bool:
+    attrs = coord.get("attrs", {})
+    return (
+        attrs.get("axis") == "Z"
+        or attrs.get("standard_name") in _ACCUMULATE_STANDARD_NAMES
+    )
 
-    Mutates and returns ``node``.
+
+def accumulate_vertical_dims(node: dict[str, Any]) -> dict[str, Any]:
+    """Recursively accumulate per-value-set dimensions in ``node`` and its
+    subgroups. Accumulates vertical levels (``axis == "Z"``) and percentile /
+    threshold coordinates. Mutates and returns ``node``.
     """
     _accumulate_node(node)
     for child in node.get("groups", {}).values():
@@ -37,15 +50,12 @@ def _accumulate_node(node: dict[str, Any]) -> None:
     coords = node.get("coords", {})
     data_vars = node.get("data_vars", {})
 
-    # Group vertical coordinates by base name. Groups are split upstream by
-    # coordinate_name, so under the default layout a node has a single base;
-    # under collapse_groups a node may hold several, each accumulated on its own.
-    verticals: dict[str, list[str]] = {}
+    groups: dict[str, list[str]] = {}
     for name, coord in coords.items():
-        if coord.get("attrs", {}).get("axis") == "Z":
-            verticals.setdefault(_base_name(name), []).append(name)
+        if _is_accumulatable(coord):
+            groups.setdefault(_base_name(name), []).append(name)
 
-    for base, members in verticals.items():
+    for base, members in groups.items():
         if len(members) < 2:
             continue  # a single value set is already the plain name; nothing to do
         _accumulate_base(base, members, coords, data_vars)
@@ -57,8 +67,6 @@ def _accumulate_base(
     coords: dict[str, Any],
     data_vars: dict[str, Any],
 ) -> None:
-    # Sorted (ascending) union of every member's values; each member's own
-    # values are already ascending, matching the C order of its messages.
     union: list[Any] = sorted({v for m in members for v in coords[m]["values"]})
     index_of = {value: i for i, value in enumerate(union)}
     member_set = set(members)
@@ -76,13 +84,12 @@ def _accumulate_base(
         shape = list(var["values"]["shape"])
         shape[vaxis] = len(union)
         var["values"]["shape"] = shape
-        var["_accumulate"] = {
-            "axis": vaxis,
-            "index_map": [index_of[v] for v in own_values],
-        }
+        # A variable may be accumulated on more than one axis (e.g. a percentile
+        # product that also spans multiple heights), so append rather than assign.
+        var.setdefault("_accumulate", []).append(
+            {"axis": vaxis, "index_map": [index_of[v] for v in own_values]}
+        )
 
-    # Replace the suffixed coords with a single union coord under the base name,
-    # inheriting the (identical) attrs of the members.
     attrs = dict(coords[members[0]]["attrs"])
     for member in members:
         del coords[member]
