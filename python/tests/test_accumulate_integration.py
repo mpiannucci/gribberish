@@ -115,3 +115,42 @@ def test_real_height_above_ground_is_tagged_vertical():
             break
     assert hag is not None, "expected a hag coordinate in the fixture"
     assert hag.attrs.get("axis") == "Z"
+
+
+def _find_ds_with_coord(store, coord_name):
+    vdt = store.to_virtual_datatree()
+    for node in vdt.subtree:
+        ds = vdt[node.path].to_dataset()
+        if coord_name in ds.coords:
+            return ds
+    return None
+
+
+def test_percentile_coordinate_is_recognized_and_preserved():
+    """Real percentile data: with accumulate_dims=True the percentile coord is
+    recognized (accumulatable) and preserved. This fixture has a single
+    percentile set, so accumulation is a no-op — but it must not be dropped,
+    corrupted, or error."""
+    registry = ObjectStoreRegistry({"file://": LocalStore()})
+    url = (TEST_DATA / "s2s-pdt9-pdt10-pdt12.grib2").as_uri()
+    base = _find_ds_with_coord(GribberishParser()(url, registry), "percentile")
+    acc = _find_ds_with_coord(
+        GribberishParser(accumulate_dims=True)(url, registry), "percentile"
+    )
+    assert base is not None and acc is not None
+    np.testing.assert_array_equal(
+        np.asarray(acc["percentile"].values), np.asarray(base["percentile"].values)
+    )
+
+
+def test_threshold_coordinate_is_recognized_and_preserved():
+    registry = ObjectStoreRegistry({"file://": LocalStore()})
+    url = (TEST_DATA / "nbm-pwat-prob-above.grib2").as_uri()
+    base = _find_ds_with_coord(GribberishParser()(url, registry), "threshold")
+    acc = _find_ds_with_coord(
+        GribberishParser(accumulate_dims=True)(url, registry), "threshold"
+    )
+    assert base is not None and acc is not None
+    np.testing.assert_array_equal(
+        np.asarray(acc["threshold"].values), np.asarray(base["threshold"].values)
+    )
