@@ -344,7 +344,9 @@ class GribberishParser:
     only_variables
         If given, only these variable short names are kept.
     perserve_dims
-        Dimension/level-type names to keep even when their length is 1.
+        Dimension/level-type names to keep even when their length is 1. Combine
+        with ``accumulate_dims`` to surface single-level variables onto the
+        shared accumulated axis (see ``accumulate_dims``).
     filter_by_attrs
         Keep only variables whose attributes match these values.
     filter_by_variable_attrs
@@ -383,15 +385,24 @@ class GribberishParser:
         variable can land at different paths across files (``/hag/instant`` in
         one, ``/instant`` in another), which breaks concatenation.
     accumulate_dims
-        Default off. When on, the per-value-set vertical dimensions within a
-        group (``hag_0``, ``hag_1``, … — one per distinct level set) are merged
-        into a single accumulated dimension (``hag``) whose coordinate is the
-        sorted union of every level value present, and each variable is made
-        sparse over that axis: it carries chunk references only for the levels
-        it actually has, and absent levels read back as the fill value
-        (``NaN``). This gives one shared, schema-agnostic vertical coordinate
-        per group, so files with differing level sets align cleanly under
-        ``join="outer"``. VirtualiZarr path only.
+        Default off. When on, per-value-set dimensions within a group — vertical
+        levels (``hag_0``, ``hag_1``, …), and ``percentile`` / ``threshold`` —
+        are merged into a single accumulated dimension whose coordinate is the
+        sorted union of every value present, and each variable is made sparse
+        over that axis: it carries chunk references only for the values it
+        actually has, and absent slots read back as the fill value (``NaN``).
+        This gives one shared, schema-agnostic coordinate per group, so files
+        with differing value sets align cleanly under ``join="outer"``.
+        VirtualiZarr path only.
+
+        Only dimensions that survive parsing are accumulated. A variable present
+        at a single level (e.g. 10 m wind) normally has its length-1 vertical
+        dimension dropped, so it does not appear on the accumulated axis. Pass
+        ``perserve_dims=["hag", ...]`` (and/or ``"percentile"`` / ``"threshold"``)
+        alongside ``accumulate_dims`` to keep those single-level dimensions: the
+        single-level variables then join the shared axis sparsely — real data at
+        their one value, ``NaN`` elsewhere, selectable with e.g.
+        ``ds["wind"].sel(hag=10.0)``.
     """
 
     def __init__(
