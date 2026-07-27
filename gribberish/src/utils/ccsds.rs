@@ -812,7 +812,7 @@ fn read_u32_from_bytes(bytes: &[u8], bytes_per_sample: usize) -> Vec<f32> {
         1 => bytes.iter().map(|&b| b as f32).collect(),
         2 => bytes
             .chunks_exact(2)
-            .map(|chunk| u16::from_le_bytes(chunk.try_into().unwrap()) as f32)
+            .map(|chunk| u16::from_ne_bytes(chunk.try_into().unwrap()) as f32)
             .collect(),
         3 => bytes
             .chunks_exact(3)
@@ -825,7 +825,7 @@ fn read_u32_from_bytes(bytes: &[u8], bytes_per_sample: usize) -> Vec<f32> {
             .collect(),
         4 => bytes
             .chunks_exact(4)
-            .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
+            .map(|chunk| u32::from_ne_bytes(chunk.try_into().unwrap()) as f32)
             .collect(),
         _ => Vec::new(),
     }
@@ -869,7 +869,7 @@ pub fn extract_ccsds_data(
     reference_sample_interval: u16,
     bits_per_sample: usize,
 ) -> Result<Vec<f32>, GribberishError> {
-    let nbytes_per_sample: usize = bits_per_sample.div_ceil(8);
+    let encoded_bytes_per_sample: usize = bits_per_sample.div_ceil(8);
 
     let flags = modify_aec_flags(Flags::from_bits_truncate(compression_options_mask));
 
@@ -886,6 +886,9 @@ pub fn extract_ccsds_data(
         return Err(GribberishError::MessageError(e.to_string()));
     }
     let mut state = state_or_error.unwrap();
+    // The decoder may use wider storage than the encoded sample width.
+    let sample_count = avail_out / encoded_bytes_per_sample;
+    state.avail_out = sample_count * state.bytes_per_sample;
 
     // Decode the data
     let mut status: DecodeStatus;
@@ -920,6 +923,41 @@ pub fn extract_ccsds_data(
     // Flush remaining data
     state.flush_kind();
     let decompressed_data: Vec<f32> =
-        read_u32_from_bytes(state.next_out.as_slice(), nbytes_per_sample);
+        read_u32_from_bytes(state.next_out.as_slice(), state.bytes_per_sample);
     Ok(decompressed_data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn uncompressed_block(samples: &[u32], bits_per_sample: usize) -> Vec<u8> {
+        let mut bits = vec![true; 5];
+        for sample in samples {
+            for shift in (0..bits_per_sample).rev() {
+                bits.push((sample & (1 << shift)) != 0);
+            }
+        }
+
+        bits.chunks(8)
+            .map(|chunk| {
+                chunk
+                    .iter()
+                    .enumerate()
+                    .fold(0, |byte, (index, bit)| byte | ((*bit as u8) << (7 - index)))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn extracts_24_bit_samples_from_four_byte_decoder_storage() {
+        let samples = [
+            0x000001, 0x000102, 0x010203, 0x102030, 0x234567, 0x789abc, 0xabcdef, 0xffffff,
+        ];
+        let compressed = uncompressed_block(&samples, 24);
+
+        let decoded = extract_ccsds_data(compressed, 8, 0, samples.len() * 3, 1, 24).unwrap();
+
+        assert_eq!(decoded, samples.map(|sample| sample as f32),);
+    }
 }
