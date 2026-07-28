@@ -156,6 +156,10 @@ impl FixedSurfaceType {
                 | FixedSurfaceType::MixingLayer
                 | FixedSurfaceType::IsobaricSurface
                 | FixedSurfaceType::LevelAtSpecifiedPressureDifferenceFromGroundToLevel
+                | FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel
+                | FixedSurfaceType::SpecifiedHeightLevelAboveGround
+                | FixedSurfaceType::DepthBelowLandSurface
+                | FixedSurfaceType::PotentialVorticitySurface
         )
     }
 
@@ -572,5 +576,27 @@ mod tests {
         assert_ne!(names[0], names[1]);
         assert_ne!(names[1], names[2]);
         assert_ne!(names[0], names[2]);
+    }
+}
+
+#[cfg(test)]
+mod vertical_level_classification_tests {
+    use super::FixedSurfaceType;
+
+    #[test]
+    fn height_depth_and_pv_are_vertical_levels() {
+        assert!(FixedSurfaceType::SpecificAltitudeAboveMeanSeaLevel.is_vertical_level());
+        assert!(FixedSurfaceType::SpecifiedHeightLevelAboveGround.is_vertical_level());
+        assert!(FixedSurfaceType::DepthBelowLandSurface.is_vertical_level());
+        assert!(FixedSurfaceType::PotentialVorticitySurface.is_vertical_level());
+        // ...and therefore not single-level
+        assert!(!FixedSurfaceType::SpecifiedHeightLevelAboveGround.is_single_level());
+    }
+
+    #[test]
+    fn genuine_single_surfaces_stay_single() {
+        assert!(!FixedSurfaceType::GroundOrWater.is_vertical_level());
+        assert!(!FixedSurfaceType::MeanSeaLevel.is_vertical_level());
+        assert!(FixedSurfaceType::GroundOrWater.is_single_level());
     }
 }
