@@ -4,6 +4,7 @@
 /// Starting with ECMWF (center 98) parameters.
 use super::ecmwf_table_128::ECMWF_TABLE_128;
 use super::ecmwf_table_140::ECMWF_TABLE_140;
+use super::ecmwf_table_228::ECMWF_TABLE_228;
 
 #[derive(Debug, Clone)]
 pub struct Grib1Parameter {
@@ -30,9 +31,9 @@ fn get_ecmwf_parameter(table2_version: u8, parameter: u8) -> Option<Grib1Paramet
         140 => lookup_table_parameter(ECMWF_TABLE_140, parameter)
             .or_else(|| get_ecmwf_legacy_parameter(parameter))
             .or_else(|| get_wmo_standard_parameter(parameter)),
-        228 => get_ecmwf_table_228_parameter(parameter)
-            .or_else(|| get_ecmwf_legacy_parameter(parameter))
-            .or_else(|| get_wmo_standard_parameter(parameter)),
+        // No legacy/WMO fallback here: table 228 numbering is unrelated to
+        // those tables, so a fallback silently mislabels unknown parameters.
+        228 => lookup_table_parameter(ECMWF_TABLE_228, parameter),
         _ => {
             get_ecmwf_legacy_parameter(parameter).or_else(|| get_wmo_standard_parameter(parameter))
         }
@@ -255,110 +256,6 @@ fn get_ecmwf_legacy_parameter(parameter: u8) -> Option<Grib1Parameter> {
     Some(param)
 }
 
-/// ECMWF parameter table 228 (center 98, table version 228)
-fn get_ecmwf_table_228_parameter(parameter: u8) -> Option<Grib1Parameter> {
-    let param = match parameter {
-        22 => Grib1Parameter {
-            number: 22,
-            abbreviation: "10fg6",
-            name: "10 metre wind gust in the last 6 hours",
-            units: "m s-1",
-        },
-        29 => Grib1Parameter {
-            number: 29,
-            abbreviation: "i10fg",
-            name: "Instantaneous 10 metre wind gust since last post-processing",
-            units: "m s-1",
-        },
-        44 => Grib1Parameter {
-            number: 44,
-            abbreviation: "es",
-            name: "Snow evaporation",
-            units: "m of water equivalent",
-        },
-        89 => Grib1Parameter {
-            number: 89,
-            abbreviation: "tcrw",
-            name: "Total column rain water",
-            units: "kg m-2",
-        },
-        129 => Grib1Parameter {
-            number: 129,
-            abbreviation: "tp",
-            name: "Total precipitation",
-            units: "m",
-        },
-        131 => Grib1Parameter {
-            number: 131,
-            abbreviation: "u10n",
-            name: "10 metre U component of neutral wind",
-            units: "m s-1",
-        },
-        217 => Grib1Parameter {
-            number: 217,
-            abbreviation: "10fg3",
-            name: "10 metre wind gust in the last 3 hours",
-            units: "m s-1",
-        },
-        218 => Grib1Parameter {
-            number: 218,
-            abbreviation: "10fg1",
-            name: "10 metre wind gust in the last 1 hour",
-            units: "m s-1",
-        },
-        219 => Grib1Parameter {
-            number: 219,
-            abbreviation: "cape",
-            name: "Convective available potential energy",
-            units: "J kg-1",
-        },
-        220 => Grib1Parameter {
-            number: 220,
-            abbreviation: "cin",
-            name: "Convective inhibition",
-            units: "J kg-1",
-        },
-        226 => Grib1Parameter {
-            number: 226,
-            abbreviation: "mwd",
-            name: "Mean wave direction",
-            units: "Degree true",
-        },
-        239 => Grib1Parameter {
-            number: 239,
-            abbreviation: "csf",
-            name: "Convective snowfall",
-            units: "m of water equivalent",
-        },
-        240 => Grib1Parameter {
-            number: 240,
-            abbreviation: "lsf",
-            name: "Large-scale snowfall",
-            units: "m of water equivalent",
-        },
-        241 => Grib1Parameter {
-            number: 241,
-            abbreviation: "acf",
-            name: "Accumulated cloud fraction tendency",
-            units: "(-1 to 1)",
-        },
-        246 => Grib1Parameter {
-            number: 246,
-            abbreviation: "100u",
-            name: "100 metre U wind component",
-            units: "m s-1",
-        },
-        247 => Grib1Parameter {
-            number: 247,
-            abbreviation: "100v",
-            name: "100 metre V wind component",
-            units: "m s-1",
-        },
-        _ => return None,
-    };
-    Some(param)
-}
-
 /// NCEP parameter table (center 7) - subset of common parameters
 fn get_ncep_parameter(parameter: u8) -> Option<Grib1Parameter> {
     get_wmo_standard_parameter(parameter)
@@ -524,24 +421,69 @@ mod tests {
     }
 
     #[test]
-    fn test_table_228_wind_gust_variants() {
+    fn test_table_228_radiation_and_rates() {
+        // These were previously mislabeled (10fg6/10fg3/10fg1/cape/cin).
         let p22 = get_parameter(98, 228, 22).unwrap();
-        assert_eq!(p22.abbreviation, "10fg6");
+        assert_eq!(p22.abbreviation, "cdir");
 
         let p217 = get_parameter(98, 228, 217).unwrap();
-        assert_eq!(p217.abbreviation, "10fg3");
+        assert_eq!(p217.abbreviation, "ilspf");
 
         let p218 = get_parameter(98, 228, 218).unwrap();
-        assert_eq!(p218.abbreviation, "10fg1");
+        assert_eq!(p218.abbreviation, "crr");
+
+        let p219 = get_parameter(98, 228, 219).unwrap();
+        assert_eq!(p219.abbreviation, "lsrr");
+
+        let p220 = get_parameter(98, 228, 220).unwrap();
+        assert_eq!(p220.abbreviation, "csfr");
+
+        let cin = get_parameter(98, 228, 1).unwrap();
+        assert_eq!(cin.abbreviation, "cin");
+
+        let mxtpr = get_parameter(98, 228, 226).unwrap();
+        assert_eq!(mxtpr.abbreviation, "mxtpr");
+
+        let u200 = get_parameter(98, 228, 239).unwrap();
+        assert_eq!(u200.abbreviation, "200u");
     }
 
     #[test]
-    fn test_table_228_cape_cin() {
-        let cape = get_parameter(98, 228, 219).unwrap();
-        assert_eq!(cape.abbreviation, "cape");
+    fn test_table_228_param_129_is_ssrdc_not_tp() {
+        // Table 228 param 129 = clear-sky downward solar radiation. It was
+        // previously mislabeled "tp", clobbering the real total precipitation
+        // (table 128 param 228) in IFS pgrb files that carry both records.
+        let ssrdc = get_parameter(98, 228, 129).unwrap();
+        assert_eq!(ssrdc.abbreviation, "ssrdc");
+        assert_eq!(ssrdc.units, "J m-2");
 
-        let cin = get_parameter(98, 228, 220).unwrap();
-        assert_eq!(cin.abbreviation, "cin");
+        let tp = get_parameter(98, 128, 228).unwrap();
+        assert_eq!(tp.abbreviation, "tp");
+        assert_eq!(tp.units, "m");
+
+        let tp228 = get_parameter(98, 228, 228).unwrap();
+        assert_eq!(tp228.abbreviation, "tp");
+        assert_eq!(tp228.units, "kg m-2");
+    }
+
+    #[test]
+    fn test_table_228_no_legacy_fallback() {
+        // Params absent from table 228 must be unknown, not mislabeled via
+        // the legacy/WMO tables (e.g. 130 would wrongly resolve to "t").
+        assert!(get_parameter(98, 228, 45).is_none());
+        assert!(get_parameter(98, 228, 133).is_none());
+    }
+
+    #[test]
+    fn test_table_140_wind_and_spectra() {
+        let dwi = get_parameter(98, 140, 249).unwrap();
+        assert_eq!(dwi.abbreviation, "dwi");
+
+        let dfd2 = get_parameter(98, 140, 251).unwrap();
+        assert_eq!(dfd2.abbreviation, "2dfd");
+
+        let wsk = get_parameter(98, 140, 252).unwrap();
+        assert_eq!(wsk.abbreviation, "wsk");
     }
 
     #[test]

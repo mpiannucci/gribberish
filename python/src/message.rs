@@ -7,7 +7,7 @@ use gribberish::templates::product::product_template::WavePeriodRange;
 use numpy::{PyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDateTime, PyList};
+use pyo3::types::{PyDateTime, PyList, PyTzInfo};
 
 #[pyclass]
 #[derive(Clone)]
@@ -74,19 +74,23 @@ impl GribMessageMetadata {
 
     #[getter]
     fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDateTime>> {
-        PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, None)
+        // Dates are UTC; a None tzinfo would convert to machine-local naive time
+        let utc = PyTzInfo::utc(py)?;
+        PyDateTime::from_timestamp(py, self.inner.reference_date.timestamp() as f64, Some(&utc))
     }
 
     #[getter]
     fn forecast_date<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDateTime>> {
-        PyDateTime::from_timestamp(py, self.inner.forecast_date.timestamp() as f64, None)
+        let utc = PyTzInfo::utc(py)?;
+        PyDateTime::from_timestamp(py, self.inner.forecast_date.timestamp() as f64, Some(&utc))
     }
 
     #[getter]
     fn forecast_date_end<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDateTime>>> {
         if let Some(forecast_end_date) = self.inner.forecast_end_date {
+            let utc = PyTzInfo::utc(py)?;
             let timestamp =
-                PyDateTime::from_timestamp(py, forecast_end_date.timestamp() as f64, None)?;
+                PyDateTime::from_timestamp(py, forecast_end_date.timestamp() as f64, Some(&utc))?;
             Ok(Some(timestamp))
         } else {
             Ok(None)
