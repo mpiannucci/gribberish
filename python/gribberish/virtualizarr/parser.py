@@ -34,6 +34,7 @@ from gribberish._index import (
     get_ranges_batched,
     select_ranges,
 )
+from gribberish.virtualizarr.accumulate import accumulate_dims
 
 from virtualizarr.manifests import (
     ChunkManifest,
@@ -73,7 +74,14 @@ def _data_manifest_array(
     adjust_longitude_range: bool = False,
     north_up: bool = False,
 ) -> ManifestArray:
-    """One ManifestArray per data variable; each GRIB message is one chunk."""
+    """One ManifestArray per data variable; each GRIB message is one chunk.
+
+    When the variable was annotated by the accumulation transform
+    (``var["_accumulate"]``, a list of per-axis mappings), its messages are
+    placed at their mapped indices along each accumulated axis and the unfilled
+    cells are left as missing chunks (empty path), which VirtualiZarr resolves
+    to ``fill_value`` at read time.
+    """
     dims = tuple(var["dims"])
     shape = tuple(int(s) for s in var["values"]["shape"])
     offsets_sizes = var["values"]["offsets"]
@@ -84,24 +92,47 @@ def _data_manifest_array(
     grid_shape = tuple(list(shape[:-_N_SPATIAL]) + [1, 1])
     n_chunks = int(np.prod(grid_shape)) if grid_shape else 1
 
-    if len(offsets_sizes) != n_chunks:
-        raise ValueError(
-            f"variable {name!r}: expected {n_chunks} messages for shape {shape} "
-            f"but got {len(offsets_sizes)}"
-        )
+    paths = np.full(grid_shape, "", dtype=np.dtypes.StringDType())
+    offsets = np.zeros(grid_shape, dtype=np.uint64)
+    lengths = np.zeros(grid_shape, dtype=np.uint64)
 
-    paths = np.empty(grid_shape, dtype=np.dtypes.StringDType())
-    offsets = np.empty(grid_shape, dtype=np.uint64)
-    lengths = np.empty(grid_shape, dtype=np.uint64)
-    # Rust emits offsets pre-sorted in C order matching the dimension order, so
-    # a flat C-order fill lines each message up with its chunk-grid index.
-    flat_paths = paths.reshape(-1)
-    flat_offsets = offsets.reshape(-1)
-    flat_lengths = lengths.reshape(-1)
-    for i, (offset, size) in enumerate(offsets_sizes):
-        flat_paths[i] = url
-        flat_offsets[i] = offset
-        flat_lengths[i] = size
+    accumulate = var.get("_accumulate")
+    if not accumulate:
+        # Dense: Rust emits offsets pre-sorted in C order matching the dimension
+        # order, so a flat C-order fill lines each message up with its cell.
+        if len(offsets_sizes) != n_chunks:
+            raise ValueError(
+                f"variable {name!r}: expected {n_chunks} messages for shape "
+                f"{shape} but got {len(offsets_sizes)}"
+            )
+        flat_paths = paths.reshape(-1)
+        flat_offsets = offsets.reshape(-1)
+        flat_lengths = lengths.reshape(-1)
+        for i, (offset, size) in enumerate(offsets_sizes):
+            flat_paths[i] = url
+            flat_offsets[i] = offset
+            flat_lengths[i] = size
+    else:
+        # Sparse: one or more axes were widened to their union. Messages remain
+        # in C order over the variable's OWN (narrower) grid; unravel against
+        # that grid and remap each accumulated axis into its union index.
+        orig_grid = list(grid_shape)
+        for acc in accumulate:
+            orig_grid[acc["axis"]] = len(acc["index_map"])
+        n_messages = int(np.prod(orig_grid))
+        if len(offsets_sizes) != n_messages:
+            raise ValueError(
+                f"variable {name!r}: expected {n_messages} messages for its own "
+                f"grid {tuple(orig_grid)} but got {len(offsets_sizes)}"
+            )
+        for i, (offset, size) in enumerate(offsets_sizes):
+            index = list(np.unravel_index(i, orig_grid))
+            for acc in accumulate:
+                index[acc["axis"]] = acc["index_map"][index[acc["axis"]]]
+            index = tuple(index)
+            paths[index] = url
+            offsets[index] = offset
+            lengths[index] = size
 
     manifest = ChunkManifest.from_arrays(
         paths=paths, offsets=offsets, lengths=lengths
@@ -116,7 +147,7 @@ def _data_manifest_array(
             adjust_longitude_range=adjust_longitude_range,
             north_up=north_up,
         ),
-        attributes=dict(var["attrs"]),
+        attributes={k: v for k, v in var["attrs"].items()},
         dimension_names=dims,
     )
     return ManifestArray(metadata=metadata, chunkmanifest=manifest)
@@ -313,7 +344,9 @@ class GribberishParser:
     only_variables
         If given, only these variable short names are kept.
     perserve_dims
-        Dimension/level-type names to keep even when their length is 1.
+        Dimension/level-type names to keep even when their length is 1. Combine
+        with ``accumulate_dims`` to surface single-level variables onto the
+        shared accumulated axis (see ``accumulate_dims``).
     filter_by_attrs
         Keep only variables whose attributes match these values.
     filter_by_variable_attrs
@@ -351,6 +384,26 @@ class GribberishParser:
         for a single file but makes the layout content-dependent: the same
         variable can land at different paths across files (``/hag/instant`` in
         one, ``/instant`` in another), which breaks concatenation.
+    accumulate_dims
+        Default off. When on, per-value-set dimensions within a group — vertical
+        levels (``hag_0``, ``hag_1``, …), and ``percentile`` / ``threshold`` —
+        are merged into a single accumulated dimension whose coordinate is the
+        sorted union of every value present, and each variable is made sparse
+        over that axis: it carries chunk references only for the values it
+        actually has, and absent slots read back as the fill value (``NaN``).
+        This gives one shared, schema-agnostic coordinate per group, so files
+        with differing value sets align cleanly under ``join="outer"``.
+        VirtualiZarr path only.
+
+        Only dimensions that survive parsing are accumulated. A variable present
+        at a single value of any accumulatable family — one vertical level (e.g.
+        10 m wind), one percentile, or one threshold — normally has that length-1
+        dimension dropped, so it does not appear on the accumulated axis. Pass
+        the corresponding name(s) in ``perserve_dims`` (e.g. ``["hag"]``,
+        ``["percentile"]``, ``["threshold"]``) alongside ``accumulate_dims`` to
+        keep those single-value dimensions: the variables then join the shared
+        axis sparsely — real data at their one value, ``NaN`` elsewhere,
+        selectable by label, e.g. ``ds["wind"].sel(hag=10.0)``.
     """
 
     def __init__(
@@ -364,6 +417,7 @@ class GribberishParser:
         adjust_longitude_range: bool = False,
         north_up: bool = False,
         collapse_groups: bool = False,
+        accumulate_dims: bool = False,
     ) -> None:
         self.drop_variables = drop_variables
         self.only_variables = only_variables
@@ -374,6 +428,7 @@ class GribberishParser:
         self.adjust_longitude_range = adjust_longitude_range
         self.north_up = north_up
         self.collapse_groups = collapse_groups
+        self.accumulate_dims = accumulate_dims
 
     def _filter_kwargs(self) -> dict[str, Any]:
         return dict(
@@ -431,6 +486,9 @@ class GribberishParser:
         if dataset is None:
             data = _read_all(store, path_in_store)
             dataset = parse_grib_dataset(data, **self._filter_kwargs())
+
+        if self.accumulate_dims:
+            dataset = accumulate_dims(dataset)
 
         group = _manifest_group(
             url,

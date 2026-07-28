@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use gribberish::index::{parse_index, IndexEntry};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyDateTime;
+use pyo3::types::{PyDateTime, PyTzInfo};
 
 #[pyclass]
 #[derive(Clone)]
@@ -35,9 +35,11 @@ impl GribIndexEntry {
 
     #[getter]
     fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDateTime>>> {
+        // Dates are UTC; a None tzinfo would convert to machine-local naive time
+        let utc = PyTzInfo::utc(py)?;
         self.inner
             .reference_date
-            .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, None))
+            .map(|d| PyDateTime::from_timestamp(py, d.timestamp() as f64, Some(&utc)))
             .transpose()
     }
 
