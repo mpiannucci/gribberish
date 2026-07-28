@@ -108,7 +108,7 @@ pub const ECMWF_TABLE_140: &[(u8, &str, &str, &str)] = &[
     (239, "mpts", "Mean period of total swell", "s"),
     (244, "msqs", "Mean square slope of waves", "dimensionless"),
     (245, "wind", "10 metre wind speed", "m s-1"),
-    (249, "aif", "Air density over the oceans", "kg m-3"),
-    (251, "strd2", "Surface net thermal radiation", "J m-2"),
-    (252, "ssrd2", "Surface net solar radiation", "J m-2"),
+    (249, "dwi", "10 metre wind direction", "degrees"),
+    (251, "2dfd", "2D wave spectra (single)", "m2 s radian-1"),
+    (252, "wsk", "Wave spectral kurtosis", "-"),
 ];

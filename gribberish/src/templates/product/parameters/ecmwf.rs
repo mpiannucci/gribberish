@@ -9,6 +9,7 @@
 /// https://github.com/ecmwf/eccodes/tree/develop/definitions/grib2/localConcepts/ecmf/
 use crate::grib1::ecmwf_table_128::ECMWF_TABLE_128;
 use crate::grib1::ecmwf_table_140::ECMWF_TABLE_140;
+use crate::grib1::ecmwf_table_228::ECMWF_TABLE_228;
 use gribberish_types::Parameter;
 
 /// Look up an ECMWF local parameter from discipline=192 GRIB2 messages.
@@ -17,6 +18,7 @@ pub fn ecmwf_local_parameter(category: u8, parameter: u8) -> Option<Parameter> {
     let table: &[(u8, &str, &str, &str)] = match category {
         128 => ECMWF_TABLE_128,
         140 => ECMWF_TABLE_140,
+        228 => ECMWF_TABLE_228,
         _ => return None,
     };
 
@@ -34,6 +36,7 @@ pub fn ecmwf_local_category(category: u8) -> &'static str {
     match category {
         128 => "ecmwf table 128",
         140 => "ecmwf table 140",
+        228 => "ecmwf table 228",
         _ => "ecmwf local",
     }
 }
@@ -64,6 +67,17 @@ mod tests {
         // ECMWF GRIB2 discipline=192, category=140 mirrors GRIB1 table 140 (waves)
         let swh = ecmwf_local_parameter(140, 229).unwrap();
         assert_eq!(swh.abbrev, "swh");
+    }
+
+    #[test]
+    fn test_ecmwf_discipline_192_table_228() {
+        // ECMWF GRIB2 discipline=192, category=228 mirrors GRIB1 table 228
+        let ssrdc = ecmwf_local_parameter(228, 129).unwrap();
+        assert_eq!(ssrdc.abbrev, "ssrdc");
+
+        let tp = ecmwf_local_parameter(228, 228).unwrap();
+        assert_eq!(tp.abbrev, "tp");
+        assert_eq!(tp.unit, "kg m-2");
     }
 
     #[test]
