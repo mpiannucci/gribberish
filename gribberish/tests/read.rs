@@ -1,5 +1,6 @@
 extern crate gribberish;
 
+use chrono::{TimeZone, Utc};
 use gribberish::message::{read_messages, Message};
 use gribberish::templates::product::tables::{DerivedForecastType, TypeOfStatisticalProcessing};
 use std::time::Instant;
@@ -1520,4 +1521,80 @@ fn read_nbm_asnow_probability_thresholds() {
     keys.sort();
     keys.dedup();
     assert_eq!(keys.len(), 3, "each threshold must get a unique key");
+}
+
+#[test]
+fn read_naqfc_pm25_hourly_average() {
+    // NCEP local parameter (0, 13, 193) = PMTF, fine particulate matter, on a
+    // Lambert conformal grid with complex packing + spatial differencing (DRT 5.3).
+    // Source: noaa-nws-naqfc-pds AQMv7/CS/20240516/12/aqm.t12z.ave_1hr_pm25 (first message)
+    let read_data = read_grib_messages("../test-data/aqm.t12z.ave_1hr_pm25-PMTF.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.product_template_id().unwrap(), 8);
+    assert_eq!(message.variable_abbrev().unwrap(), "PMTF");
+    assert_eq!(message.variable_name().unwrap(), "particulatematterfine");
+    assert_eq!(message.unit().unwrap(), "ug m-3");
+    assert_eq!(message.grid_dimensions().unwrap(), (1025, 1473));
+
+    // Hour 0 of the cycle: the averaging interval is 12z-13z on the reference day.
+    assert_eq!(
+        message.reference_date().unwrap(),
+        Utc.with_ymd_and_hms(2024, 5, 16, 12, 0, 0).unwrap()
+    );
+    assert_eq!(message.time_interval().unwrap(), 0);
+    assert_eq!(
+        message.forecast_date().unwrap(),
+        Utc.with_ymd_and_hms(2024, 5, 16, 12, 0, 0).unwrap()
+    );
+    assert_eq!(
+        message.forecast_end_date().unwrap().unwrap(),
+        Utc.with_ymd_and_hms(2024, 5, 16, 13, 0, 0).unwrap()
+    );
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1509825);
+    assert!((data[1000] - 8.7413).abs() < 0.001, "data[1000]");
+}
+
+#[test]
+fn read_naqfc_pm25_daily_max_negative_forecast_time() {
+    // NCEP AQM daily-max products encode the start of the statistical time interval
+    // as a negative forecast time in octets 19-22 of PDT 4.8 (here 0xfffffff9 = -7
+    // hours), because the local-day maximum begins before the model reference time.
+    // Source: noaa-nws-naqfc-pds AQMv7/CS/20240516/12/aqm.t12z.max_1hr_pm25 (first message)
+    let read_data = read_grib_messages("../test-data/aqm.t12z.max_1hr_pm25-PDMAX1.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.product_template_id().unwrap(), 8);
+    assert_eq!(message.variable_abbrev().unwrap(), "PDMAX1");
+    assert_eq!(message.unit().unwrap(), "ug m-3");
+    assert_eq!(message.grid_dimensions().unwrap(), (1025, 1473));
+
+    assert_eq!(
+        message.reference_date().unwrap(),
+        Utc.with_ymd_and_hms(2024, 5, 16, 12, 0, 0).unwrap()
+    );
+    assert_eq!(message.time_interval().unwrap(), -7);
+    assert_eq!(
+        message.forecast_date().unwrap(),
+        Utc.with_ymd_and_hms(2024, 5, 16, 5, 0, 0).unwrap()
+    );
+    // The explicit end-of-interval date in the template confirms the -7 hour start:
+    // 05z on the reference day through 04z the next day is the 23 hour interval
+    // recorded in octets 50-53.
+    assert_eq!(
+        message.forecast_end_date().unwrap().unwrap(),
+        Utc.with_ymd_and_hms(2024, 5, 17, 4, 0, 0).unwrap()
+    );
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1509825);
+    assert!((data[1000] - 10.4).abs() < 0.001, "data[1000]");
 }

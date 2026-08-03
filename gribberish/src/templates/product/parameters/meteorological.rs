@@ -1069,6 +1069,72 @@ pub enum TraceGasesProduct {
     #[abbrev = "OZCAT"]
     #[unit = "nondim"]
     CategoricalOzoneConcentration = 194,
+    #[description = "ozone vertical diffusion"]
+    #[abbrev = "VDFOZ"]
+    #[unit = "kgkg-1s-1"]
+    OzoneVerticalDiffusion = 195,
+    #[description = "ozone production"]
+    #[abbrev = "POZ"]
+    #[unit = "kgkg-1s-1"]
+    OzoneProduction = 196,
+    #[description = "ozone tendency"]
+    #[abbrev = "TOZ"]
+    #[unit = "kgkg-1s-1"]
+    OzoneTendency = 197,
+    #[description = "ozone production from temperature term"]
+    #[abbrev = "POZT"]
+    #[unit = "kgkg-1s-1"]
+    OzoneProductionFromTemperatureTerm = 198,
+    #[description = "ozone production from column ozone term"]
+    #[abbrev = "POZO"]
+    #[unit = "kgkg-1s-1"]
+    OzoneProductionFromColumnOzoneTerm = 199,
+    #[description = "ozone daily max from 1-hour average"]
+    #[abbrev = "OZMAX1"]
+    #[unit = "ppbV"]
+    OzoneDailyMaxFrom1HourAverage = 200,
+    #[description = "ozone daily max from 8-hour average"]
+    #[abbrev = "OZMAX8"]
+    #[unit = "ppbV"]
+    OzoneDailyMaxFrom8HourAverage = 201,
+    #[description = "pm 2.5 daily max from 1-hour average"]
+    #[abbrev = "PDMAX1"]
+    #[unit = "ug m-3"]
+    PmDailyMaxFrom1HourAverage = 202,
+    #[description = "pm 2.5 daily max from 24-hour average"]
+    #[abbrev = "PDMAX24"]
+    #[unit = "ug m-3"]
+    PmDailyMaxFrom24HourAverage = 203,
+    #[description = "acetaldehyde and higher aldehydes"]
+    #[abbrev = "ALD2"]
+    #[unit = "ppbV"]
+    AcetaldehydeAndHigherAldehydes = 204,
+    Missing = 255,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Debug, DisplayDescription, FromValue, ToParameter)]
+pub enum AerosolProduct {
+    #[description = "aerosol type"]
+    #[abbrev = "AEROT"]
+    #[unit = "nondim"]
+    AerosolType = 0,
+    #[description = "particulate matter (coarse)"]
+    #[abbrev = "PMTC"]
+    #[unit = "ug m-3"]
+    ParticulateMatterCoarse = 192,
+    #[description = "particulate matter (fine)"]
+    #[abbrev = "PMTF"]
+    #[unit = "ug m-3"]
+    ParticulateMatterFine = 193,
+    #[description = "particulate matter (fine)"]
+    #[abbrev = "LPMTF"]
+    #[unit = "log10 (ug m-3)"]
+    LogParticulateMatterFine = 194,
+    #[description = "integrated column particulate matter (fine)"]
+    #[abbrev = "LIPMF"]
+    #[unit = "log10 (ug m-3)"]
+    LogIntegratedColumnParticulateMatterFine = 195,
     Missing = 255,
 }
 
@@ -1120,6 +1186,7 @@ pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter
         7 => Some(Parameter::from(ThermodynamicStabilityProduct::from(
             parameter,
         ))),
+        13 => Some(Parameter::from(AerosolProduct::from(parameter))),
         14 => Some(Parameter::from(TraceGasesProduct::from(parameter))),
         15 => Some(Parameter::from(RadarProduct::from(parameter))),
         16 => Some(Parameter::from(ForecastRadarImagery::from(parameter))),
@@ -1145,6 +1212,7 @@ pub fn meteorological_category(category: u8) -> &'static str {
         5 => "long wave radiation",
         6 => "cloud",
         7 => "thermodynamic stability",
+        13 => "aerosols",
         14 => "trace gases",
         15 => "radar",
         16 => "forecast radar imagery",
@@ -1153,5 +1221,58 @@ pub fn meteorological_category(category: u8) -> &'static str {
         20 => "atmospheric chemical constituents",
         191 => "miscellaneous",
         _ => "other",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::templates::product::parameters::{category, parameter};
+
+    #[test]
+    fn ncep_local_aerosol_parameters() {
+        // GRIB2 table 4.2-0-13 (meteorological products, aerosols). Numbers 192-254
+        // are reserved for local use; these are NCEP's definitions.
+        // Reference: https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table4-2-0-13.shtml
+        let aerot = parameter(0, 13, 0).unwrap();
+        assert_eq!(aerot.abbrev, "AEROT");
+
+        let pmtc = parameter(0, 13, 192).unwrap();
+        assert_eq!(pmtc.abbrev, "PMTC");
+        assert_eq!(pmtc.name, "particulatemattercoarse");
+        assert_eq!(pmtc.unit, "ug m-3");
+
+        let pmtf = parameter(0, 13, 193).unwrap();
+        assert_eq!(pmtf.abbrev, "PMTF");
+        assert_eq!(pmtf.name, "particulatematterfine");
+        assert_eq!(pmtf.unit, "ug m-3");
+
+        let lpmtf = parameter(0, 13, 194).unwrap();
+        assert_eq!(lpmtf.abbrev, "LPMTF");
+        assert_eq!(lpmtf.unit, "log10 (ug m-3)");
+
+        let lipmf = parameter(0, 13, 195).unwrap();
+        assert_eq!(lipmf.abbrev, "LIPMF");
+
+        assert_eq!(category(0, 13), "aerosols");
+    }
+
+    #[test]
+    fn ncep_local_trace_gas_parameters() {
+        // GRIB2 table 4.2-0-14 (trace gases) NCEP local numbers 195-204.
+        // Reference: https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table4-2-0-14.shtml
+        let ozmax1 = parameter(0, 14, 200).unwrap();
+        assert_eq!(ozmax1.abbrev, "OZMAX1");
+        assert_eq!(ozmax1.unit, "ppbV");
+
+        let pdmax1 = parameter(0, 14, 202).unwrap();
+        assert_eq!(pdmax1.abbrev, "PDMAX1");
+        assert_eq!(pdmax1.name, "pmdailymaxfrom1houraverage");
+        assert_eq!(pdmax1.unit, "ug m-3");
+
+        let pdmax24 = parameter(0, 14, 203).unwrap();
+        assert_eq!(pdmax24.abbrev, "PDMAX24");
+
+        // Already supported entries must keep working
+        assert_eq!(parameter(0, 14, 193).unwrap().abbrev, "OZCON");
     }
 }

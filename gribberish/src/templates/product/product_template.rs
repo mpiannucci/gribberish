@@ -20,9 +20,14 @@ pub trait ProductTemplate {
     fn generating_process(&self) -> GeneratingProcess;
     fn time_unit(&self) -> TimeUnit;
     fn time_increment_unit(&self) -> Option<TimeUnit>;
-    fn time_interval(&self) -> u32;
+    /// Offset of the forecast (or the start of the statistical time interval)
+    /// from the reference time, in [`ProductTemplate::time_unit`]s.
+    ///
+    /// Signed, because statistically processed products can cover an interval
+    /// that begins before the reference time: NCEP's air quality daily maxima
+    /// encode a -7 hour start as the two's complement `0xfffffff9`.
+    fn time_interval(&self) -> i32;
     fn time_increment_interval(&self) -> Option<u32>;
-    fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc>;
     fn forecast_end_datetime(&self, reference_date: DateTime<Utc>) -> Option<DateTime<Utc>>;
     fn first_fixed_surface_type(&self) -> FixedSurfaceType;
     fn first_fixed_surface_value(&self) -> Option<f64>;
@@ -85,6 +90,22 @@ pub trait ProductTemplate {
             self.category_value(),
             self.parameter_value(),
         )
+    }
+
+    /// Valid time of the forecast, or the start of the statistical time
+    /// interval for templates that cover one.
+    ///
+    /// Clamps rather than panics when a corrupt time field would push the date
+    /// outside chrono's representable range.
+    fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc> {
+        let offset_duration = self.time_interval_duration();
+        reference_date
+            .checked_add_signed(offset_duration)
+            .unwrap_or(if offset_duration < Duration::zero() {
+                DateTime::<Utc>::MIN_UTC
+            } else {
+                DateTime::<Utc>::MAX_UTC
+            })
     }
 
     fn time_interval_duration(&self) -> Duration {
