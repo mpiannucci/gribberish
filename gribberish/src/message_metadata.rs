@@ -27,7 +27,7 @@ pub struct MessageMetadata {
     pub statistical_process: Option<TypeOfStatisticalProcessing>,
     pub time_unit: TimeUnit,
     pub time_increment_unit: Option<TimeUnit>,
-    pub time_interval: u32,
+    pub time_interval: i32,
     pub time_increment_interval: Option<u32>,
     pub first_fixed_surface_type: FixedSurfaceType,
     pub first_fixed_surface_value: Option<f64>,
