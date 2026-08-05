@@ -187,6 +187,41 @@ fn cf_grid_mapping<'py>(
             attrs.set_item("false_northing", 0.0).unwrap();
             set_earth(&attrs);
         }
+        "stere" => {
+            attrs
+                .set_item("grid_mapping_name", "polar_stereographic")
+                .unwrap();
+            if let Some(&lon_0) = params.get("lon_0") {
+                attrs
+                    .set_item("straight_vertical_longitude_from_pole", lon_0)
+                    .unwrap();
+            }
+            if let Some(&lat_ts) = params.get("lat_ts") {
+                attrs.set_item("standard_parallel", lat_ts).unwrap();
+            }
+            if let Some(&lat_0) = params.get("lat_0") {
+                attrs
+                    .set_item("latitude_of_projection_origin", lat_0)
+                    .unwrap();
+            }
+            attrs.set_item("false_easting", 0.0).unwrap();
+            attrs.set_item("false_northing", 0.0).unwrap();
+            set_earth(&attrs);
+        }
+        "merc" => {
+            attrs.set_item("grid_mapping_name", "mercator").unwrap();
+            if let Some(&lat_ts) = params.get("lat_ts") {
+                attrs.set_item("standard_parallel", lat_ts).unwrap();
+            }
+            // Template 3.10 has no central-meridian field; the projection
+            // origin is always the prime meridian.
+            attrs
+                .set_item("longitude_of_projection_origin", 0.0)
+                .unwrap();
+            attrs.set_item("false_easting", 0.0).unwrap();
+            attrs.set_item("false_northing", 0.0).unwrap();
+            set_earth(&attrs);
+        }
         _ => return None,
     }
 

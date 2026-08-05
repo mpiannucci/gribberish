@@ -5,6 +5,7 @@ pub mod ccsds;
 #[cfg(feature = "libaec")]
 pub mod ccsds_libaec;
 pub mod convert;
+pub mod projections;
 
 pub use convert::*;
 
