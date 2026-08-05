@@ -1,5 +1,6 @@
 use bitvec::prelude::*;
 
+use super::earth_shape::EarthShapeDefinition;
 use super::grid_definition_template::GridDefinitionTemplate;
 use super::tables::{EarthShape, ScanningMode, ScanningModeFlags};
 use crate::templates::template::{Template, TemplateType};
@@ -38,32 +39,36 @@ impl LatLngTemplate {
         LatLngTemplate { data }
     }
 
+    fn earth(&self) -> EarthShapeDefinition<'_> {
+        EarthShapeDefinition::new(&self.data)
+    }
+
     pub fn earth_shape(&self) -> EarthShape {
-        self.data[14].into()
+        self.earth().shape()
     }
 
     pub fn earth_radius_scale_factor(&self) -> u8 {
-        self.data[15]
+        self.earth().radius_scale_factor()
     }
 
     pub fn earth_radius_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(&self.data, 16).unwrap_or(0)
+        self.earth().radius_scaled_value()
     }
 
     pub fn earth_major_axis_scale_factor(&self) -> u8 {
-        self.data[20]
+        self.earth().major_axis_scale_factor()
     }
 
     pub fn earth_major_axis_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(&self.data, 21).unwrap_or(0)
+        self.earth().major_axis_scaled_value()
     }
 
     pub fn earth_minor_axis_scale_factor(&self) -> u8 {
-        self.data[25]
+        self.earth().minor_axis_scale_factor()
     }
 
     pub fn earth_minor_axis_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(&self.data, 26).unwrap_or(0)
+        self.earth().minor_axis_scaled_value()
     }
 
     pub fn parallel_point_count(&self) -> u32 {

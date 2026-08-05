@@ -14,6 +14,7 @@ use crate::{
 };
 
 use super::{
+    earth_shape::EarthShapeDefinition,
     tables::{
         EarthShape, ProjectionCenter, ProjectionCenterFlags, ScanningMode, ScanningModeFlags,
     },
@@ -47,145 +48,60 @@ impl LambertConformalTemplate {
         LambertConformalTemplate { data }
     }
 
+    fn earth(&self) -> EarthShapeDefinition<'_> {
+        EarthShapeDefinition::new(&self.data)
+    }
+
     pub fn earth_shape(&self) -> EarthShape {
-        self.data[14].into()
+        self.earth().shape()
     }
 
     pub fn earth_radius_scale_factor(&self) -> u8 {
-        self.data[15]
+        self.earth().radius_scale_factor()
     }
 
     pub fn earth_radius_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(&self.data, 16).unwrap_or(0)
+        self.earth().radius_scaled_value()
     }
 
     pub fn earth_major_axis_scale_factor(&self) -> u8 {
-        self.data[20]
+        self.earth().major_axis_scale_factor()
     }
 
     pub fn earth_major_axis_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(&self.data, 21).unwrap_or(0)
+        self.earth().major_axis_scaled_value()
     }
 
     pub fn earth_minor_axis_scale_factor(&self) -> u8 {
-        self.data[25]
+        self.earth().minor_axis_scale_factor()
     }
 
     pub fn earth_minor_axis_scaled_value(&self) -> u32 {
-        read_u32_from_bytes(&self.data, 26).unwrap_or(0)
+        self.earth().minor_axis_scaled_value()
     }
 
     pub fn earth_radius(&self) -> f64 {
-        self.earth_radius_scaled_value() as f64
-            * 10f64.powi(-(self.earth_radius_scale_factor() as i32))
+        self.earth().radius()
     }
 
     pub fn earth_major_axis(&self) -> f64 {
-        self.earth_major_axis_scaled_value() as f64
-            * 10f64.powi(-(self.earth_major_axis_scale_factor() as i32))
+        self.earth().major_axis()
     }
 
     pub fn earth_minor_axis(&self) -> f64 {
-        self.earth_minor_axis_scaled_value() as f64
-            * 10f64.powi(-(self.earth_minor_axis_scale_factor() as i32))
+        self.earth().minor_axis()
     }
 
     pub fn earth_ellipsoid(&self) -> Result<Ellipsoid, GribberishError> {
-        match self.earth_shape() {
-            EarthShape::Spherical => Ok(Ellipsoid {
-                A: 6_367_470.0,
-                B: 6_367_470.0,
-                E: 0.0,
-                F: 0.0,
-            }),
-            EarthShape::SpecifiedRadiusSpherical => {
-                let radius = self.earth_radius();
-                Ok(Ellipsoid {
-                    A: radius,
-                    B: radius,
-                    E: 0.0,
-                    F: 0.0,
-                })
-            }
-            EarthShape::OblateIAU => Err(GribberishError::GridTemplateError(
-                "unimplemented: OblateIAU".into(),
-            )),
-            EarthShape::OblateKM => Err(GribberishError::GridTemplateError(
-                "unimplemented: OblateKM".into(),
-            )),
-            EarthShape::OblateIAGGRS80 => Err(GribberishError::GridTemplateError(
-                "unimplemented: OblateIAGGRS80".into(),
-            )),
-            EarthShape::WGS84 => Ok(Ellipsoid::WGS84),
-            EarthShape::Spherical2 => Ok(Ellipsoid {
-                A: 6_371_229.0,
-                B: 6_371_229.0,
-                E: 0.0,
-                F: 0.0,
-            }),
-            EarthShape::OblateM => Err(GribberishError::GridTemplateError(
-                "unimplemented: OblateM".into(),
-            )),
-            EarthShape::OblateWGS84 => Err(GribberishError::GridTemplateError(
-                "unimplemented: OblateWGS84".into(),
-            )),
-            EarthShape::Missing => Err(GribberishError::GridTemplateError(
-                "Missing EarthShape".into(),
-            )),
-        }
+        self.earth().ellipsoid()
     }
 
     pub fn earth_proj_string(&self) -> Result<String, GribberishError> {
-        match self.earth_shape() {
-            EarthShape::Spherical => Ok(" +a=6367470 +b=6367470".to_string()),
-            EarthShape::SpecifiedRadiusSpherical => {
-                let radius = self.earth_radius();
-                Ok(format!(" +a={radius} +b={radius}"))
-            }
-            EarthShape::OblateIAU => Ok(" +a=6,378,160.0 b=6356775 +rf=297".to_string()),
-            EarthShape::OblateKM => Err(GribberishError::GridTemplateError(
-                "unimplemented: OblateKM".into(),
-            )),
-            EarthShape::OblateIAGGRS80 => {
-                Ok(" +a=6378137 +b=6356752.314 +rf=298.257222101".to_string())
-            }
-            EarthShape::WGS84 => Ok(" +ellps=WGS84".to_string()),
-            EarthShape::Spherical2 => Ok(" +a=6371229 +b=6371229".to_string()),
-            EarthShape::OblateM => Err(GribberishError::GridTemplateError(
-                "unimplemented: OblateM".into(),
-            )),
-            EarthShape::OblateWGS84 => Err(GribberishError::GridTemplateError(
-                "unimplemented: OblateWGS84".into(),
-            )),
-            EarthShape::Missing => todo!(),
-        }
+        self.earth().proj_string()
     }
 
     pub fn earth_proj_params(&self) -> Result<Vec<(String, f64)>, String> {
-        match self.earth_shape() {
-            EarthShape::Spherical => Ok(vec![
-                ("a".to_string(), 6_367_470.0),
-                ("b".to_string(), 6_367_470.0),
-            ]),
-            EarthShape::SpecifiedRadiusSpherical => {
-                let radius = self.earth_radius();
-                Ok(vec![("a".to_string(), radius), ("b".to_string(), radius)])
-            }
-            EarthShape::OblateIAU => Err("unimplemented: OblateIAU".into()),
-            EarthShape::OblateKM => Err("unimplemented: OblateKM".into()),
-            EarthShape::OblateIAGGRS80 => Ok(vec![
-                ("a".to_string(), 6_378_137.0),
-                ("b".to_string(), 6_356_752.314),
-            ]),
-            EarthShape::WGS84 => Err("unimplemented: WGS84".into()),
-            EarthShape::Spherical2 => Ok(vec![
-                ("a".to_string(), 6_371_229.0),
-                ("b".to_string(), 6_371_229.0),
-            ]),
-            EarthShape::OblateM => Err("unimplemented: OblateM".into()),
-            EarthShape::OblateWGS84 => Err("unimplemented: OblateWGS84".into()),
-            EarthShape::Missing => Err("Missing EarthShape".into()),
-        }
+        self.earth().proj_params()
     }
 
     pub fn number_of_points_on_x_axis(&self) -> u32 {
