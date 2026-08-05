@@ -125,7 +125,8 @@ impl LatLngProjection {
     /// Whether rows must be reversed to put the northern-most row first, read
     /// off the sign of the row-axis step: positive means the axis ascends, so
     /// row 0 is the southern-most. The row axis is latitude for a regular grid
-    /// and projected `y` for Lambert Conformal, whose latitude is a 2-D field.
+    /// and projected `y` for a projected grid (Lambert Conformal, Mercator,
+    /// polar stereographic), whose latitude is a 2-D field.
     fn needs_north_up_flip(&self) -> bool {
         match self {
             LatLngProjection::PlateCaree(p) => p.latitudes.step > 0.0,

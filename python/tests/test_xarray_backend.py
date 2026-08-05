@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from pathlib import Path
 
@@ -433,10 +434,17 @@ def test_cf_grid_mapping_metadata():
 
 def test_polar_stereographic_and_mercator_grid_mappings():
     """The AK and HI NAQFC domains must open and carry a CF grid mapping that
-    pyproj can turn back into a CRS, the way the Lambert domains already do."""
-    import numpy as np
-    import xarray as xr
+    pyproj can turn back into a CRS, the way the Lambert domains already do.
 
+    Unlike its sibling `test_cf_grid_mapping_metadata`, this test does not
+    assert full CRS equality between the CF metadata and the proj4 string.
+    For `stere`, `pyproj.CRS.from_cf(...) == pyproj.CRS.from_proj4(...)`
+    compares unequal even though both produce identical PROJ pipelines and
+    identical Polar Stereographic (variant B) parameters -- they differ only
+    in the datum name pyproj assigns (`undefined` from CF versus `unknown`
+    from proj4). Without this note, someone will eventually "strengthen" the
+    assertion here and chase a phantom failure.
+    """
     cases = [
         (
             "aqm.t12z.ave_1hr_o3-AK-polar-stereographic.grib2",

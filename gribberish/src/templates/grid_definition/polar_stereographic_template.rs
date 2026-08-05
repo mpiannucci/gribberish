@@ -159,8 +159,10 @@ impl GridDefinitionTemplate for PolarStereographicTemplate {
     }
 
     fn crs(&self) -> String {
-        // This is probably not right
-        "EPSG:3413".to_string()
+        // The grid's parameters (arbitrary earth shape, orientation and
+        // latitude of true scale) do not correspond to a standard EPSG code,
+        // so the CRS is reported as unknown rather than guessed.
+        "unknown".to_string()
     }
 
     fn grid_point_count(&self) -> usize {

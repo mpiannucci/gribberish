@@ -2,9 +2,12 @@
 //! template 3.20.
 //!
 //! Reference: Snyder, *Map Projections — A Working Manual*, USGS Professional
-//! Paper 1395, equations 21-32 through 21-37 (ellipsoidal polar aspect). The
-//! spherical case is not special-cased: with zero eccentricity the standard
-//! parallel form `rho = a * m_c * t / t_c` reduces exactly to the familiar
+//! Paper 1395, Chapter 21 (Stereographic), polar aspect, ellipsoidal form. The
+//! conformal-latitude auxiliary `t` (eq. 15-9) and its inverse (eq. 7-9) are
+//! cited precisely in `conformal.rs`; this module additionally uses `m_c`
+//! (eq. 14-15) and the polar-aspect radius and its inverse. The spherical
+//! case is not special-cased: with zero eccentricity the standard parallel
+//! form `rho = a * m_c * t / t_c` reduces exactly to the familiar
 //! `rho = 2 * a * k0 * tan(pi/4 - lat/2)` with `k0 = (1 + sin(lat_ts)) / 2`.
 
 use mappers::{Ellipsoid, Projection};
@@ -19,8 +22,8 @@ pub struct PolarStereographic {
     lon_origin: f64,
     /// Whether the south pole is on the projection plane.
     south: bool,
-    /// `a * m_c / t_c` — everything in the radius that does not depend on the
-    /// point being projected.
+    /// `a * m_c / t_c` (or its `lat_ts = +-90` closed form) — everything in
+    /// the radius that does not depend on the point being projected.
     rho_scale: f64,
     /// Ellipsoid eccentricity; zero for a spherical earth.
     e: f64,
@@ -32,13 +35,23 @@ impl PolarStereographic {
     pub fn new(lon_origin_deg: f64, lat_ts_deg: f64, south: bool, ellipsoid: Ellipsoid) -> Self {
         let e = ellipsoid.E;
         let lat_ts = lat_ts_deg.abs().to_radians();
-        let m_c = lat_ts.cos() / (1.0 - e * e * lat_ts.sin().powi(2)).sqrt();
         let t_c = conformal_t(lat_ts, e);
+
+        // At `lat_ts = +-90` (PROJ's "variant A": scale factor k0 = 1 at the
+        // pole) `t_c` is exactly zero and `m_c / t_c` is 0/0, so fall back to
+        // the closed-form polar-aspect scale (Snyder eq. 21-33 with k0 = 1)
+        // instead of the standard-parallel form below.
+        let rho_scale = if t_c == 0.0 {
+            2.0 * ellipsoid.A / ((1.0 + e).powf(1.0 + e) * (1.0 - e).powf(1.0 - e)).sqrt()
+        } else {
+            let m_c = lat_ts.cos() / (1.0 - e * e * lat_ts.sin().powi(2)).sqrt();
+            ellipsoid.A * m_c / t_c
+        };
 
         Self {
             lon_origin: lon_origin_deg.to_radians(),
             south,
-            rho_scale: ellipsoid.A * m_c / t_c,
+            rho_scale,
             e,
         }
     }
@@ -222,5 +235,76 @@ mod tests {
         let (x, y) = projection.project(0.0, 75.0).unwrap();
         assert!((x - 1155327.2723032606).abs() < 1e-6, "x {x}");
         assert!((y - (-1155327.2723032609)).abs() < 1e-6, "y {y}");
+    }
+
+    /// `lat_ts = +-90` is legal GRIB2 (`LaD` is allowed to be a pole) and is
+    /// PROJ's "variant A" form, where the standard-parallel formula's `t_c`
+    /// term is exactly zero. This must not produce an infinite `rho_scale`.
+    ///
+    /// Ground truth is PROJ (pyproj) output for the proj4 strings noted below,
+    /// taken verbatim.
+    #[test]
+    fn forward_matches_proj_at_the_pole_variant_a() {
+        // +proj=stere +lat_0=90 +lat_ts=90 +lon_0=-150 +a=6371229 +b=6371229
+        let projection = PolarStereographic::new(-150.0, 90.0, false, ncep_sphere());
+
+        let (x, y) = projection.project(-178.571, 40.53).unwrap();
+        assert!((x - (-2807460.1379085644)).abs() < 1e-6, "x {x}");
+        assert!((y - (-5155453.126402948)).abs() < 1e-6, "y {y}");
+
+        let (x, y) = projection.project(0.0, 90.0).unwrap();
+        assert!((x - 0.0).abs() < 1e-6, "x {x}");
+        assert!((y - 0.0).abs() < 1e-6, "y {y}");
+
+        let (x, y) = projection.project(-150.0, 60.0).unwrap();
+        assert!((x - 0.0).abs() < 1e-6, "x {x}");
+        assert!((y - (-3414331.3306874996)).abs() < 1e-6, "y {y}");
+
+        // +proj=stere +lat_0=90 +lat_ts=90 +lon_0=0 +ellps=WGS84
+        let projection = PolarStereographic::new(0.0, 90.0, false, Ellipsoid::WGS84);
+
+        let (x, y) = projection.project(0.0, 60.0).unwrap();
+        assert!((x - 0.0).abs() < 1e-6, "x {x}");
+        assert!((y - (-3426439.3534922632)).abs() < 1e-6, "y {y}");
+
+        let (x, y) = projection.project(45.0, 75.0).unwrap();
+        assert!((x - 1191233.1965918639).abs() < 1e-6, "x {x}");
+        assert!((y - (-1191233.1965918639)).abs() < 1e-6, "y {y}");
+
+        // +proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +a=6371229 +b=6371229
+        let projection = PolarStereographic::new(0.0, -90.0, true, ncep_sphere());
+
+        let (x, y) = projection.project(0.0, -90.0).unwrap();
+        assert!((x - 0.0).abs() < 1e-6, "x {x}");
+        assert!((y - 0.0).abs() < 1e-6, "y {y}");
+
+        let (x, y) = projection.project(30.0, -70.0).unwrap();
+        assert!((x - 1123419.5729722127).abs() < 1e-6, "x {x}");
+        assert!((y - 1945819.7786052045).abs() < 1e-6, "y {y}");
+    }
+
+    /// The inverse must also stay finite and recover the original point at
+    /// `lat_ts = 90`, not just the forward direction.
+    #[test]
+    fn round_trip_at_lat_ts_90() {
+        for &south in &[false, true] {
+            let lat_ts = if south { -90.0 } else { 90.0 };
+            let projection = PolarStereographic::new(-45.0, lat_ts, south, Ellipsoid::WGS84);
+            let sign = if south { -1.0 } else { 1.0 };
+            for &(lon, lat) in &[(-45.0, 60.0), (0.0, 75.0), (120.0, 82.5), (-179.0, 55.0)] {
+                let lat = sign * lat;
+                let (x, y) = projection.project(lon, lat).unwrap();
+                assert!(x.is_finite() && y.is_finite(), "south={south} ({x}, {y})");
+                let (rlon, rlat) = projection.inverse_project(x, y).unwrap();
+                assert!(
+                    (rlat - lat).abs() < 1e-9,
+                    "south={south} lat {lat} -> {rlat}"
+                );
+                assert!(
+                    (rlon - lon).abs() < 1e-9,
+                    "south={south} lon {lon} -> {rlon}"
+                );
+            }
+        }
     }
 }

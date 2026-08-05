@@ -73,11 +73,15 @@ impl MercatorTemplate {
         as_signed!(raw, 32, i32) as f64 * 1e-6
     }
 
+    /// Exposed for callers; not used internally to cross-check the grid this
+    /// template computes from the first point, step and count.
     pub fn latitude_of_last_grid_point(&self) -> f64 {
         let raw = read_u32_from_bytes(&self.data, 51).unwrap_or(0);
         as_signed!(raw, 32, i32) as f64 * 1e-6
     }
 
+    /// Exposed for callers; not used internally to cross-check the grid this
+    /// template computes from the first point, step and count.
     pub fn longitude_of_last_grid_point(&self) -> f64 {
         let raw = read_u32_from_bytes(&self.data, 55).unwrap_or(0);
         as_signed!(raw, 32, i32) as f64 * 1e-6
@@ -87,8 +91,10 @@ impl MercatorTemplate {
         ScanningMode::read_flags(self.data[59])
     }
 
-    /// Angle of rotation of the projection; must be zero for an unrotated
-    /// Mercator, which is the only form this template supports.
+    /// Angle of rotation of the projection. This crate's Mercator projection
+    /// implements only an unrotated Mercator, so a non-zero orientation is
+    /// assumed not to occur; it is parsed but not validated, and a file that
+    /// actually sets it would silently produce incorrect coordinates.
     pub fn grid_orientation(&self) -> f64 {
         let raw = read_u32_from_bytes(&self.data, 60).unwrap_or(0);
         as_signed!(raw, 32, i32) as f64 * 1e-6
@@ -155,8 +161,10 @@ impl GridDefinitionTemplate for MercatorTemplate {
     }
 
     fn crs(&self) -> String {
-        // This is probably not right
-        "EPSG:3395".to_string()
+        // The grid's parameters (arbitrary earth shape and latitude of true
+        // scale) do not correspond to a standard EPSG code, so the CRS is
+        // reported as unknown rather than guessed.
+        "unknown".to_string()
     }
 
     fn grid_point_count(&self) -> usize {
