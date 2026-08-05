@@ -429,3 +429,39 @@ def test_cf_grid_mapping_metadata():
         attrs = ds["spatial_ref"].attrs
         cf = {k: v for k, v in attrs.items() if k != "proj4"}
         assert pyproj.CRS.from_cf(cf) == pyproj.CRS.from_proj4(attrs["proj4"])
+
+
+def test_polar_stereographic_and_mercator_grid_mappings():
+    """The AK and HI NAQFC domains must open and carry a CF grid mapping that
+    pyproj can turn back into a CRS, the way the Lambert domains already do."""
+    import numpy as np
+    import xarray as xr
+
+    cases = [
+        (
+            "aqm.t12z.ave_1hr_o3-AK-polar-stereographic.grib2",
+            "polar_stereographic",
+            (553, 825),
+            (40.53, -178.571),
+        ),
+        (
+            "aqm.t12z.ave_1hr_o3-HI-mercator.grib2",
+            "mercator",
+            (225, 321),
+            (18.073, -161.525),
+        ),
+    ]
+
+    for filename, grid_mapping_name, (ny, nx), (lat0, lon0) in cases:
+        tree = xr.open_datatree(f"../test-data/{filename}", engine="gribberish")
+        (node,) = [n for n in tree.subtree if n.ds.data_vars]
+        ds = node.ds
+
+        assert tuple(ds["ozcon"].shape[-2:]) == (ny, nx)
+        assert ds["spatial_ref"].attrs["grid_mapping_name"] == grid_mapping_name
+        assert ds["spatial_ref"].attrs["earth_radius"] == 6371229.0
+
+        lat = np.asarray(ds["latitude"].values)
+        lon = np.asarray(ds["longitude"].values)
+        assert abs(float(lat.ravel()[0]) - lat0) < 1e-8
+        assert abs(float(lon.ravel()[0]) - lon0) < 1e-8
