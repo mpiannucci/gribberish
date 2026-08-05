@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use itertools::Itertools;
-use mappers::{projections::LambertConformalConic, Projection};
+use mappers::{projections::LambertConformalConic, Projection, ProjectionError};
+
+use crate::utils::projections::{mercator::Mercator, polar_stereographic::PolarStereographic};
 
 #[derive(Clone, Debug)]
 pub struct PlateCareeProjection {
@@ -11,11 +13,41 @@ pub struct PlateCareeProjection {
     pub projection_params: HashMap<String, f64>,
 }
 
+/// The projections a GRIB2 grid definition template can put behind a projected
+/// grid. Callers go through [`GridProjection::project`] and
+/// [`GridProjection::inverse_project`] and never learn which one it holds.
+#[derive(Clone, Copy, Debug)]
+pub enum GridProjection {
+    LambertConformalConic(LambertConformalConic),
+    PolarStereographic(PolarStereographic),
+    Mercator(Mercator),
+}
+
+impl GridProjection {
+    pub fn project(&self, lon: f64, lat: f64) -> Result<(f64, f64), ProjectionError> {
+        match self {
+            GridProjection::LambertConformalConic(p) => p.project(lon, lat),
+            GridProjection::PolarStereographic(p) => p.project(lon, lat),
+            GridProjection::Mercator(p) => p.project(lon, lat),
+        }
+    }
+
+    pub fn inverse_project(&self, x: f64, y: f64) -> Result<(f64, f64), ProjectionError> {
+        match self {
+            GridProjection::LambertConformalConic(p) => p.inverse_project(x, y),
+            GridProjection::PolarStereographic(p) => p.inverse_project(x, y),
+            GridProjection::Mercator(p) => p.inverse_project(x, y),
+        }
+    }
+}
+
+/// A grid whose coordinates are regular in projected metres, with latitude and
+/// longitude recovered by inverse projection.
 #[derive(Clone, Debug)]
-pub struct LambertConformalConicProjection {
+pub struct ProjectedGrid {
     pub x: RegularCoordinateIterator,
     pub y: RegularCoordinateIterator,
-    pub projection: LambertConformalConic,
+    pub projection: GridProjection,
     pub projection_name: String,
     pub projection_params: HashMap<String, f64>,
 }
@@ -23,14 +55,14 @@ pub struct LambertConformalConicProjection {
 #[derive(Clone, Debug)]
 pub enum LatLngProjection {
     PlateCaree(PlateCareeProjection),
-    LambertConformal(LambertConformalConicProjection),
+    Projected(ProjectedGrid),
 }
 
 impl LatLngProjection {
     pub fn is_regular_latlng_grid(&self) -> bool {
         match self {
             LatLngProjection::PlateCaree(_) => true,
-            LatLngProjection::LambertConformal(_) => false,
+            LatLngProjection::Projected(_) => false,
         }
     }
 
@@ -56,7 +88,7 @@ impl LatLngProjection {
                     .collect();
                 (lats, lngs)
             }
-            LatLngProjection::LambertConformal(projection) => projection
+            LatLngProjection::Projected(projection) => projection
                 .y
                 .clone()
                 .flat_map(|y_coord| {
@@ -86,7 +118,7 @@ impl LatLngProjection {
             // projected grid it is the full flattened field, which is never
             // eligible, so short-circuit it.
             LatLngProjection::PlateCaree(_) => wrap_roll(&self.lat_lng().1),
-            LatLngProjection::LambertConformal(_) => None,
+            LatLngProjection::Projected(_) => None,
         }
     }
 
@@ -97,7 +129,7 @@ impl LatLngProjection {
     fn needs_north_up_flip(&self) -> bool {
         match self {
             LatLngProjection::PlateCaree(p) => p.latitudes.step > 0.0,
-            LatLngProjection::LambertConformal(p) => p.y.step > 0.0,
+            LatLngProjection::Projected(p) => p.y.step > 0.0,
         }
     }
 
@@ -106,7 +138,7 @@ impl LatLngProjection {
     fn dims(&self) -> (usize, usize) {
         match self {
             LatLngProjection::PlateCaree(p) => (p.latitudes.count, p.longitudes.count),
-            LatLngProjection::LambertConformal(p) => (p.y.count, p.x.count),
+            LatLngProjection::Projected(p) => (p.y.count, p.x.count),
         }
     }
 
@@ -130,8 +162,8 @@ impl LatLngProjection {
             match self {
                 // Regular grid: 1-D latitude axis; longitudes are unaffected.
                 LatLngProjection::PlateCaree(_) => lats = adjust_latitude_values(lats),
-                // Lambert: lat/lng are flattened ny × nx fields; row-flip both.
-                LatLngProjection::LambertConformal(_) => {
+                // Projected: lat/lng are flattened ny × nx fields; row-flip both.
+                LatLngProjection::Projected(_) => {
                     lats = self.adjust_data_north_up(lats, true);
                     lngs = self.adjust_data_north_up(lngs, true);
                 }
@@ -205,21 +237,21 @@ impl LatLngProjection {
                     })
                     .collect()
             }
-            LatLngProjection::LambertConformal(projection) => projection.x.clone().collect(),
+            LatLngProjection::Projected(projection) => projection.x.clone().collect(),
         }
     }
 
     pub fn y(&self) -> Vec<f64> {
         match self {
             LatLngProjection::PlateCaree(projection) => projection.latitudes.clone().collect(),
-            LatLngProjection::LambertConformal(projection) => projection.y.clone().collect(),
+            LatLngProjection::Projected(projection) => projection.y.clone().collect(),
         }
     }
 
     pub fn project_xy(&self, x: f64, y: f64) -> (f64, f64) {
         match self {
             LatLngProjection::PlateCaree(_) => (x, y),
-            LatLngProjection::LambertConformal(projection) => {
+            LatLngProjection::Projected(projection) => {
                 let projected = projection.projection.project(x, y).unwrap();
                 (projected.1, projected.0)
             }
@@ -229,7 +261,7 @@ impl LatLngProjection {
     pub fn project_latlng(&self, lat: f64, lng: f64) -> (f64, f64) {
         match self {
             LatLngProjection::PlateCaree(_) => (lng, lat),
-            LatLngProjection::LambertConformal(projection) => {
+            LatLngProjection::Projected(projection) => {
                 let projected = projection.projection.inverse_project(lng, lat).unwrap();
                 (projected.1, projected.0)
             }
@@ -238,7 +270,7 @@ impl LatLngProjection {
 
     pub fn bbox(&self) -> (f64, f64, f64, f64) {
         match self {
-            LatLngProjection::PlateCaree(_) | LatLngProjection::LambertConformal(_) => {
+            LatLngProjection::PlateCaree(_) | LatLngProjection::Projected(_) => {
                 // Use lat_lng() to get normalized coordinates
                 let (lat, lng) = self.lat_lng();
                 let (min_lat, max_lat) = lat.into_iter().minmax().into_option().unwrap();
@@ -253,7 +285,7 @@ impl LatLngProjection {
             LatLngProjection::PlateCaree(projection) => {
                 (projection.latitudes.start, projection.longitudes.start)
             }
-            LatLngProjection::LambertConformal(projection) => {
+            LatLngProjection::Projected(projection) => {
                 self.project_xy(projection.x.start, projection.y.start)
             }
         }
@@ -264,7 +296,7 @@ impl LatLngProjection {
             LatLngProjection::PlateCaree(projection) => {
                 (projection.latitudes.end, projection.longitudes.end)
             }
-            LatLngProjection::LambertConformal(projection) => {
+            LatLngProjection::Projected(projection) => {
                 self.project_xy(projection.x.end, projection.y.end)
             }
         }
@@ -273,14 +305,14 @@ impl LatLngProjection {
     pub fn proj_name(&self) -> String {
         match self {
             LatLngProjection::PlateCaree(projection) => projection.projection_name.clone(),
-            LatLngProjection::LambertConformal(projection) => projection.projection_name.clone(),
+            LatLngProjection::Projected(projection) => projection.projection_name.clone(),
         }
     }
 
     pub fn proj_params(&self) -> HashMap<String, f64> {
         match self {
             LatLngProjection::PlateCaree(projection) => projection.projection_params.clone(),
-            LatLngProjection::LambertConformal(projection) => projection.projection_params.clone(),
+            LatLngProjection::Projected(projection) => projection.projection_params.clone(),
         }
     }
 }
@@ -751,6 +783,46 @@ mod tests {
         assert_eq!(super::adjust_latitude_values(once.clone()), once);
         // Too short to tell: returned unchanged.
         assert_eq!(super::adjust_latitude_values(vec![5.0]), vec![5.0]);
+    }
+
+    /// A projected grid built on any projection must flow through the shared
+    /// `Projected` arm: not a regular lat/lng grid, dimensions read off the x
+    /// and y iterators, and lat/lng inverse-projected per point.
+    #[test]
+    fn projected_grid_is_projection_agnostic() {
+        use super::{GridProjection, ProjectedGrid};
+        use crate::utils::projections::mercator::Mercator;
+        use mappers::Ellipsoid;
+
+        fn ncep_sphere() -> Ellipsoid {
+            Ellipsoid {
+                A: 6_371_229.0,
+                B: 6_371_229.0,
+                E: 0.0,
+                F: 0.0,
+            }
+        }
+
+        let projection = Mercator::new(0.0, 20.0, ncep_sphere());
+        let grid = super::LatLngProjection::Projected(ProjectedGrid {
+            x: super::RegularCoordinateIterator::new(-17_971_571.0, 2500.0, 3),
+            y: super::RegularCoordinateIterator::new(1_925_130.0, 2500.0, 2),
+            projection: GridProjection::Mercator(projection),
+            projection_name: "merc".to_string(),
+            projection_params: HashMap::new(),
+        });
+
+        assert!(!grid.is_regular_latlng_grid());
+        assert_eq!(grid.x().len(), 3);
+        assert_eq!(grid.y().len(), 2);
+
+        let (lats, lngs) = grid.lat_lng();
+        assert_eq!(lats.len(), 6, "one value per grid point, row-major");
+        assert_eq!(lngs.len(), 6);
+        // Mercator rows share a latitude and columns share a longitude.
+        assert!((lats[0] - lats[1]).abs() < 1e-9);
+        assert!((lngs[0] - lngs[3]).abs() < 1e-9);
+        assert!(lats[3] > lats[0], "y ascends northward");
     }
 
     #[test]

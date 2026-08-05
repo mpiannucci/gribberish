@@ -7,7 +7,7 @@ use crate::{
     templates::template::{Template, TemplateType},
     utils::{
         iter::projection::{
-            LambertConformalConicProjection, LatLngProjection, RegularCoordinateIterator,
+            GridProjection, LatLngProjection, ProjectedGrid, RegularCoordinateIterator,
         },
         read_u32_from_bytes,
     },
@@ -347,10 +347,10 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
             self.number_of_points_on_x_axis() as usize,
         );
 
-        LatLngProjection::LambertConformal(LambertConformalConicProjection {
+        LatLngProjection::Projected(ProjectedGrid {
             x: x_iter,
             y: y_iter,
-            projection,
+            projection: GridProjection::LambertConformalConic(projection),
             projection_name: self.proj_name(),
             projection_params: self.proj_params(),
         })
