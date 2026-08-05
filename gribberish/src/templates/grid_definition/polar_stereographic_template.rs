@@ -160,11 +160,7 @@ impl GridDefinitionTemplate for PolarStereographicTemplate {
 
     fn crs(&self) -> String {
         // This is probably not right
-        if self.is_south_polar() {
-            "EPSG:3031".to_string()
-        } else {
-            "EPSG:3413".to_string()
-        }
+        "EPSG:3413".to_string()
     }
 
     fn grid_point_count(&self) -> usize {
