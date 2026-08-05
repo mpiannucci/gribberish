@@ -117,4 +117,38 @@ mod tests {
         let (_, y) = projection.project(0.0, 0.0).unwrap();
         assert!(y.abs() < 1e-9);
     }
+
+    /// External-oracle check: absolute forward (x, y) against PROJ, not
+    /// against this crate's own inverse. The other tests only ever read
+    /// projected coordinates back through `inverse_project`, so a scale or
+    /// constant-offset error present consistently in both directions would
+    /// slip past them; this test pins the forward direction independently.
+    ///
+    /// Expected values are PROJ output for
+    /// `+proj=merc +lat_ts=20 +lon_0=0 +a=6371229 +b=6371229` (via pyproj),
+    /// not self-generated.
+    #[test]
+    fn forward_projection_matches_proj_oracle() {
+        let projection = Mercator::new(0.0, 20.0, ncep_sphere());
+        for &(lon, lat, expected_x, expected_y) in &[
+            (
+                -161.525,
+                18.073,
+                -16_878_200.780_530_702,
+                1_920_617.792_042_613_5,
+            ),
+            (0.0, 0.0, 0.0, 0.0),
+            (45.0, -33.5, 4_702_176.351_177_102, -3_718_898.598_057_832_6),
+        ] {
+            let (x, y) = projection.project(lon, lat).unwrap();
+            assert!(
+                (x - expected_x).abs() < 1e-6,
+                "x for ({lon}, {lat}): {x} vs {expected_x}"
+            );
+            assert!(
+                (y - expected_y).abs() < 1e-6,
+                "y for ({lon}, {lat}): {y} vs {expected_y}"
+            );
+        }
+    }
 }
