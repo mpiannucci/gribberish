@@ -1570,3 +1570,53 @@ fn read_naqfc_hawaii_mercator_grid() {
     assert_eq!(data.len(), 72225);
     assert!((data[1000] - 21.513).abs() < 0.001, "data[1000]");
 }
+
+#[test]
+fn read_naqfc_alaska_polar_stereographic_grid() {
+    // GRIB2 grid definition template 3.20 (polar stereographic), NCEP grid 198.
+    // Reference lat/lon are eccodes' own values for this message, converted
+    // from its [0, 360) longitudes to gribberish's [-180, 180).
+    // Source: noaa-nws-naqfc-pds AQMv7/AK/20240516/12/aqm.t12z.ave_1hr_o3 (first message)
+    let read_data =
+        read_grib_messages("../test-data/aqm.t12z.ave_1hr_o3-AK-polar-stereographic.grib2");
+    let mut messages = read_messages(read_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let message = messages.pop().unwrap();
+
+    assert_eq!(message.grid_template_id().unwrap(), 20);
+    assert_eq!(message.variable_abbrev().unwrap(), "OZCON");
+    assert_eq!(message.grid_dimensions().unwrap(), (553, 825));
+    assert!(!message.is_regular_grid().unwrap());
+    assert!(message.proj_string().unwrap().starts_with("+proj=stere"));
+
+    let projector = message.latlng_projector().unwrap();
+    let (lats, lngs) = projector.lat_lng();
+    assert_eq!(lats.len(), 456225);
+
+    // (flat index, latitude, longitude) sampled across the grid.
+    for &(index, lat, lng) in &[
+        (0usize, 40.530_000_000_0, -178.571_000_000_0),
+        (1, 40.552_618_942_8, -178.516_280_574_2),
+        (824, 41.739_954_898_4, -124.581_815_826_1),
+        (825, 40.571_569_813_8, -178.600_811_053_4),
+        (1000, 43.918_135_627_5, -168.179_513_012_6),
+        (228112, 60.127_305_048_0, -153.014_082_810_3),
+        (456224, 63.976_300_235_3, -93.692_321_537_1),
+    ] {
+        assert!(
+            (lats[index] - lat).abs() < 1e-8,
+            "lat[{index}] = {}",
+            lats[index]
+        );
+        assert!(
+            (lngs[index] - lng).abs() < 1e-8,
+            "lng[{index}] = {}",
+            lngs[index]
+        );
+    }
+
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 456225);
+    assert!((data[1000] - 31.64).abs() < 0.001, "data[1000]");
+}
