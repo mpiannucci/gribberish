@@ -3,6 +3,7 @@
 
 pub mod conformal;
 pub mod mercator;
+pub mod polar_stereographic;
 
 /// Normalize a longitude in degrees to `[-180, 180)`, the convention the rest
 /// of gribberish uses for projected grids.
