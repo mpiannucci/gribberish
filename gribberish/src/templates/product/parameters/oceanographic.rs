@@ -188,6 +188,58 @@ pub enum WavesProduct {
     #[abbrev = "SPFTR"]
     #[unit = "s-1"]
     SpectralPeakednessFactor = 45,
+    #[description = "peak wave direction"]
+    #[abbrev = "PWAVEDIR"]
+    #[unit = "degree"]
+    PeakWaveDirection = 46,
+    #[description = "significant wave height of first swell partition"]
+    #[abbrev = "SWHFSWEL"]
+    #[unit = "m"]
+    FirstSwellPartitionSignificantWaveHeight = 47,
+    #[description = "significant wave height of second swell partition"]
+    #[abbrev = "SWHSSWEL"]
+    #[unit = "m"]
+    SecondSwellPartitionSignificantWaveHeight = 48,
+    #[description = "significant wave height of third swell partition"]
+    #[abbrev = "SWHTSWEL"]
+    #[unit = "m"]
+    ThirdSwellPartitionSignificantWaveHeight = 49,
+    #[description = "mean wave period of first swell partition"]
+    #[abbrev = "MWPFSWEL"]
+    #[unit = "s"]
+    FirstSwellPartitionMeanWavePeriod = 50,
+    #[description = "mean wave period of second swell partition"]
+    #[abbrev = "MWPSSWEL"]
+    #[unit = "s"]
+    SecondSwellPartitionMeanWavePeriod = 51,
+    #[description = "mean wave period of third swell partition"]
+    #[abbrev = "MWPTSWEL"]
+    #[unit = "s"]
+    ThirdSwellPartitionMeanWavePeriod = 52,
+    #[description = "mean wave direction of first swell partition"]
+    #[abbrev = "MWDFSWEL"]
+    #[unit = "degree"]
+    FirstSwellPartitionMeanWaveDirection = 53,
+    #[description = "mean wave direction of second swell partition"]
+    #[abbrev = "MWDSSWEL"]
+    #[unit = "degree"]
+    SecondSwellPartitionMeanWaveDirection = 54,
+    #[description = "mean wave direction of third swell partition"]
+    #[abbrev = "MWDTSWEL"]
+    #[unit = "degree"]
+    ThirdSwellPartitionMeanWaveDirection = 55,
+    #[description = "wave directional width of first swell partition"]
+    #[abbrev = "WDWFSWEL"]
+    #[unit = "-"]
+    FirstSwellPartitionWaveDirectionalWidth = 56,
+    #[description = "wave directional width of second swell partition"]
+    #[abbrev = "WDWSSWEL"]
+    #[unit = "-"]
+    SecondSwellPartitionWaveDirectionalWidth = 57,
+    #[description = "wave directional width of third swell partition"]
+    #[abbrev = "WDWTSWEL"]
+    #[unit = "-"]
+    ThirdSwellPartitionWaveDirectionalWidth = 58,
     #[description = "wave steepness"]
     #[abbrev = "WSTP"]
     #[unit = "porportion"]
@@ -370,5 +422,37 @@ pub fn oceanographic_category(category: u8) -> &'static str {
         3 => "surface",
         4 => "subsurface",
         _ => "misc",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_wave_swell_partition_parameters() {
+        // WMO table 4.2-10-0 entries 46..=58 (peak wave direction and the
+        // three swell partitions) must resolve to real parameters, not Missing
+        let cases = [
+            (46u8, "PWAVEDIR", "degree"),
+            (47, "SWHFSWEL", "m"),
+            (48, "SWHSSWEL", "m"),
+            (49, "SWHTSWEL", "m"),
+            (50, "MWPFSWEL", "s"),
+            (51, "MWPSSWEL", "s"),
+            (52, "MWPTSWEL", "s"),
+            (53, "MWDFSWEL", "degree"),
+            (54, "MWDSSWEL", "degree"),
+            (55, "MWDTSWEL", "degree"),
+            (56, "WDWFSWEL", "-"),
+            (57, "WDWSSWEL", "-"),
+            (58, "WDWTSWEL", "-"),
+        ];
+        for (number, abbrev, unit) in cases {
+            let param = oceanographic_parameter(0, number).unwrap();
+            assert_eq!(param.abbrev, abbrev, "parameter number {number}");
+            assert_eq!(param.unit, unit, "parameter number {number}");
+            assert_ne!(param.name, "missing", "parameter number {number}");
+        }
     }
 }
