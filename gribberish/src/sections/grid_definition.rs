@@ -1,7 +1,8 @@
 use super::grib_section::GribSection;
 use crate::{
     templates::grid_definition::{
-        GridDefinitionTemplate, LambertConformalTemplate, LatLngTemplate,
+        GridDefinitionTemplate, LambertConformalTemplate, LatLngTemplate, MercatorTemplate,
+        PolarStereographicTemplate,
     },
     utils::{read_u16_from_bytes, read_u32_from_bytes},
 };
@@ -64,6 +65,10 @@ impl<'a> GridDefinitionSection<'a> {
         let template_number = self.grid_definition_template_number();
         match template_number {
             0 => Some(Box::new(LatLngTemplate::new(self.data.to_vec()))),
+            10 => Some(Box::new(MercatorTemplate::new(self.data.to_vec()))),
+            20 => Some(Box::new(PolarStereographicTemplate::new(
+                self.data.to_vec(),
+            ))),
             30 => Some(Box::new(LambertConformalTemplate::new(self.data.to_vec()))),
             _ => None,
         }
