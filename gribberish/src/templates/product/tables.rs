@@ -333,21 +333,39 @@ pub enum TimeUnit {
     Seconds = 13,
 }
 
+const SECONDS_PER_HOUR: i64 = 3600;
+
+/// Largest number of seconds chrono can represent; its `Duration` constructors
+/// panic beyond this, and its range is symmetric about zero.
+const MAX_DURATION_SECONDS: i64 = i64::MAX / 1_000;
+
+/// Build a `Duration` from a second count, clamping to chrono's representable
+/// range instead of panicking. Time values come straight off the wire, so a
+/// corrupt one must not abort the read of an entire file.
+fn clamped_duration(seconds: i64) -> Duration {
+    Duration::try_seconds(seconds.clamp(-MAX_DURATION_SECONDS, MAX_DURATION_SECONDS))
+        .unwrap_or_default()
+}
+
+fn clamped_hours(hours: i64) -> Duration {
+    clamped_duration(hours.saturating_mul(SECONDS_PER_HOUR))
+}
+
 impl TimeUnit {
     pub fn duration(&self, value: i64) -> Duration {
         match self {
-            TimeUnit::Minute => Duration::minutes(value),
-            TimeUnit::Hour => Duration::hours(value),
-            TimeUnit::ThreeHours => Duration::hours(value * 3),
-            TimeUnit::SixHours => Duration::hours(value * 6),
-            TimeUnit::TwelveHours => Duration::hours(value * 12),
-            TimeUnit::Day => Duration::hours(value * 24),
-            TimeUnit::Month => Duration::hours(value * 730),
-            TimeUnit::Year => Duration::hours(value * 8760),
-            TimeUnit::Decade => Duration::hours(value * 87600),
-            TimeUnit::Normal => Duration::hours(value * 262800),
-            TimeUnit::Century => Duration::hours(value * 876000),
-            TimeUnit::Seconds => Duration::seconds(value),
+            TimeUnit::Minute => clamped_duration(value.saturating_mul(60)),
+            TimeUnit::Hour => clamped_hours(value),
+            TimeUnit::ThreeHours => clamped_hours(value.saturating_mul(3)),
+            TimeUnit::SixHours => clamped_hours(value.saturating_mul(6)),
+            TimeUnit::TwelveHours => clamped_hours(value.saturating_mul(12)),
+            TimeUnit::Day => clamped_hours(value.saturating_mul(24)),
+            TimeUnit::Month => clamped_hours(value.saturating_mul(730)),
+            TimeUnit::Year => clamped_hours(value.saturating_mul(8760)),
+            TimeUnit::Decade => clamped_hours(value.saturating_mul(87600)),
+            TimeUnit::Normal => clamped_hours(value.saturating_mul(262800)),
+            TimeUnit::Century => clamped_hours(value.saturating_mul(876000)),
+            TimeUnit::Seconds => clamped_duration(value),
         }
     }
 }
@@ -542,8 +560,31 @@ impl ProbabilityType {
 
 #[cfg(test)]
 mod tests {
-    use super::{DerivedForecastType, FixedSurfaceType};
+    use super::{DerivedForecastType, FixedSurfaceType, TimeUnit};
+    use chrono::Duration;
     use gribberish_types::Parameter;
+
+    #[test]
+    fn negative_time_units_produce_negative_durations() {
+        // NCEP statistically processed products can start before the reference
+        // time, e.g. the -7 hour interval start in NAQFC daily maximum fields.
+        assert_eq!(TimeUnit::Hour.duration(-7), Duration::hours(-7));
+        assert_eq!(TimeUnit::Minute.duration(-90), Duration::minutes(-90));
+        assert_eq!(TimeUnit::SixHours.duration(-2), Duration::hours(-12));
+    }
+
+    // Regression: an out of range time value must clamp rather than panic
+    // inside chrono, so that one corrupt message cannot abort a whole read.
+    #[test]
+    fn out_of_range_time_units_clamp_instead_of_panicking() {
+        let max = TimeUnit::Century.duration(i64::MAX);
+        assert!(max > Duration::zero());
+        assert_eq!(max, TimeUnit::Seconds.duration(i64::MAX));
+
+        let min = TimeUnit::Century.duration(i64::MIN);
+        assert!(min < Duration::zero());
+        assert_eq!(min, TimeUnit::Seconds.duration(i64::MIN));
+    }
 
     // Regression: an unrecognized derived-forecast-type code (PDT 4.2/4.12)
     // must not render as an empty abbreviation. The abbreviation feeds the

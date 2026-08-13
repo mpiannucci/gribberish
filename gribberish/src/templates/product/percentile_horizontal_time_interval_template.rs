@@ -1,6 +1,6 @@
 use crate::templates::template::{Template, TemplateType};
-use crate::utils::{read_u16_from_bytes, read_u32_from_bytes};
-use chrono::{prelude::*, Duration};
+use crate::utils::{read_i32_from_bytes, read_u16_from_bytes, read_u32_from_bytes};
+use chrono::prelude::*;
 
 use super::product_template::ProductTemplate;
 use super::tables::{FixedSurfaceType, GeneratingProcess, TimeUnit, TypeOfStatisticalProcessing};
@@ -110,8 +110,8 @@ impl ProductTemplate for PercentileHorizontalTimeIntervalTemplate {
         self.data().get(54).map(|&v| v.into())
     }
 
-    fn time_interval(&self) -> u32 {
-        read_u32_from_bytes(&self.data, 18).unwrap_or(0)
+    fn time_interval(&self) -> i32 {
+        read_i32_from_bytes(&self.data, 18).unwrap_or(0)
     }
 
     fn time_increment_interval(&self) -> Option<u32> {
@@ -120,11 +120,6 @@ impl ProductTemplate for PercentileHorizontalTimeIntervalTemplate {
         } else {
             None
         }
-    }
-
-    fn forecast_datetime(&self, reference_date: DateTime<Utc>) -> DateTime<Utc> {
-        let offset_duration: Duration = self.time_interval_duration();
-        reference_date + offset_duration
     }
 
     fn forecast_end_datetime(&self, _reference_date: DateTime<Utc>) -> Option<DateTime<Utc>> {

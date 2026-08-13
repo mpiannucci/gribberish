@@ -32,6 +32,18 @@ pub fn read_u32_from_bytes(data: &[u8], offset: usize) -> Option<u32> {
     }
 }
 
+/// Read a two's complement signed 32-bit value.
+///
+/// Most signed GRIB fields use sign-magnitude (see the `as_signed` macro), but the
+/// forecast time in section 4 is written in two's complement by NCEP when the
+/// statistical time interval starts before the reference time.
+pub fn read_i32_from_bytes(data: &[u8], offset: usize) -> Option<i32> {
+    match data.get(offset..offset + 4)?.try_into() {
+        Ok(b) => Some(i32::from_be_bytes(b)),
+        Err(_) => None,
+    }
+}
+
 pub fn read_u64_from_bytes(data: &[u8], offset: usize) -> Option<u64> {
     match data[offset..offset + 8].try_into() {
         Ok(b) => Some(u64::from_be_bytes(b)),
@@ -80,4 +92,24 @@ pub fn read_ibm_f32_from_bytes(data: &[u8], offset: usize) -> Option<f32> {
     }
 
     Some(value as f32)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_i32_from_bytes;
+
+    #[test]
+    fn reads_twos_complement_i32() {
+        // NCEP writes negative GRIB2 forecast times in two's complement:
+        // 0xfffffff9 is the -7 hour interval start in NAQFC daily maximum products.
+        assert_eq!(read_i32_from_bytes(&[0xff, 0xff, 0xff, 0xf9], 0), Some(-7));
+        assert_eq!(read_i32_from_bytes(&[0x00, 0x00, 0x00, 0x17], 0), Some(23));
+        assert_eq!(read_i32_from_bytes(&[0x00, 0x00, 0x00, 0x00], 0), Some(0));
+    }
+
+    #[test]
+    fn returns_none_when_out_of_bounds() {
+        assert_eq!(read_i32_from_bytes(&[0x00, 0x00, 0x00], 0), None);
+        assert_eq!(read_i32_from_bytes(&[0x00, 0x00, 0x00, 0x01], 1), None);
+    }
 }

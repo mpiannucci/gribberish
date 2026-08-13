@@ -702,7 +702,7 @@ impl<'a> Message<'a> {
         }
     }
 
-    pub fn time_interval(&self) -> Result<u32, GribberishError> {
+    pub fn time_interval(&self) -> Result<i32, GribberishError> {
         match self {
             Message::Grib1 { .. } => Ok(0),
             Message::Grib2 { .. } => {
