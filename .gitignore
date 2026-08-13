@@ -6,3 +6,4 @@ temp/
 testdata/
 
 .claude/worktrees
+python/examples/gefs-wave.icechunk/
