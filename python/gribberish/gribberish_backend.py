@@ -2,22 +2,27 @@ import os
 from pathlib import Path
 
 import numpy as np
-import obstore
 import xarray as xr
-from obstore.store import from_url
 from xarray.backends.common import BackendEntrypoint, BackendArray
 from xarray.core import indexing
 
 from gribberish import parse_grib_dataset, parse_grib_array
-from gribberish._index import (
-    HEADER_BYTES,
-    fetch_index_entries,
-    get_ranges_batched,
-    select_ranges,
-)
 
 
 DATA_VAR_LOCK = xr.backends.locks.SerializableLock()
+
+
+def _import_obstore():
+    try:
+        import obstore
+    except ModuleNotFoundError as exc:
+        if exc.name != "obstore":
+            raise
+        raise ImportError(
+            "The gribberish xarray backend requires obstore. "
+            'Install it with: pip install "gribberish[xarray]"'
+        ) from exc
+    return obstore
 
 
 def _store_and_path(filename_or_obj, storage_options):
@@ -28,6 +33,9 @@ def _store_and_path(filename_or_obj, storage_options):
     ``gs://``, ``https://`` …) are passed through. ``storage_options`` are
     forwarded to :func:`obstore.store.from_url` as backend configuration.
     """
+    _import_obstore()
+    from obstore.store import from_url
+
     path = os.fspath(filename_or_obj)
     if "://" not in path:
         path = Path(path).resolve().as_uri()
@@ -91,8 +99,16 @@ def _read_grib_bytes(store, path, use_index, only_variables, drop_variables):
     messages the variable filters might keep. Returns the bytes plus a map of
     buffer offset -> offset in the real file (None when the file was read
     whole and offsets already match)."""
+    obstore = _import_obstore()
     if not use_index:
         return obstore.get(store, path).bytes().to_bytes(), None
+
+    from gribberish._index import (
+        HEADER_BYTES,
+        fetch_index_entries,
+        get_ranges_batched,
+        select_ranges,
+    )
 
     # Missing index (FileNotFoundError) or unparseable index (ValueError,
     # including UnicodeDecodeError for non-text impostors like cfgrib's
@@ -321,6 +337,7 @@ class GribberishBackendArray(BackendArray):
 
     def _raw_indexing_method(self, key: tuple) -> np.typing.ArrayLike:
         # thread safe method that access to data on disk
+        obstore = _import_obstore()
         with self.lock:
             store, path = _store_and_path(self.filename_or_obj, self.storage_options)
             # One ranged read per GRIB message; obstore fetches them in
