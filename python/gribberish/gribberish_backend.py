@@ -103,29 +103,24 @@ def _read_grib_bytes(store, path, use_index, only_variables, drop_variables):
     if not use_index:
         return obstore.get(store, path).bytes().to_bytes(), None
 
-    from gribberish._index import (
-        HEADER_BYTES,
-        fetch_index_entries,
-        get_ranges_batched,
-        select_ranges,
-    )
+    from gribberish import _index
 
     # Missing index (FileNotFoundError) or unparseable index (ValueError,
     # including UnicodeDecodeError for non-text impostors like cfgrib's
     # pickled .idx caches) — "auto" falls back to reading the whole file.
     # Anything else is a real error and propagates regardless of mode.
     try:
-        entries = fetch_index_entries(store, path, use_index)
+        entries = _index.fetch_index_entries(store, path, use_index)
     except (FileNotFoundError, ValueError):
         if use_index == "auto":
             return obstore.get(store, path).bytes().to_bytes(), None
         raise
 
-    ranges = select_ranges(entries, only_variables, drop_variables)
+    ranges = _index.select_ranges(entries, only_variables, drop_variables)
     # Small coalesce so the gaps between kept messages — the messages we
     # filtered out — don't get transferred anyway.
-    chunks = get_ranges_batched(
-        store, path, list(ranges), list(ranges.values()), coalesce=HEADER_BYTES
+    chunks = _index.get_ranges_batched(
+        store, path, list(ranges), list(ranges.values()), coalesce=_index.HEADER_BYTES
     )
     file_offsets = {}
     buffer = bytearray()
