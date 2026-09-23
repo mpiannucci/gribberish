@@ -235,7 +235,7 @@ impl<'a> Message<'a> {
             ""
         };
 
-        // Wave period band (template 4.103) - distinguishes otherwise identical
+        // Wave period band (templates 4.103/4.104) - distinguishes otherwise identical
         // period-banded significant wave height messages from one another.
         let wave_period = match self.wave_period_range().unwrap_or(None) {
             Some((lower, upper)) => {
@@ -502,6 +502,12 @@ impl<'a> Message<'a> {
                 Ok(unit)
             }
             Message::Grib2 { .. } => {
+                // Probability products (templates 4.5 and 4.9) carry the
+                // parameter the threshold applies to, but their values are
+                // percentages rather than that parameter's unit.
+                if self.probability_type()?.is_some() {
+                    return Ok("%".to_string());
+                }
                 let parameter = self.parameter()?;
                 Ok(parameter.unit)
             }
@@ -602,7 +608,7 @@ impl<'a> Message<'a> {
     }
 
     /// Returns the inclusive wave period range `(lower, upper)` in seconds for
-    /// messages that select waves by period band (template 4.103). Returns
+    /// messages that select waves by period band (templates 4.103 and 4.104). Returns
     /// `None` for any other product template.
     pub fn wave_period_range(&self) -> Result<Option<WavePeriodRange>, GribberishError> {
         match self {

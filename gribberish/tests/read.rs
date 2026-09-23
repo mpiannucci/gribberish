@@ -1697,3 +1697,101 @@ fn read_naqfc_alaska_polar_stereographic_grid() {
     assert_eq!(data.len(), 456225);
     assert!((data[1000] - 31.64).abs() < 0.001, "data[1000]");
 }
+
+/// Summary of the defined (non-missing) values of a decoded field:
+/// `(count, min, max, mean)`.
+fn defined_value_stats(data: &[f64]) -> (usize, f64, f64, f64) {
+    let defined = data.iter().cloned().filter(|v| v.is_finite());
+    let (count, min, max, sum) = defined.fold(
+        (0usize, f64::INFINITY, f64::NEG_INFINITY, 0.0),
+        |(count, min, max, sum), v| (count + 1, min.min(v), max.max(v), sum + v),
+    );
+    (count, min, max, sum / count as f64)
+}
+
+#[test]
+fn read_ecmwf_ifs_wave_period_range_hres() {
+    // ECMWF IFS HRES h1012 (significant wave height, periods 10-12 s), step 24.
+    // IFS encodes its period bands with PDT 4.104 - the ensemble variant of
+    // 4.103 - even for the deterministic run, which is member 0.
+    // Source: ecmwf-open-data 20260921/12z/ifs/0p25/wave/20260921120000-24h-wave-fc.grib2
+    // bytes 0-803074. Expected values from eccodes (grib_get).
+    let grib_data = read_grib_messages("../test-data/ecmwf-ifs-wave-h1012-hres.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let h1012 = &messages[0];
+    assert_eq!(h1012.product_template_id().unwrap(), 104);
+    assert_eq!(h1012.variable_abbrev().unwrap(), "HTSGW");
+    assert_eq!(h1012.unit().unwrap(), "m");
+    assert_eq!(
+        h1012.wave_period_range().unwrap(),
+        Some((Some(10.0), Some(12.0)))
+    );
+    assert_eq!(h1012.perturbation_number().unwrap(), Some(0));
+    assert_eq!(h1012.number_of_ensemble_members().unwrap(), Some(0));
+    assert_eq!(
+        h1012.forecast_date().unwrap(),
+        Utc.with_ymd_and_hms(2026, 9, 22, 12, 0, 0).unwrap()
+    );
+
+    let key = h1012.key().unwrap();
+    assert!(key.contains(":per10-12s"), "key missing period band: {key}");
+    assert!(key.contains(":ens0"), "key missing perturbation: {key}");
+
+    let data = h1012.data().unwrap();
+    assert_eq!(data.len(), 1440 * 721);
+    let (count, min, max, mean) = defined_value_stats(&data);
+    assert_eq!(count, 665628, "defined value count");
+    assert!((min - 0.001245).abs() < 1e-5, "min was {min}");
+    assert!((max - 4.655786).abs() < 1e-4, "max was {max}");
+    assert!((mean - 0.855334).abs() < 1e-4, "mean was {mean}");
+}
+
+#[test]
+fn read_ecmwf_ifs_wave_period_range_ens() {
+    // ECMWF IFS ENS member 1 h1417 (significant wave height, periods 14-17 s),
+    // step 24, PDT 4.104.
+    // Source: ecmwf-open-data 20260921/12z/ifs/0p25/waef/20260921120000-24h-waef-ef.grib2
+    // bytes 102676537-103434707. Expected values from eccodes (grib_get).
+    let grib_data = read_grib_messages("../test-data/ecmwf-ifs-wave-h1417-ens.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+    assert_eq!(messages.len(), 1);
+
+    let h1417 = &messages[0];
+    assert_eq!(h1417.product_template_id().unwrap(), 104);
+    assert_eq!(h1417.variable_abbrev().unwrap(), "HTSGW");
+    assert_eq!(h1417.unit().unwrap(), "m");
+    assert_eq!(
+        h1417.wave_period_range().unwrap(),
+        Some((Some(14.0), Some(17.0)))
+    );
+    assert_eq!(h1417.perturbation_number().unwrap(), Some(1));
+    assert_eq!(h1417.number_of_ensemble_members().unwrap(), Some(51));
+
+    let key = h1417.key().unwrap();
+    assert!(key.contains(":per14-17s"), "key missing period band: {key}");
+    assert!(key.contains(":ens1"), "key missing perturbation: {key}");
+
+    let data = h1417.data().unwrap();
+    assert_eq!(data.len(), 1440 * 721);
+    let (count, min, max, mean) = defined_value_stats(&data);
+    assert_eq!(count, 665628, "defined value count");
+    assert!((min - 0.001127).abs() < 1e-5, "min was {min}");
+    assert!((max - 6.071440).abs() < 1e-4, "max was {max}");
+    assert!((mean - 0.594546).abs() < 1e-4, "mean was {mean}");
+}
+
+#[test]
+fn probability_template_unit_is_percent() {
+    // PDT 4.5 probabilities carry the thresholded parameter (here PWAT, kg m-2)
+    // but their values are percentages (0-100).
+    let grib_data = read_grib_messages("../test-data/nbm-pwat-prob-above.grib2");
+    let messages = read_messages(grib_data.as_slice()).collect::<Vec<Message>>();
+
+    for message in &messages {
+        assert_eq!(message.product_template_id().unwrap(), 5);
+        assert_eq!(message.variable_abbrev().unwrap(), "PWAT");
+        assert_eq!(message.unit().unwrap(), "%");
+    }
+}
