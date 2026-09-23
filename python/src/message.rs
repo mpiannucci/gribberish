@@ -66,7 +66,7 @@ impl GribMessageMetadata {
     }
 
     /// Inclusive `(lower, upper)` wave period range in seconds for period-banded
-    /// wave fields (template 4.103), or `None` for any other product.
+    /// wave fields (templates 4.103 and 4.104), or `None` for any other product.
     #[getter]
     fn wave_period_range(&self) -> Option<WavePeriodRange> {
         self.inner.wave_period_range

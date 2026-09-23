@@ -73,7 +73,7 @@ pub trait ProductTemplate {
     }
 
     /// Returns the inclusive wave period range `(lower, upper)` in seconds for
-    /// templates that select waves by period band (e.g. template 4.103). Either
+    /// templates that select waves by period band (templates 4.103 and 4.104). Either
     /// limit may be `None` if the range is open ended. Returns `None` for
     /// templates that do not define a wave period range.
     fn wave_period_range(&self) -> Option<WavePeriodRange> {
