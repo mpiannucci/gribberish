@@ -1,7 +1,7 @@
 extern crate gribberish;
 
 use chrono::{TimeZone, Utc};
-use gribberish::message::{read_messages, Message};
+use gribberish::message::{read_message, read_messages, Message};
 use gribberish::templates::product::tables::{DerivedForecastType, TypeOfStatisticalProcessing};
 use std::time::Instant;
 use std::vec::Vec;
@@ -1794,4 +1794,16 @@ fn probability_template_unit_is_percent() {
         assert_eq!(message.variable_abbrev().unwrap(), "PWAT");
         assert_eq!(message.unit().unwrap(), "%");
     }
+}
+
+#[test]
+fn read_complex_packed_all_missing_primary() {
+    // DRT 5.2 with missing-value management 1: one width-0 group whose reference is the
+    // all-ones pattern, so the whole field is missing (no bitmap).
+    let grib_data =
+        read_grib_messages("../test-data/rrfs.t00z.2dfld.3km.f002.conus-SPFH-all-missing.grib2");
+    let message = read_message(grib_data.as_slice(), 0).expect("message not found");
+    let data = message.data().unwrap();
+    assert_eq!(data.len(), 1_905_141);
+    assert!(data.iter().all(|v| v.is_nan()));
 }
