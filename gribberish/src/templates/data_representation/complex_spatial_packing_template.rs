@@ -135,6 +135,12 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
     }
 
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
+        let ng = self.number_of_groups() as usize;
+        if ng == 0 {
+            let count = read_u32_from_bytes(self.data.as_slice(), 5).unwrap() as usize;
+            // Zero-group constants store the final value in the reference, without scaling.
+            return Ok(vec![self.reference_value() as f64; count]);
+        }
         let bits_for_differencing = self.number_of_octets_for_differencing() as usize * 8;
         let mut idx = 0;
         let d1: u32 = bits[idx..idx + bits_for_differencing].load_be();
@@ -155,7 +161,6 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         idx += bits_for_differencing;
 
         let group_reference_start = idx;
-        let ng = self.number_of_groups() as usize;
         let n_reference_bits = self.bit_count() as usize;
         let group_references = (0..ng).map(|ig| {
             if n_reference_bits == 0 {

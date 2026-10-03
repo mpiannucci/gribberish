@@ -124,6 +124,11 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
 
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         let ng = self.number_of_groups() as usize;
+        if ng == 0 {
+            let count = read_u32_from_bytes(self.data.as_slice(), 5).unwrap() as usize;
+            // Zero-group constants store the final value in the reference, without scaling.
+            return Ok(vec![self.reference_value() as f64; count]);
+        }
         let nbits = self.bit_count() as usize;
 
         let group_references = (0..ng).map(|ig| {
