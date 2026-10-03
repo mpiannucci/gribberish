@@ -131,7 +131,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
                 0
             } else {
                 let start = ig * nbits;
-                bits[start..start + nbits].load::<u32>()
+                bits[start..start + nbits].load_be::<u32>()
             }
         });
 
@@ -164,7 +164,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         let mut pos =
             group_lengths_start + (((n_length_bits * ng) as f32 / 8.0).ceil() as usize * 8);
 
-        // GRIB2 92.9.4 uses the group reference for missing points in zero-width groups.
+        // GRIB2 template 5.2 note 10 puts zero-width missing patterns in the group reference.
         let missing_management = self.missing_value_management();
         let has_primary_missing = missing_management != MissingValueManagement::NoMissingValues;
         let has_secondary_missing =
@@ -316,5 +316,106 @@ mod tests {
         assert_values(unpack_values(&section5, &[0, 0x20]), &[f64::NAN, f64::NAN]);
         section5[22] = 0;
         assert_values(unpack_values(&section5, &[0, 0x20]), &[0.0, 0.0]);
+    }
+
+    #[test]
+    fn defined_16_bit_reference_is_not_a_secondary_missing_marker() {
+        for management in [2, 1, 0] {
+            let mut section5 = NB32_SECTION5;
+            section5[19] = 16;
+            section5[22] = management;
+            assert_values(
+                unpack_values(&section5, &[0xfe, 0xff, 0x00, 0x20]),
+                &[65279.0, 65279.0],
+            );
+        }
+    }
+
+    #[test]
+    fn secondary_16_bit_reference_respects_missing_management() {
+        for management in [2, 1, 0] {
+            let mut section5 = NB32_SECTION5;
+            section5[19] = 16;
+            section5[22] = management;
+            let expected = if management == 2 { f64::NAN } else { 65534.0 };
+            assert_values(
+                unpack_values(&section5, &[0xff, 0xfe, 0x00, 0x20]),
+                &[expected, expected],
+            );
+        }
+    }
+
+    #[test]
+    fn primary_16_bit_reference_respects_missing_management() {
+        for management in [2, 1, 0] {
+            let mut section5 = NB32_SECTION5;
+            section5[19] = 16;
+            section5[22] = management;
+            let expected = if management == 0 { 65535.0 } else { f64::NAN };
+            assert_values(
+                unpack_values(&section5, &[0xff, 0xff, 0x00, 0x20]),
+                &[expected, expected],
+            );
+        }
+    }
+
+    #[test]
+    fn byte_straddling_reference_is_decoded_before_missing_classification() {
+        let mut section5 = NB32_SECTION5;
+        section5[19] = 7;
+        section5[31..35].copy_from_slice(&2u32.to_be_bytes());
+        section5[36] = 8;
+        section5[42..46].copy_from_slice(&1u32.to_be_bytes());
+        section5[46] = 8;
+        for management in [2, 1, 0] {
+            section5[22] = management;
+            for reference in [125u8, 126, 127] {
+                let missing =
+                    (management != 0 && reference == 127) || (management == 2 && reference == 126);
+                let expected = if missing { f64::NAN } else { reference as f64 };
+                assert_values(
+                    unpack_values(&section5, &[0x0b, reference << 2, 0, 0, 1, 1]),
+                    &[5.0, expected],
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn secondary_missing_reference_at_32_bits_does_not_overflow() {
+        let mut section5 = NB32_SECTION5;
+        section5[22] = 2;
+        assert_values(
+            unpack_values(&section5, &[0xff, 0xff, 0xff, 0xfe, 0x00, 0x20]),
+            &[f64::NAN, f64::NAN],
+        );
+    }
+
+    #[test]
+    fn packed_32_bit_missing_markers_do_not_overflow() {
+        let mut section5 = NB32_SECTION5;
+        section5[5..9].copy_from_slice(&3u32.to_be_bytes());
+        section5[19] = 8;
+        section5[36] = 8;
+        section5[42..46].copy_from_slice(&3u32.to_be_bytes());
+        section5[46] = 8;
+        section5[22] = 2;
+        assert_values(
+            unpack_values(
+                &section5,
+                &[
+                    0, 32, 3, 0, 0, 0, 7, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe,
+                ],
+            ),
+            &[7.0, f64::NAN, f64::NAN],
+        );
+        section5[22] = 1;
+        assert_values(
+            unpack_values(
+                &section5,
+                &[0, 32, 3, 0, 0, 0, 7, 0xff, 0xff, 0xff, 0xff, 0, 0, 0, 8],
+            ),
+            &[7.0, f64::NAN, 8.0],
+        );
     }
 }
