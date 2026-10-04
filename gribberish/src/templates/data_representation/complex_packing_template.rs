@@ -126,7 +126,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         let ng = self.number_of_groups() as usize;
         if ng == 0 {
             let count = read_u32_from_bytes(self.data.as_slice(), 5).unwrap() as usize;
-            // Zero-group constants store the final value in the reference, without scaling.
+            // NCEP zero-group constants use the reference without scaling.
             return Ok(vec![self.reference_value() as f64; count]);
         }
         let nbits = self.bit_count() as usize;
