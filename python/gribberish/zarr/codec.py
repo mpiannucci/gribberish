@@ -58,6 +58,9 @@ class GribberishCodec(ArrayBytesCodec):
             return {"name": "gribberish"}
         return {"name": "gribberish", "configuration": configuration}
 
+    def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
+        raise NotImplementedError
+
     async def _decode_single(
         self,
         chunk_data: Buffer,
