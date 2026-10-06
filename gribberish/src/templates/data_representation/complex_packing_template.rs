@@ -131,7 +131,7 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
                 0
             } else {
                 let start = ig * nbits;
-                bits[start..start + nbits].load::<u32>()
+                bits[start..start + nbits].load_be::<u32>()
             }
         });
 
@@ -163,6 +163,22 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
 
         let mut pos =
             group_lengths_start + (((n_length_bits * ng) as f32 / 8.0).ceil() as usize * 8);
+
+        // GRIB2 template 5.2 note 10 puts zero-width missing patterns in the group reference.
+        let missing_management = self.missing_value_management();
+        let has_primary_missing = missing_management != MissingValueManagement::NoMissingValues;
+        let has_secondary_missing =
+            missing_management == MissingValueManagement::IncludesMissingPrimarySecondary;
+        let is_missing = move |value: u32, field_bits: usize| -> bool {
+            let all_ones = if field_bits == 0 {
+                0
+            } else {
+                u32::MAX >> (32 - field_bits)
+            };
+            (has_primary_missing && value == all_ones)
+                || (has_secondary_missing && field_bits != 0 && value == all_ones - 1)
+        };
+
         let values = izip!(group_references, group_widths, group_lengths)
             .flat_map(|(reference, width, length)| {
                 let n_bits = (width * length) as usize;
@@ -174,8 +190,17 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
                             ..pos + (i * width) as usize + width as usize]
                             .load_be::<u32>()
                     };
-                    let raw = as_signed!(value, 32, i32);
-                    raw + reference as i32
+                    let missing = if width == 0 {
+                        is_missing(reference, nbits)
+                    } else {
+                        is_missing(value, width as usize)
+                    };
+                    if missing {
+                        f64::NAN
+                    } else {
+                        let raw = as_signed!(value, 32, i32);
+                        (raw + reference as i32) as f64
+                    }
                 });
 
                 pos += n_bits;
@@ -190,5 +215,207 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
             .collect();
 
         Ok(values)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Section 5 (47 bytes, DRT 5.2) and the section 7 payload: group references, widths,
+    // lengths, then packed values.
+    const PRIMARY_SECTION5: [u8; 47] = [
+        0x00, 0x00, 0x00, 0x2f, 0x05, 0x00, 0x00, 0x00, 0x09, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x01, 0x01, 0x62, 0x58, 0xd1, 0x9a, 0xff, 0xff, 0xff,
+        0xff, 0x00, 0x00, 0x00, 0x03, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x03, 0x04,
+    ];
+    const PRIMARY_PACKED: [u8; 9] = [0x0a, 0xff, 0x05, 0x30, 0x00, 0x42, 0x30, 0x07, 0xb0];
+    const SECONDARY_SECTION5: [u8; 47] = [
+        0x00, 0x00, 0x00, 0x2f, 0x05, 0x00, 0x00, 0x00, 0x09, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x01, 0x02, 0x62, 0x58, 0xd1, 0x9a, 0xff, 0xff, 0xff,
+        0xff, 0x00, 0x00, 0x00, 0x03, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x03, 0x04,
+    ];
+    const SECONDARY_PACKED: [u8; 9] = [0x0a, 0xfe, 0x05, 0x30, 0x00, 0x42, 0x30, 0x1b, 0xb0];
+    const NONE_SECTION5: [u8; 47] = [
+        0x00, 0x00, 0x00, 0x2f, 0x05, 0x00, 0x00, 0x00, 0x09, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x01, 0x00, 0x62, 0x58, 0xd1, 0x9a, 0xff, 0xff, 0xff,
+        0xff, 0x00, 0x00, 0x00, 0x03, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x03, 0x04,
+    ];
+    const NONE_PACKED: [u8; 9] = [0x0a, 0xff, 0x05, 0x30, 0x00, 0x42, 0x30, 0x07, 0xb0];
+    const NB32_SECTION5: [u8; 47] = [
+        0x00, 0x00, 0x00, 0x2f, 0x05, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x01, 0x01, 0x62, 0x58, 0xd1, 0x9a, 0xff, 0xff, 0xff,
+        0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x02, 0x04,
+    ];
+    const NB32_PACKED: [u8; 6] = [0xff, 0xff, 0xff, 0xff, 0x00, 0x20];
+
+    fn unpack_values(section5: &[u8], packed: &[u8]) -> Vec<f64> {
+        ComplexPackingDataRepresentationTemplate::new(section5.to_vec())
+            .unpack(packed.view_bits::<Msb0>())
+            .unwrap()
+    }
+
+    fn assert_values(actual: Vec<f64>, expected: &[f64]) {
+        assert_eq!(actual.len(), expected.len());
+        for (a, e) in actual.iter().zip(expected) {
+            assert!(
+                (a.is_nan() && e.is_nan()) || a == e,
+                "actual {actual:?} expected {expected:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn primary_missing_in_packed_values_and_in_width_zero_group_reference() {
+        let nan = f64::NAN;
+        assert_values(
+            unpack_values(&PRIMARY_SECTION5, &PRIMARY_PACKED),
+            &[10.0, 11.0, nan, 13.0, nan, nan, 5.0, 5.0, 5.0],
+        );
+    }
+
+    #[test]
+    fn secondary_pattern_is_missing_only_with_secondary_management() {
+        let nan = f64::NAN;
+        assert_values(
+            unpack_values(&SECONDARY_SECTION5, &SECONDARY_PACKED),
+            &[10.0, nan, nan, 13.0, nan, nan, 5.0, 5.0, 5.0],
+        );
+        let mut section5 = SECONDARY_SECTION5;
+        section5[22] = 1;
+        assert_values(
+            unpack_values(&section5, &SECONDARY_PACKED),
+            &[10.0, 16.0, nan, 13.0, 254.0, 254.0, 5.0, 5.0, 5.0],
+        );
+    }
+
+    #[test]
+    fn all_ones_is_a_number_without_missing_value_management() {
+        assert_values(
+            unpack_values(&NONE_SECTION5, &NONE_PACKED),
+            &[10.0, 11.0, 17.0, 13.0, 255.0, 255.0, 5.0, 5.0, 5.0],
+        );
+    }
+
+    #[test]
+    fn missing_reference_at_32_bits_does_not_overflow() {
+        assert_values(
+            unpack_values(&NB32_SECTION5, &NB32_PACKED),
+            &[f64::NAN, f64::NAN],
+        );
+    }
+
+    #[test]
+    fn zero_bit_group_reference_respects_missing_management() {
+        let mut section5 = NB32_SECTION5;
+        section5[19] = 0;
+        assert_values(unpack_values(&section5, &[0, 0x20]), &[f64::NAN, f64::NAN]);
+        section5[22] = 0;
+        assert_values(unpack_values(&section5, &[0, 0x20]), &[0.0, 0.0]);
+    }
+
+    #[test]
+    fn defined_16_bit_reference_is_not_a_secondary_missing_marker() {
+        for management in [2, 1, 0] {
+            let mut section5 = NB32_SECTION5;
+            section5[19] = 16;
+            section5[22] = management;
+            assert_values(
+                unpack_values(&section5, &[0xfe, 0xff, 0x00, 0x20]),
+                &[65279.0, 65279.0],
+            );
+        }
+    }
+
+    #[test]
+    fn secondary_16_bit_reference_respects_missing_management() {
+        for management in [2, 1, 0] {
+            let mut section5 = NB32_SECTION5;
+            section5[19] = 16;
+            section5[22] = management;
+            let expected = if management == 2 { f64::NAN } else { 65534.0 };
+            assert_values(
+                unpack_values(&section5, &[0xff, 0xfe, 0x00, 0x20]),
+                &[expected, expected],
+            );
+        }
+    }
+
+    #[test]
+    fn primary_16_bit_reference_respects_missing_management() {
+        for management in [2, 1, 0] {
+            let mut section5 = NB32_SECTION5;
+            section5[19] = 16;
+            section5[22] = management;
+            let expected = if management == 0 { 65535.0 } else { f64::NAN };
+            assert_values(
+                unpack_values(&section5, &[0xff, 0xff, 0x00, 0x20]),
+                &[expected, expected],
+            );
+        }
+    }
+
+    #[test]
+    fn byte_straddling_reference_is_decoded_before_missing_classification() {
+        let mut section5 = NB32_SECTION5;
+        section5[19] = 7;
+        section5[31..35].copy_from_slice(&2u32.to_be_bytes());
+        section5[36] = 8;
+        section5[42..46].copy_from_slice(&1u32.to_be_bytes());
+        section5[46] = 8;
+        for management in [2, 1, 0] {
+            section5[22] = management;
+            for reference in [125u8, 126, 127] {
+                let missing =
+                    (management != 0 && reference == 127) || (management == 2 && reference == 126);
+                let expected = if missing { f64::NAN } else { reference as f64 };
+                assert_values(
+                    unpack_values(&section5, &[0x0b, reference << 2, 0, 0, 1, 1]),
+                    &[5.0, expected],
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn secondary_missing_reference_at_32_bits_does_not_overflow() {
+        let mut section5 = NB32_SECTION5;
+        section5[22] = 2;
+        assert_values(
+            unpack_values(&section5, &[0xff, 0xff, 0xff, 0xfe, 0x00, 0x20]),
+            &[f64::NAN, f64::NAN],
+        );
+    }
+
+    #[test]
+    fn packed_32_bit_missing_markers_do_not_overflow() {
+        let mut section5 = NB32_SECTION5;
+        section5[5..9].copy_from_slice(&3u32.to_be_bytes());
+        section5[19] = 8;
+        section5[36] = 8;
+        section5[42..46].copy_from_slice(&3u32.to_be_bytes());
+        section5[46] = 8;
+        section5[22] = 2;
+        assert_values(
+            unpack_values(
+                &section5,
+                &[
+                    0, 32, 3, 0, 0, 0, 7, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe,
+                ],
+            ),
+            &[7.0, f64::NAN, f64::NAN],
+        );
+        section5[22] = 1;
+        assert_values(
+            unpack_values(
+                &section5,
+                &[0, 32, 3, 0, 0, 0, 7, 0xff, 0xff, 0xff, 0xff, 0, 0, 0, 8],
+            ),
+            &[7.0, f64::NAN, 8.0],
+        );
     }
 }
