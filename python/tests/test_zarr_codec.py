@@ -1,3 +1,4 @@
+from inspect import getmembers
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,17 @@ TEST_DATA = Path(__file__).resolve().parents[2] / "test-data"
 GEAVG = "geavg.t12z.pgrb2a.0p50.f000"
 GEAVG_SHAPE = (361, 720)
 GEAVG_ROLL = 360
+
+
+def test_codec_has_no_abstract_methods():
+    from gribberish.zarr.codec import GribberishCodec
+
+    abstract_methods = [
+        name
+        for name, method in getmembers(GribberishCodec)
+        if getattr(method, "__isabstractmethod__", False)
+    ]
+    assert abstract_methods == []
 
 
 async def _decode(codec, raw, shape, dtype="float64"):
