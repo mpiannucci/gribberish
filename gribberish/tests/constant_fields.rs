@@ -2,6 +2,9 @@ use bitvec::prelude::*;
 use gribberish::message::read_messages;
 use gribberish::sections::data_representation::DataRepresentationSection;
 
+// These single-message fixtures come from the public NOAA RRFS bucket. Both use DRT 5.3
+// with zero groups, zero spatial-descriptor octets, missing-value management 0, and no
+// bitmap. The grid is 1059 × 1799, and Section 7 has no packed payload.
 const NONZERO: &[u8] = include_bytes!("../../test-data/20260915-12-prob-f01-22.grib2");
 const ZERO: &[u8] = include_bytes!("../../test-data/20260915-12-sprd-f01-63.grib2");
 

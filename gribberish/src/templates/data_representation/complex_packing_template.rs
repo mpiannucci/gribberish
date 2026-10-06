@@ -1,3 +1,4 @@
+use crate::sections::data_representation::DataRepresentationSection;
 use bitvec::prelude::*;
 
 use crate::{error::GribberishError, utils::iter::ScaleGribValueIterator};
@@ -125,11 +126,11 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         let ng = self.number_of_groups() as usize;
         if ng == 0 {
-            let count = read_u32_from_bytes(self.data.as_slice(), 5).unwrap() as usize;
-            // Match ecCodes and GDAL's bundled g2c: zero-group constants return the unscaled reference.
-            // ecCodes: https://github.com/ecmwf/eccodes/blob/161bfaf69dc3627ee1e08b0771a0ab82f3fbec10/src/eccodes/accessor/DataG22OrderPacking.cc#L1587-L1593
-            // GDAL: https://github.com/OSGeo/gdal/blob/0e3e27c90f57130232d215d783ff49cc332cd950/frmts/grib/degrib/g2clib/comunpack.c#L70-L87
-            // NCEP scaling compatibility: https://www.cpc.ncep.noaa.gov/products/wesley/wgrib2/g2clib.html
+            let count = DataRepresentationSection::from_data(&self.data).data_point_count();
+            // Decode zero-group constants as the reference value without scaling.
+            // This follows a long-standing NCEP convention arising from a decimal-scaling bug:
+            // https://www.cpc.ncep.noaa.gov/products/wesley/wgrib2/g2clib.html
+            // We match wgrib2, ecCodes and GDAL default behavior.
             return Ok(vec![self.reference_value() as f64; count]);
         }
         let nbits = self.bit_count() as usize;
