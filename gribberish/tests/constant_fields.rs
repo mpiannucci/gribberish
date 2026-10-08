@@ -7,6 +7,11 @@ use gribberish::sections::data_representation::DataRepresentationSection;
 // bitmap. The grid is 1059 × 1799, and Section 7 has no packed payload.
 const NONZERO: &[u8] = include_bytes!("../../test-data/20260915-12-prob-f01-22.grib2");
 const ZERO: &[u8] = include_bytes!("../../test-data/20260915-12-sprd-f01-63.grib2");
+// HRRR wrfprsf00 DPT at 100 mb from the public NOAA HRRR bucket (hrrr.20261008, t20z).
+// DRT 5.0 with a zero bit width, reference value 192.12479 K, no bitmap, and a
+// one-octet Section 7. The grid is 1059 × 1799.
+const SIMPLE: &[u8] =
+    include_bytes!("../../test-data/hrrr.t20z.wrfprsf00-DPT-100mb-constant.grib2");
 
 fn sections(message: &[u8]) -> Vec<Vec<u8>> {
     let mut offset = 16;
@@ -32,7 +37,11 @@ fn constant_section(
     decimal_scale: i16,
     missing_management: u8,
 ) -> Vec<u8> {
-    let length = if template == 3 { 49 } else { 47 };
+    let length = match template {
+        0 => 21,
+        3 => 49,
+        _ => 47,
+    };
     let mut section = vec![0u8; length];
     section[..4].copy_from_slice(&(length as u32).to_be_bytes());
     section[4] = 5;
@@ -41,6 +50,9 @@ fn constant_section(
     section[11..15].copy_from_slice(&12.5f32.to_be_bytes());
     section[15..17].copy_from_slice(&signed_scale(binary_scale));
     section[17..19].copy_from_slice(&signed_scale(decimal_scale));
+    if template == 0 {
+        return section;
+    }
     section[21] = 1;
     section[22] = missing_management;
     section[23..27].copy_from_slice(&(-9999.0f32).to_be_bytes());
@@ -127,7 +139,7 @@ fn read_real_zero_group_constants() {
 
 #[test]
 fn nonzero_constant_survives_message_decode() {
-    for (template, order) in [(2, 0), (3, 1), (3, 2)] {
+    for (template, order) in [(0, 0), (2, 0), (3, 1), (3, 2)] {
         let message = constant_message(template, order, false);
         let decoded = read_messages(&message).next().unwrap();
         assert_eq!(decoded.grid_dimensions().unwrap(), (2, 4));
@@ -138,7 +150,7 @@ fn nonzero_constant_survives_message_decode() {
 
 #[test]
 fn zero_group_constants_expand_bitmap_without_losing_missing_cells() {
-    for (template, order) in [(2, 0), (3, 1), (3, 2)] {
+    for (template, order) in [(0, 0), (2, 0), (3, 1), (3, 2)] {
         let message = constant_message(template, order, true);
         let messages: Vec<_> = read_messages(&message).collect();
         assert_eq!(messages.len(), 1);
@@ -155,4 +167,43 @@ fn zero_group_constants_expand_bitmap_without_losing_missing_cells() {
             }
         }
     }
+}
+
+#[test]
+fn zero_bit_simple_packing_uses_section5_count_and_unscaled_reference() {
+    // g2c simunpack and ecCodes data_simple_packing return the reference value for
+    // every point when the bit width is zero, whatever the scale factors.
+    let empty = BitSlice::<u8, Msb0>::empty();
+    for count in [0, 1, 7] {
+        for binary_scale in [-17, 0, 17] {
+            for decimal_scale in [-2, 0, 2] {
+                let section = constant_section(0, 0, count, binary_scale, decimal_scale, 0);
+                let representation = DataRepresentationSection::from_data(&section);
+                let values = representation
+                    .data_representation_template()
+                    .unwrap()
+                    .unpack(empty)
+                    .unwrap();
+                assert_eq!(values, vec![12.5; count as usize]);
+            }
+        }
+    }
+}
+
+#[test]
+fn read_real_simple_packing_constant() {
+    let section5 = sections(SIMPLE)
+        .into_iter()
+        .find(|section| section[4] == 5)
+        .unwrap();
+    assert_eq!(u16::from_be_bytes([section5[9], section5[10]]), 0);
+    assert_eq!(section5[19], 0);
+    let messages: Vec<_> = read_messages(SIMPLE).collect();
+    assert_eq!(messages.len(), 1);
+    let message = &messages[0];
+    assert_eq!(message.grid_dimensions().unwrap(), (1059, 1799));
+    assert!(!message.has_bitmap());
+    let values = message.data().unwrap();
+    assert_eq!(values.len(), 1059 * 1799);
+    assert!(values.iter().all(|&value| value == 192.12478637695312));
 }
