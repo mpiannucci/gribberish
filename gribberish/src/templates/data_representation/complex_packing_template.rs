@@ -148,10 +148,10 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
         let n_width_bits = self.group_width_bits() as usize;
         let group_widths = (0..ng).map(|ig| {
             if n_width_bits == 0 {
-                0
+                self.group_width_reference() as u32
             } else {
                 let start = group_widths_start + ig * n_width_bits;
-                bits[start..start + n_width_bits].load::<u32>()
+                bits[start..start + n_width_bits].load_be::<u32>()
                     + self.group_width_reference() as u32
             }
         });
@@ -160,11 +160,14 @@ impl DataRepresentationTemplate<f64> for ComplexPackingDataRepresentationTemplat
             group_widths_start + (((n_width_bits * ng) as f32 / 8.0).ceil() as usize * 8);
         let n_length_bits = self.group_length_bits() as usize;
         let group_lengths = (0..ng).map(|ig| {
-            if n_length_bits == 0 {
-                0
+            // The last group uses its explicit length, not the scaled descriptor.
+            if ig == ng - 1 {
+                self.group_last_length()
+            } else if n_length_bits == 0 {
+                self.group_length_reference()
             } else {
                 let start = group_lengths_start + ig * n_length_bits;
-                bits[start..start + n_length_bits].load::<u32>()
+                bits[start..start + n_length_bits].load_be::<u32>()
                     * self.group_length_increment() as u32
                     + self.group_length_reference()
             }

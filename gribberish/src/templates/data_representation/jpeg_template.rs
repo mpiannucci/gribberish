@@ -1,3 +1,4 @@
+use crate::sections::data_representation::DataRepresentationSection;
 use bitvec::prelude::*;
 
 use super::data_representation_template::DataRepresentationTemplate;
@@ -84,8 +85,9 @@ impl DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate {
 
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         if self.bit_count() == 0 {
-            // Constant field: all values equal the reference value
-            return Ok(vec![]);
+            // Match the unscaled-reference convention used by simple packing.
+            let count = DataRepresentationSection::from_data(&self.data).data_point_count();
+            return Ok(vec![self.reference_value() as f64; count]);
         }
 
         let bytes: Vec<u8> = bits.to_bitvec().into();

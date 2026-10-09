@@ -28,9 +28,6 @@ impl<'a> BitmapSection<'a> {
         let bitmask = self.raw_bitmap_data().view_bits::<Msb0>();
         let mut data = Vec::new();
         data.resize(bitmask.len(), 0.0);
-        if unmapped_data.is_empty() {
-            return data;
-        }
 
         for (i, mask) in bitmask.iter().enumerate() {
             data[i] = match *mask {
