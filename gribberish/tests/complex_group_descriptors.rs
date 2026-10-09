@@ -351,6 +351,36 @@ fn empty_decoded_data_maps_to_an_all_missing_bitmap() {
 }
 
 #[test]
+fn insufficient_decoded_values_make_the_entire_bitmap_missing() {
+    let bitmap = BitmapSection::from_data(&[0, 0, 0, 7, 6, 0, 0b01001010]);
+    for decoded in [vec![], vec![12.5], vec![12.5, 25.0]] {
+        let values = bitmap.map_data(decoded);
+        assert_eq!(values.len(), 8);
+        assert!(values.iter().all(|value| value.is_nan()));
+    }
+}
+
+#[test]
+fn sufficient_decoded_values_preserve_bitmap_mapping() {
+    let bitmap = BitmapSection::from_data(&[0, 0, 0, 7, 6, 0, 0b01001010]);
+    for decoded in [vec![12.5, 25.0, 50.0], vec![12.5, 25.0, 50.0, 100.0]] {
+        assert_values(
+            &bitmap.map_data(decoded),
+            &[
+                f64::NAN,
+                12.5,
+                f64::NAN,
+                f64::NAN,
+                25.0,
+                f64::NAN,
+                50.0,
+                f64::NAN,
+            ],
+        );
+    }
+}
+
+#[test]
 fn zero_count_all_missing_bitmap_survives_message_decode() {
     // Use ten grid cells to also verify that padding bitmap bits are trimmed.
     // Existing constant_fields tests cover zero-group constants with defined
