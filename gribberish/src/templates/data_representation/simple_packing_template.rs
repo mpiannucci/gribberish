@@ -1,3 +1,4 @@
+use crate::sections::data_representation::DataRepresentationSection;
 use bitvec::prelude::*;
 
 use super::data_representation_template::DataRepresentationTemplate;
@@ -77,7 +78,11 @@ impl DataRepresentationTemplate<f64> for SimplePackingDataRepresentationTemplate
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         let bits_per_val: usize = self.bit_count().into();
         if bits_per_val == 0 {
-            return Ok(vec![]);
+            let count = DataRepresentationSection::from_data(&self.data).data_point_count();
+            // A zero bit width is a constant field: every value is the reference value,
+            // without scaling. We match the NCEP g2c and ecCodes simple-packing decoders,
+            // and the zero-group convention in the complex packing templates.
+            return Ok(vec![self.reference_value() as f64; count]);
         }
 
         let values = (0..bits.len())
