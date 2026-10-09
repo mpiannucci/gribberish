@@ -53,7 +53,7 @@ jobs:
         with:
           working-directory: python
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i 3.11 -i 3.12 -i 3.13 -i 3.14 -i pypy3.11
+          args: --release --out dist -i 3.12 -i 3.14t -i 3.15t -i pypy3.11
           sccache: 'true'
           manylinux: auto
       - name: Upload wheels
@@ -83,7 +83,7 @@ jobs:
         with:
           working-directory: python
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i 3.11 -i 3.12 -i 3.13 -i 3.14 -i pypy3.11
+          args: --release --out dist -i 3.12 -i 3.14t -i 3.15t -i pypy3.11
           sccache: 'true'
           manylinux: musllinux_1_2
       - name: Upload wheels
@@ -103,14 +103,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.x
+          python-version: |
+            3.12
+            3.14t
+            3.15t
+          allow-prereleases: true
           architecture: ${{ matrix.platform.target }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           working-directory: python
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i 3.11 -i 3.12 -i 3.13 -i 3.14
+          args: --release --out dist -i 3.12 -i 3.14t -i 3.15t
           sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -131,13 +135,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.x
+          python-version: |
+            3.12
+            3.14t
+            3.15t
+          allow-prereleases: true
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           working-directory: python
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i 3.11 -i 3.12 -i 3.13 -i 3.14 -i pypy3.11
+          args: --release --out dist -i 3.12 -i 3.14t -i 3.15t -i pypy3.11
           sccache: 'true'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -146,20 +154,41 @@ jobs:
           path: python/dist
 
   test:
-    name: Test
+    name: Test (${{ matrix.python }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.12'
+            extras: '[xarray,zarr]'
+          - python: '3.13'
+            extras: '[xarray,zarr]'
+          - python: '3.14'
+            extras: '[xarray,zarr]'
+          - python: '3.14t'
+            extras: '[xarray,zarr]'
+          # numcodecs and obstore do not ship 3.15 wheels yet, so the xarray and zarr tests skip.
+          - python: '3.15'
+            extras: ''
+          - python: '3.15t'
+            extras: ''
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
       - uses: dtolnay/rust-toolchain@stable
       - name: Install package and test dependencies
         working-directory: python
-        run: pip install '.[xarray,zarr]' pytest pytest-asyncio
+        run: pip install '.${{ matrix.extras }}' pytest pytest-asyncio
+      - name: Check the GIL stays disabled
+        if: endsWith(matrix.python, 't')
+        run: python -W error -c "import sys, gribberish; assert not sys._is_gil_enabled()"
       - name: Run tests
         working-directory: python
-        run: pytest tests/test_xarray_backend.py tests/test_zarr_codec.py -v
+        run: pytest tests/test_xarray_backend.py tests/test_zarr_codec.py tests/test_dataset_determinism.py tests/test_north_up_real_world.py -v
 
   sdist:
     runs-on: ubuntu-latest

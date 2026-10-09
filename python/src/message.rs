@@ -9,7 +9,7 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDateTime, PyList, PyTzInfo};
 
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct GribMessageMetadata {
     inner: MessageMetadata,
