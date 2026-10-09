@@ -101,7 +101,7 @@ impl DataRepresentationTemplate<f64> for CCSDSDataRepresentationTemplate {
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         let bits_per_val: usize = self.bit_count().into();
         if bits_per_val == 0 {
-            // Match the unscaled-reference convention used by simple packing.
+            // Constant field: all values equal the reference value
             return Ok(vec![self.reference_value() as f64; self.data_point_count()]);
         }
 

@@ -85,7 +85,7 @@ impl DataRepresentationTemplate<f64> for JPEGDataRepresentationTemplate {
 
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         if self.bit_count() == 0 {
-            // Match the unscaled-reference convention used by simple packing.
+            // Constant field: all values equal the reference value
             let count = DataRepresentationSection::from_data(&self.data).data_point_count();
             return Ok(vec![self.reference_value() as f64; count]);
         }
