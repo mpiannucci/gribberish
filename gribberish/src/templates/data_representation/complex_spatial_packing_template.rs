@@ -181,7 +181,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
 
         let group_widths = (0..ng).map(|ig| {
             if n_width_bits == 0 {
-                0
+                self.group_width_reference() as u32
             } else {
                 let start = group_widths_start + ig * n_width_bits;
                 let value = bits[start..start + n_width_bits].load_be::<u32>();
@@ -195,7 +195,7 @@ impl DataRepresentationTemplate<f64> for ComplexSpatialPackingDataRepresentation
         let group_lengths = (0..ng - 1)
             .map(|ig| {
                 if n_length_bits == 0 {
-                    0
+                    self.group_length_reference()
                 } else {
                     let start = group_lengths_start + ig * n_length_bits;
                     let value = bits[start..start + n_length_bits].load_be::<u32>();

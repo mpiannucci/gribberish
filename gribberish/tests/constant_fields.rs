@@ -40,6 +40,8 @@ fn constant_section(
     let length = match template {
         0 => 21,
         3 => 49,
+        40 => 23,
+        42 => 25,
         _ => 47,
     };
     let mut section = vec![0u8; length];
@@ -50,7 +52,7 @@ fn constant_section(
     section[11..15].copy_from_slice(&12.5f32.to_be_bytes());
     section[15..17].copy_from_slice(&signed_scale(binary_scale));
     section[17..19].copy_from_slice(&signed_scale(decimal_scale));
-    if template == 0 {
+    if matches!(template, 0 | 40 | 42) {
         return section;
     }
     section[21] = 1;
@@ -206,4 +208,37 @@ fn read_real_simple_packing_constant() {
     let values = message.data().unwrap();
     assert_eq!(values.len(), 1059 * 1799);
     assert!(values.iter().all(|&value| value == 192.12478637695312));
+}
+
+#[test]
+fn compressed_constants_use_reference_with_and_without_bitmap() {
+    for template in [40, 42] {
+        if template == 40 && !cfg!(feature = "jpeg") {
+            continue;
+        }
+        for count in [0, 1, 7] {
+            for decimal_scale in [-2, 0, 2] {
+                let section = constant_section(template, 0, count, 17, decimal_scale, 0);
+                let values = DataRepresentationSection::from_data(&section)
+                    .data_representation_template()
+                    .unwrap()
+                    .unpack(BitSlice::<u8, Msb0>::empty())
+                    .unwrap();
+                assert_eq!(values, vec![12.5; count as usize]);
+            }
+        }
+        for bitmap in [false, true] {
+            let bytes = constant_message(template, 0, bitmap);
+            let decoded = read_messages(&bytes).next().unwrap();
+            let values = decoded.data().unwrap();
+            assert_eq!(values.len(), 8);
+            for (index, value) in values.iter().enumerate() {
+                if bitmap && [1, 4, 6].contains(&index) {
+                    assert!(value.is_nan());
+                } else {
+                    assert_eq!(*value, 12.5);
+                }
+            }
+        }
+    }
 }
