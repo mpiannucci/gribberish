@@ -336,6 +336,30 @@ impl<'a> Message<'a> {
         Ok(product_definition.product_definition_template_number())
     }
 
+    /// Vertical coordinate values stored after the product definition template (GRIB2
+    /// section 4), such as ECMWF's hybrid level `pv` coefficients. `None` when the
+    /// message carries none.
+    pub fn vertical_coordinate_values(&self) -> Result<Option<Vec<f32>>, GribberishError> {
+        match self {
+            Message::Grib1 { .. } => Ok(None),
+            Message::Grib2 { .. } => {
+                let mut sections = self.sections();
+
+                let product_definition = unwrap_or_return!(
+                    sections.find_map(|s| match s {
+                        Section::ProductDefinition(product_definition) => Some(product_definition),
+                        _ => None,
+                    }),
+                    GribberishError::MessageError(
+                        "Product definition section not found when reading variable data".into()
+                    )
+                );
+
+                Ok(product_definition.vertical_coordinate_values())
+            }
+        }
+    }
+
     pub fn product_template(&self) -> Result<Box<dyn ProductTemplate>, GribberishError> {
         let mut sections = self.sections();
 
