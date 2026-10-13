@@ -6,7 +6,7 @@ use crate::{
     templates::template::{Template, TemplateType},
     utils::{iter::ScaleGribValueIterator, read_f32_from_bytes, read_u16_from_bytes},
 };
-use png::Decoder;
+use png::{Decoder, Transformations};
 
 pub struct PNGDataRepresentationTemplate {
     data: Vec<u8>,
@@ -76,17 +76,28 @@ impl DataRepresentationTemplate<f64> for PNGDataRepresentationTemplate {
     fn unpack(&self, bits: &BitSlice<u8, Msb0>) -> Result<Vec<f64>, GribberishError> {
         let bytes: Vec<u8> = bits.to_bitvec().into();
 
-        let decoder = Decoder::new(bytes.as_slice());
-        let mut reader = decoder.read_info().unwrap();
+        let png_error = |e: png::DecodingError| {
+            GribberishError::DataRepresentationTemplateError(format!("PNG decode failed: {e}"))
+        };
+
+        // GRIB2 template 5.41 packs each point as one big-endian integer spread across the
+        // image's samples: 1-8 bits as greyscale, 16 bits as 16-bit greyscale, 24 bits as
+        // RGB and 32 bits as RGBA. Expand sub-byte depths so every sample is a whole byte,
+        // then size each point from the decoded image rather than assuming two bytes.
+        let mut decoder = Decoder::new(bytes.as_slice());
+        decoder.set_transformations(Transformations::EXPAND);
+        let mut reader = decoder.read_info().map_err(png_error)?;
 
         let mut image_data: Vec<u8> = vec![0; reader.output_buffer_size()];
-        let _ = reader.next_frame(&mut image_data).unwrap();
+        let info = reader.next_frame(&mut image_data).map_err(png_error)?;
+        let image_data = &image_data[..info.buffer_size()];
 
-        let bytes_per_datapoint = self.bit_count_per_datapoint() / 8;
+        let bytes_per_sample = (info.bit_depth as usize).max(8) / 8;
+        let bytes_per_datapoint = bytes_per_sample * info.color_type.samples();
 
-        let values = (0..image_data.len())
-            .step_by(bytes_per_datapoint)
-            .map(|ib| read_u16_from_bytes(&image_data, ib).unwrap())
+        let values = image_data
+            .chunks_exact(bytes_per_datapoint)
+            .map(|point| point.iter().fold(0u32, |acc, &b| (acc << 8) | b as u32))
             .scale_value_by(
                 self.binary_scale_factor(),
                 self.decimal_scale_factor(),
