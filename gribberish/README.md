@@ -22,6 +22,8 @@ The following `features` are available:
 
 `jpeg`: Allows unpacking JPEG2000 encoded data messages
 
+`zarrs`: Provides `gribberish::zarr::GribberishCodec`, a read-only [`zarrs`](https://zarrs.dev) array-to-bytes codec that decodes chunks of GRIB message bytes. It reads the same `"gribberish"` codec metadata as the Python `gribberish.zarr.GribberishCodec`, so virtual Zarr stores written with the Python VirtualiZarr parser can be read with `zarrs`. The codec registers itself with `zarrs` automatically when the feature is enabled.
+
 By default, both `png` and `jpeg` are enabled.
 
 See [read.rs](tests/read.rs) for example usage for simple reading, or [message-dump](examples/message-dump/main.rs) for an example of dumping grib metadata to stdout.

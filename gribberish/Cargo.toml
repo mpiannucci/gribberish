@@ -24,12 +24,16 @@ serde_json = "1"
 thiserror = "1.0.60"
 bitflags = "2.6.0"
 libaec-sys = { version = "0.1.1", optional = true }
+zarrs = { version = "0.23", default-features = false, optional = true }
+inventory = { version = "0.3", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
 
 [features]
 default = ["png", "jpeg"]
 png = ["dep:png"]
 jpeg = ["dep:openjpeg-sys"]
 libaec = ["dep:libaec-sys"]
+zarrs = ["dep:zarrs", "dep:inventory", "dep:serde"]
 
 [dev-dependencies]
 clap = { version = "4.3.19", features = ["derive"] }
