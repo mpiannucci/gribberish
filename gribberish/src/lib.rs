@@ -8,6 +8,8 @@ pub mod message;
 pub mod message_metadata;
 pub mod sections;
 pub mod templates;
+#[cfg(feature = "zarrs")]
+pub mod zarr;
 
 pub use utils::iter::projection::adjust_latitude_values;
 pub use utils::iter::projection::adjust_longitude_values;
