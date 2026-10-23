@@ -1257,6 +1257,11 @@ fn build_group<'py>(
         var_metadata
             .set_item("generating_process", first.2.generating_process.to_string())
             .unwrap();
+        if let Some(pv) = first.2.vertical_coordinate_values.as_ref() {
+            var_metadata
+                .set_item("pv", PyArray1::from_slice(py, pv))
+                .unwrap();
+        }
         var_metadata
             .set_item(
                 "statistical_process",

@@ -27,6 +27,23 @@ impl<'a> ProductDefinitionSection<'a> {
         read_u16_from_bytes(self.data, 5).unwrap_or(0)
     }
 
+    /// The optional list of vertical coordinate values (octets 6-7 give the count) that
+    /// follows the product definition template, as IEEE 32-bit floats. ECMWF writes the
+    /// hybrid level `a` and `b` half-level coefficients here (the `pv` array).
+    pub fn vertical_coordinate_values(&self) -> Option<Vec<f32>> {
+        let count = self.coord_values_after_template() as usize;
+        if count == 0 {
+            return None;
+        }
+        let start = self.data.len().checked_sub(count * 4)?;
+        Some(
+            self.data[start..]
+                .chunks_exact(4)
+                .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+                .collect(),
+        )
+    }
+
     pub fn product_definition_template_number(&self) -> u16 {
         read_u16_from_bytes(self.data, 7).unwrap_or(0)
     }
