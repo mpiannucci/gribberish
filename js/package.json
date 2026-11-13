@@ -9,6 +9,20 @@
   },
   "license": "MIT",
   "browser": "browser.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "browser": "./browser.js",
+      "default": "./index.js"
+    },
+    "./zarr": {
+      "types": "./zarr.d.ts",
+      "browser": "./zarr.browser.js",
+      "default": "./zarr.js"
+    },
+    "./package.json": "./package.json"
+  },
   "keywords": [
     "napi-rs",
     "NAPI",
@@ -20,7 +34,11 @@
   "files": [
     "index.d.ts",
     "index.js",
-    "browser.js"
+    "browser.js",
+    "zarr.d.ts",
+    "zarr.js",
+    "zarr.browser.js",
+    "zarr-codec.cjs"
   ],
   "napi": {
     "binaryName": "gribberish-js",
@@ -70,7 +88,8 @@
     "oxlint": "^1.14.0",
     "prettier": "^3.6.2",
     "tinybench": "^6.0.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "zarrita": "^0.5.4"
   },
   "lint-staged": {
     "*.@(js|ts|tsx)": [

@@ -64,6 +64,17 @@ export declare function adjustLatitudeValues(latitudes: Array<number>): Array<nu
 export declare function adjustLongitudeValues(longitudes: Array<number>): Array<number>
 
 /**
+ * Decode one GRIB message the way the `gribberish` Zarr codec does, returning
+ * its values as a `Float64Array` in grid order. Backs the
+ * `@mattnucc/gribberish/zarr` codec and mirrors the Rust and Python codecs:
+ * `variable` of `"latitude"` or `"longitude"` decodes that coordinate from the
+ * message's grid (without decoding the data section); anything else decodes
+ * the data values. `adjustLongitudeRange` and `northUp` behave as in
+ * `dataAdjusted` / `latlngAdjusted`.
+ */
+export declare function decodeZarrChunk(buffer: Uint8Array, variable?: string | undefined | null, adjustLongitudeRange?: boolean | undefined | null, northUp?: boolean | undefined | null): Float64Array
+
+/**
  * One entry of a GRIB sidecar index file (NOAA wgrib2 `.idx` or ECMWF
  * open-data `.index`), locating a single message inside a GRIB file. Use the
  * offset/length as an HTTP Range request, then parse the fetched bytes with
