@@ -80,6 +80,10 @@ jobs:
           - host: ubuntu-latest
             target: wasm32-wasip1-threads
             build: yarn build --target wasm32-wasip1-threads
+            # Rust 1.100 links crt1-reactor.o itself, and napi-build 2.3 links it
+            # again (duplicate `_initialize`). The napi-build fix needs emnapi v2,
+            # still in beta, so stay on 1.99 until that ships.
+            toolchain: '1.99'
     name: stable - ${{ matrix.settings.target }} - node@24
     runs-on: ${{ matrix.settings.host }}
     defaults:
@@ -96,7 +100,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ matrix.settings.toolchain || 'stable' }}
           targets: ${{ matrix.settings.target }}
       - name: Cache cargo
         uses: actions/cache@v4
