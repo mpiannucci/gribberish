@@ -319,7 +319,7 @@ __metadata:
     prettier: "npm:^3.6.2"
     tinybench: "npm:^6.0.0"
     typescript: "npm:^5.9.2"
-    zarrita: "npm:^0.5"
+    zarrita: "npm:^0.5.4"
   languageName: unknown
   linkType: soft
 
@@ -3175,7 +3175,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zarrita@npm:^0.5":
+"zarrita@npm:^0.5.4":
   version: 0.5.4
   resolution: "zarrita@npm:0.5.4"
   dependencies:
