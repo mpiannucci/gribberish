@@ -62,5 +62,6 @@ export const GribMessageFactory = __napiModule.exports.GribMessageFactory
 export const GribMessageMetadataFactory = __napiModule.exports.GribMessageMetadataFactory
 export const adjustLatitudeValues = __napiModule.exports.adjustLatitudeValues
 export const adjustLongitudeValues = __napiModule.exports.adjustLongitudeValues
+export const decodeZarrChunk = __napiModule.exports.decodeZarrChunk
 export const parseGribIndex = __napiModule.exports.parseGribIndex
 export const parseMessagesFromBuffer = __napiModule.exports.parseMessagesFromBuffer

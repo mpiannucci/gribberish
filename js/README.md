@@ -73,6 +73,29 @@ works). ECMWF entries always carry explicit lengths, plus their MARS metadata
 verbatim under `keys`. Note that cfgrib's pickled `.idx` cache files are an
 unrelated format and not supported.
 
+## Zarr codec (`@mattnucc/gribberish/zarr`)
+
+A read-only [zarrita](https://github.com/manzt/zarrita.js) codec for Zarr v3
+arrays whose chunks are raw GRIB messages, like the virtual stores written by
+the gribberish VirtualiZarr parser. It reads the same `"gribberish"` codec
+metadata as the Python `gribberish.zarr.GribberishCodec` and the Rust `zarrs`
+codec (`var`, `adjust_longitude_range`, `north_up`) and decodes to `float32` or
+`float64`.
+
+```ts
+import * as zarr from 'zarrita'
+import { registerGribberishCodec } from '@mattnucc/gribberish/zarr'
+
+registerGribberishCodec(zarr.registry)
+
+const store = new zarr.FetchStore('https://example.com/hrrr.zarr')
+const tmp = await zarr.open.v3(zarr.root(store).resolve('TMP'), { kind: 'array' })
+const field = await zarr.get(tmp, [0, null, null])
+```
+
+zarrita is not a dependency of this package; pass in the registry of the copy
+you use. The codec only decodes, so writing to these arrays fails.
+
 ## WebAssembly targets
 
 WebAssembly packages are optional, so install with a wasm target selector instead of adding the package explicitly.
