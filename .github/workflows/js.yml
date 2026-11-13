@@ -73,7 +73,14 @@ jobs:
             build: yarn build --target x86_64-pc-windows-msvc
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            build: yarn build --target x86_64-unknown-linux-gnu --use-napi-cross
+            # cc-rs ignores napi-cross's TARGET_CC when host == target, so C deps
+            # would build against the runner's newer glibc. Name the cross tools
+            # (on PATH during `napi build`) via the target-specific variables.
+            build: >-
+              CC_x86_64_unknown_linux_gnu=x86_64-unknown-linux-gnu-gcc
+              CXX_x86_64_unknown_linux_gnu=x86_64-unknown-linux-gnu-g++
+              AR_x86_64_unknown_linux_gnu=x86_64-unknown-linux-gnu-ar
+              yarn build --target x86_64-unknown-linux-gnu --use-napi-cross
           - host: macos-latest
             target: aarch64-apple-darwin
             build: yarn build --target aarch64-apple-darwin
