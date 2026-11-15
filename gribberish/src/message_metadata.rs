@@ -58,6 +58,9 @@ pub struct MessageMetadata {
     pub probability_upper_limit: Option<f64>,
     pub is_anomaly: bool,
     pub wave_period_range: Option<WavePeriodRange>,
+    /// Vertical coordinate values after the product definition template, e.g. ECMWF's
+    /// hybrid level `pv` array (`a` half-level coefficients followed by `b`).
+    pub vertical_coordinate_values: Option<Vec<f32>>,
 }
 
 impl MessageMetadata {
@@ -195,6 +198,7 @@ impl<'a> TryFrom<&Message<'a>> for MessageMetadata {
             probability_upper_limit: message.probability_upper_limit()?,
             is_anomaly: message.is_anomaly()?,
             wave_period_range: message.wave_period_range()?,
+            vertical_coordinate_values: message.vertical_coordinate_values()?,
         })
     }
 }

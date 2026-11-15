@@ -753,6 +753,10 @@ pub enum MassProduct {
     #[abbrev = "SLOR"]
     #[unit = "numeric"]
     SlopeOfOrography = 22,
+    #[description = "natural logarithm of pressure in pa"]
+    #[abbrev = "LNSP"]
+    #[unit = "numeric"]
+    NaturalLogarithmOfPressure = 25,
     #[description = "mslp (eta model reduction)"]
     #[abbrev = "MSLET"]
     #[unit = "pa"]
@@ -981,6 +985,10 @@ pub enum PhysicalAtmosphericProperties {
     #[abbrev = "CAT"]
     #[unit = "%"]
     ClearAirTurbulence = 22,
+    #[description = "clear air turbulence (eddy dissipation rate)"]
+    #[abbrev = "CAT"]
+    #[unit = "m2/3s-1"]
+    ClearAirTurbulenceEddyDissipationRate = 29,
     #[description = "snow albedo"]
     #[abbrev = "ASN"]
     #[unit = "proportion"]

@@ -72,6 +72,14 @@ impl GribMessageMetadata {
         self.inner.wave_period_range
     }
 
+    /// Vertical coordinate values stored after the product definition template, such
+    /// as ECMWF's hybrid level `pv` array (`a` half-level coefficients followed by `b`),
+    /// or `None` when the message carries none.
+    #[getter]
+    fn vertical_coordinate_values(&self) -> Option<Vec<f32>> {
+        self.inner.vertical_coordinate_values.clone()
+    }
+
     #[getter]
     fn reference_date<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDateTime>> {
         // Dates are UTC; a None tzinfo would convert to machine-local naive time
