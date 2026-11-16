@@ -7,10 +7,10 @@ use gribberish::{
   adjust_longitude_values as adjust_longitude_values_core,
   data_message::DataMessage,
   index::parse_index,
-  message::{read_message, read_messages, scan_messages},
+  message::{Message, read_message, read_messages, scan_messages},
   message_metadata::{MessageMetadata, scan_message_metadata},
 };
-use napi::bindgen_prelude::Uint8Array;
+use napi::bindgen_prelude::{Float64Array, Uint8Array};
 use napi_derive::napi;
 
 #[napi(object)]
@@ -320,4 +320,49 @@ impl GribMessageMetadataFactory {
       inner: data_message,
     })
   }
+}
+
+/// Decode one GRIB message the way the `gribberish` Zarr codec does, returning
+/// its values as a `Float64Array` in grid order. Backs the
+/// `@mattnucc/gribberish/zarr` codec and mirrors the Rust and Python codecs:
+/// `variable` of `"latitude"` or `"longitude"` decodes that coordinate from the
+/// message's grid (without decoding the data section); anything else decodes
+/// the data values. `adjustLongitudeRange` and `northUp` behave as in
+/// `dataAdjusted` / `latlngAdjusted`.
+#[napi]
+pub fn decode_zarr_chunk(
+  buffer: Uint8Array,
+  variable: Option<String>,
+  adjust_longitude_range: Option<bool>,
+  north_up: Option<bool>,
+) -> napi::Result<Float64Array> {
+  let adjust_longitude_range = adjust_longitude_range.unwrap_or(false);
+  let north_up = north_up.unwrap_or(false);
+  let message = Message::from_data(&buffer, 0)
+    .ok_or_else(|| napi::Error::from_reason("Failed to read GRIB message"))?;
+  let projector = || {
+    message
+      .latlng_projector()
+      .map_err(|e| napi::Error::from_reason(format!("Failed to build projection: {e}")))
+  };
+
+  let values = match variable.as_deref() {
+    Some(coord @ ("latitude" | "longitude")) => {
+      let (lat, lng) = projector()?.lat_lng_adjusted(adjust_longitude_range, north_up);
+      if coord == "latitude" { lat } else { lng }
+    }
+    _ => {
+      let values = message
+        .data()
+        .map_err(|e| napi::Error::from_reason(format!("Failed to decode GRIB data: {e}")))?;
+      // The projector decides eligibility for both adjustments so data and
+      // coordinates stay aligned; build it only when needed.
+      if adjust_longitude_range || north_up {
+        projector()?.adjust_data(values, adjust_longitude_range, north_up)
+      } else {
+        values
+      }
+    }
+  };
+  Ok(Float64Array::new(values))
 }
