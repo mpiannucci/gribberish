@@ -253,29 +253,32 @@ impl LatLngProjection {
         }
     }
 
+    /// Converts a point in the grid's native coordinates (projected metres, or
+    /// lng/lat degrees for a plate carree grid) to `(lat, lng)`. A point the
+    /// projection cannot invert is `(NaN, NaN)`.
     pub fn project_xy(&self, x: f64, y: f64) -> (f64, f64) {
         match self {
-            LatLngProjection::PlateCaree(_) => (x, y),
+            LatLngProjection::PlateCaree(_) => (y, x),
             LatLngProjection::Projected(projection) => {
-                let projected = projection
+                let (lng, lat) = projection
                     .projection
-                    .project(x, y)
+                    .inverse_project(x, y)
                     .unwrap_or((f64::NAN, f64::NAN));
-                (projected.1, projected.0)
+                (lat, lng)
             }
         }
     }
 
+    /// Converts `(lat, lng)` to the grid's native `(x, y)` coordinates
+    /// (projected metres, or lng/lat degrees for a plate carree grid). A point
+    /// the projection cannot represent is `(NaN, NaN)`.
     pub fn project_latlng(&self, lat: f64, lng: f64) -> (f64, f64) {
         match self {
             LatLngProjection::PlateCaree(_) => (lng, lat),
-            LatLngProjection::Projected(projection) => {
-                let projected = projection
-                    .projection
-                    .inverse_project(lng, lat)
-                    .unwrap_or((f64::NAN, f64::NAN));
-                (projected.1, projected.0)
-            }
+            LatLngProjection::Projected(projection) => projection
+                .projection
+                .project(lng, lat)
+                .unwrap_or((f64::NAN, f64::NAN)),
         }
     }
 
@@ -938,5 +941,62 @@ mod tests {
         assert!(a.is_nan() && b.is_nan());
         let (a, b) = projection.project_latlng(0.0, f64::NAN);
         assert!(a.is_nan() && b.is_nan());
+    }
+
+    /// An HRRR-like Lambert conformal grid that projects cleanly everywhere.
+    fn lambert_grid() -> super::LatLngProjection {
+        use super::{GridProjection, ProjectedGrid, RegularCoordinateIterator};
+        use mappers::{projections::LambertConformalConic, Ellipsoid, Projection};
+
+        let lcc = LambertConformalConic::new(-97.5, 38.5, 38.5, 38.5, Ellipsoid::WGS84).unwrap();
+        // HRRR's first grid point.
+        let (x0, y0) = lcc.project(-122.719528, 21.138123).unwrap();
+        super::LatLngProjection::Projected(ProjectedGrid {
+            x: RegularCoordinateIterator::new(x0, 3_000.0, 4),
+            y: RegularCoordinateIterator::new(y0, 3_000.0, 3),
+            projection: GridProjection::LambertConformalConic(lcc),
+            projection_name: "lambert_conformal_conic".into(),
+            projection_params: HashMap::new(),
+        })
+    }
+
+    fn assert_close(actual: (f64, f64), expected: (f64, f64), tol: f64) {
+        assert!(
+            (actual.0 - expected.0).abs() < tol && (actual.1 - expected.1).abs() < tol,
+            "{actual:?} != {expected:?}"
+        );
+    }
+
+    #[test]
+    fn test_projected_point_conversions() {
+        let projection = lambert_grid();
+        let (lats, lngs) = projection.lat_lng();
+        let xs = projection.x();
+        let ys = projection.y();
+
+        // latlng_start/end are the first and last grid points as (lat, lng).
+        assert_close(projection.latlng_start(), (lats[0], lngs[0]), 1e-9);
+        assert_close(
+            projection.latlng_end(),
+            (lats[lats.len() - 1], lngs[lngs.len() - 1]),
+            1e-9,
+        );
+        assert_close(projection.latlng_start(), (21.138123, -122.719528), 1e-6);
+
+        // project_xy: (x, y) -> (lat, lng); project_latlng: (lat, lng) -> (x, y),
+        // round-tripping to within a millimetre.
+        let (lat, lng) = projection.project_xy(xs[1], ys[2]);
+        assert_close((lat, lng), (lats[2 * 4 + 1], lngs[2 * 4 + 1]), 1e-9);
+        assert_close(projection.project_latlng(lat, lng), (xs[1], ys[2]), 1e-3);
+    }
+
+    #[test]
+    fn test_plate_caree_point_conversions() {
+        let projection = platecaree_grid(10.0, -1.0, 3, 100.0, 2.0, 4);
+
+        assert_eq!(projection.latlng_start(), (10.0, 100.0));
+        assert_eq!(projection.latlng_end(), (8.0, 106.0));
+        assert_eq!(projection.project_xy(102.0, 9.0), (9.0, 102.0));
+        assert_eq!(projection.project_latlng(9.0, 102.0), (102.0, 9.0));
     }
 }
