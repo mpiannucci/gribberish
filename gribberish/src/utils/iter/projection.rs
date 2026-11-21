@@ -96,11 +96,15 @@ impl LatLngProjection {
                     x.current_index = 0;
                     x.clone()
                         .map(|x_coord| {
-                            let projected = projection
+                            // A point the projection cannot invert (e.g. mappers'
+                            // `InverseProjectionImpossible`) becomes NaN rather than
+                            // panicking, so the arrays keep the grid's shape. A panic
+                            // here aborts the host process in the JS bindings.
+                            let (lng, lat) = projection
                                 .projection
                                 .inverse_project(x_coord, y_coord)
-                                .expect("Failed to inverse project from xy to lnglat");
-                            (projected.1, projected.0)
+                                .unwrap_or((f64::NAN, f64::NAN));
+                            (lat, lng)
                         })
                         .collect::<Vec<(f64, f64)>>()
                 })
@@ -253,7 +257,10 @@ impl LatLngProjection {
         match self {
             LatLngProjection::PlateCaree(_) => (x, y),
             LatLngProjection::Projected(projection) => {
-                let projected = projection.projection.project(x, y).unwrap();
+                let projected = projection
+                    .projection
+                    .project(x, y)
+                    .unwrap_or((f64::NAN, f64::NAN));
                 (projected.1, projected.0)
             }
         }
@@ -263,7 +270,10 @@ impl LatLngProjection {
         match self {
             LatLngProjection::PlateCaree(_) => (lng, lat),
             LatLngProjection::Projected(projection) => {
-                let projected = projection.projection.inverse_project(lng, lat).unwrap();
+                let projected = projection
+                    .projection
+                    .inverse_project(lng, lat)
+                    .unwrap_or((f64::NAN, f64::NAN));
                 (projected.1, projected.0)
             }
         }
@@ -273,9 +283,19 @@ impl LatLngProjection {
         match self {
             LatLngProjection::PlateCaree(_) | LatLngProjection::Projected(_) => {
                 // Use lat_lng() to get normalized coordinates
+                // Points that failed to project are NaN; skip them so they don't
+                // poison the extent. An extent with no valid points is all NaN.
                 let (lat, lng) = self.lat_lng();
-                let (min_lat, max_lat) = lat.into_iter().minmax().into_option().unwrap();
-                let (min_lng, max_lng) = lng.into_iter().minmax().into_option().unwrap();
+                let extent = |values: Vec<f64>| {
+                    values
+                        .into_iter()
+                        .filter(|v| !v.is_nan())
+                        .minmax_by(|a, b| a.total_cmp(b))
+                        .into_option()
+                        .unwrap_or((f64::NAN, f64::NAN))
+                };
+                let (min_lat, max_lat) = extent(lat);
+                let (min_lng, max_lng) = extent(lng);
                 (min_lng, min_lat, max_lng, max_lat)
             }
         }
@@ -861,5 +881,62 @@ mod tests {
             }
         }
         assert_eq!(both, expected);
+    }
+
+    /// An HRRR-like Lambert conformal grid whose first row cannot be inverse
+    /// projected. `y` starts at 0 with an infinite step, so its rows are
+    /// `0 + inf * 0 = NaN` (mappers rejects it with `InverseProjectionImpossible`)
+    /// and `inf` (which inverts to the south pole).
+    fn lambert_grid_with_unprojectable_row() -> super::LatLngProjection {
+        use super::{GridProjection, ProjectedGrid, RegularCoordinateIterator};
+        use mappers::{projections::LambertConformalConic, Ellipsoid};
+
+        let lcc = LambertConformalConic::new(-97.5, 38.5, 38.5, 38.5, Ellipsoid::WGS84).unwrap();
+        super::LatLngProjection::Projected(ProjectedGrid {
+            x: RegularCoordinateIterator::new(-1_000_000.0, 3_000.0, 3),
+            y: RegularCoordinateIterator::new(0.0, f64::INFINITY, 2),
+            projection: GridProjection::LambertConformalConic(lcc),
+            projection_name: "lambert_conformal_conic".into(),
+            projection_params: HashMap::new(),
+        })
+    }
+
+    #[test]
+    fn test_failed_inverse_projection_is_nan_not_panic() {
+        let projection = lambert_grid_with_unprojectable_row();
+        let super::LatLngProjection::Projected(grid) = &projection else {
+            unreachable!()
+        };
+        assert!(
+            grid.projection
+                .inverse_project(-1_000_000.0, f64::NAN)
+                .is_err(),
+            "fixture should contain a point the projection cannot invert"
+        );
+
+        let (lats, lngs) = projection.lat_lng();
+
+        // The arrays keep the full grid shape: 2 rows x 3 columns.
+        assert_eq!(lats.len(), 6);
+        assert_eq!(lngs.len(), 6);
+        // The unprojectable row is NaN...
+        assert!(lats[..3].iter().all(|v| v.is_nan()));
+        assert!(lngs[..3].iter().all(|v| v.is_nan()));
+        // ...and the row that does project is unaffected.
+        assert!(lats[3..].iter().all(|v| v.is_finite()));
+        assert!(lngs[3..].iter().all(|v| v.is_finite()));
+
+        // Everything built on lat_lng() survives the NaNs too.
+        let (lats, lngs) = projection.lat_lng_adjusted(true, true);
+        assert_eq!((lats.len(), lngs.len()), (6, 6));
+        let (min_lng, min_lat, max_lng, max_lat) = projection.bbox();
+        assert!([min_lng, min_lat, max_lng, max_lat]
+            .iter()
+            .all(|v| v.is_finite()));
+
+        let (a, b) = projection.project_xy(f64::NAN, 0.0);
+        assert!(a.is_nan() && b.is_nan());
+        let (a, b) = projection.project_latlng(0.0, f64::NAN);
+        assert!(a.is_nan() && b.is_nan());
     }
 }

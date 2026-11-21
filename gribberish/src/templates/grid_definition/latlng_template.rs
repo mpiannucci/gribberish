@@ -3,6 +3,7 @@ use bitvec::prelude::*;
 use super::earth_shape::EarthShapeDefinition;
 use super::grid_definition_template::GridDefinitionTemplate;
 use super::tables::{EarthShape, ScanningMode, ScanningModeFlags};
+use crate::error::GribberishError;
 use crate::templates::template::{Template, TemplateType};
 use crate::utils::iter::projection::{
     LatLngProjection, PlateCareeProjection, RegularCoordinateIterator,
@@ -209,7 +210,7 @@ impl GridDefinitionTemplate for LatLngTemplate {
         self.parallel_point_count() as usize
     }
 
-    fn projector(&self) -> LatLngProjection {
+    fn projector(&self) -> Result<LatLngProjection, GribberishError> {
         let lat_iter = RegularCoordinateIterator::new(
             self.start_latitude(),
             self.j_direction_increment(),
@@ -222,11 +223,11 @@ impl GridDefinitionTemplate for LatLngTemplate {
             self.x_count(),
         );
 
-        LatLngProjection::PlateCaree(PlateCareeProjection {
+        Ok(LatLngProjection::PlateCaree(PlateCareeProjection {
             latitudes: lat_iter,
             longitudes: lon_iter,
             projection_name: self.proj_name(),
             projection_params: self.proj_params(),
-        })
+        }))
     }
 }

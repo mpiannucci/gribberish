@@ -826,7 +826,7 @@ impl<'a> Message<'a> {
 
     pub fn latlng_projector(&self) -> Result<LatLngProjection, GribberishError> {
         let grid_template = self.grid_template()?;
-        Ok(grid_template.projector())
+        grid_template.projector()
     }
 
     pub fn data_template_number(&self) -> Result<u16, GribberishError> {

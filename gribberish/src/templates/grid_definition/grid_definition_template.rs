@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::utils::iter::projection::LatLngProjection;
+use crate::{error::GribberishError, utils::iter::projection::LatLngProjection};
 
 pub trait GridDefinitionTemplate {
     fn proj_string(&self) -> String;
@@ -11,5 +11,8 @@ pub trait GridDefinitionTemplate {
     fn is_regular_grid(&self) -> bool;
     fn y_count(&self) -> usize;
     fn x_count(&self) -> usize;
-    fn projector(&self) -> LatLngProjection;
+    /// Builds the coordinate projector for this grid. Fails when the grid's
+    /// projection parameters are invalid or its first grid point cannot be
+    /// projected, since no coordinates can be derived in either case.
+    fn projector(&self) -> Result<LatLngProjection, GribberishError>;
 }

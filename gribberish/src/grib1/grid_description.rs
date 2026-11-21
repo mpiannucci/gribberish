@@ -2,6 +2,7 @@
 ///
 /// The GDS describes the grid geometry and projection.
 /// This implementation focuses on lat/lon grids (type 0) initially.
+use crate::error::GribberishError;
 use crate::templates::grid_definition::grid_definition_template::GridDefinitionTemplate;
 use crate::utils::convert::read_u16_from_bytes;
 use crate::utils::iter::projection::{
@@ -313,8 +314,8 @@ impl GridDefinitionTemplate for Grib1Grid {
         ni
     }
 
-    fn projector(&self) -> LatLngProjection {
-        match self {
+    fn projector(&self) -> Result<LatLngProjection, GribberishError> {
+        let projector = match self {
             Grib1Grid::LatLon(grid) => {
                 // Determine the direction increment based on scanning mode
                 let lat_start = grid.lat1;
@@ -387,7 +388,8 @@ impl GridDefinitionTemplate for Grib1Grid {
                     projection_params: self.proj_params(),
                 })
             }
-        }
+        };
+        Ok(projector)
     }
 }
 
