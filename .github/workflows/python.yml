@@ -124,13 +124,17 @@ jobs:
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform.deployment_target }}
     strategy:
       matrix:
         platform:
-          - runner: macos-14
+          - runner: macos-15-intel
             target: x86_64
-          - runner: macos-14
+            deployment_target: "10.12"
+          - runner: macos-15
             target: aarch64
+            deployment_target: "11.0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
