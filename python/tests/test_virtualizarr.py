@@ -131,11 +131,11 @@ def test_level_type_conflict_groups():
 
 
 def test_missing_level_does_not_break_datatree():
-    """A variable with a missing/unrecognized surface type must not create an
-    unnamed group. It keeps its product-kind segment but no level segment, so it
-    lands at a top-level kind group (`/instant`) rather than an empty-named one.
-    The fixture has TMP at two levels plus TCDC on a "reserved" surface that
-    gribberish maps to a missing level type.
+    """A reserved local surface type must not create an unnamed group.
+    Surface type 195 is decoded as the named level `local195`, so TCDC keeps
+    both its level and product-kind segments and lands at `/local195/instant`
+    rather than an empty-named group. The fixture has TMP at two levels plus
+    TCDC on that reserved surface.
     """
     store = _store_for("nbm-multilevel-tcdc.grib2")
     vdt = store.to_virtual_datatree()
@@ -144,8 +144,8 @@ def test_missing_level_does_not_break_datatree():
     assert "" not in keys, "an unnamed group leaked into the hierarchy"
     # The well-formed variable still splits by level type.
     assert {"hag", "sfc"}.issubset(set(vdt.children))
-    # The missing-level variable is preserved in a top-level kind group.
-    assert "tcdc" in vdt["instant"].dataset.data_vars
+    # The reserved-surface variable is preserved under its named level group.
+    assert "tcdc" in vdt["local195/instant"].dataset.data_vars
 
 
 def test_decoded_values_match_direct_parse():
