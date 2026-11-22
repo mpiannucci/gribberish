@@ -153,12 +153,12 @@ impl Grib1ProductDefinitionSection {
         self.data[17]
     }
 
-    /// Get P1 - Period of time (or first part)
+    /// Get raw P1 octet (the high byte of the period for time range indicator 10).
     pub fn p1(&self) -> u8 {
         self.data[18]
     }
 
-    /// Get P2 - Period of time (or second part)
+    /// Get raw P2 octet (the low byte of the period for time range indicator 10).
     pub fn p2(&self) -> u8 {
         self.data[19]
     }
@@ -178,8 +178,13 @@ impl Grib1ProductDefinitionSection {
     /// Calculate forecast duration from P1, P2, and time unit
     pub fn forecast_duration(&self) -> Result<Duration, String> {
         let time_unit = self.time_unit();
-        let p1 = self.p1() as i64;
         let time_range = self.time_range_indicator();
+        // WMO GRIB1 Code Table 5: indicator 10 stores a single forecast
+        // period in octets 19-20, most significant octet first.
+        let period = match time_range {
+            10 => u16::from_be_bytes([self.p1(), self.p2()]) as i32,
+            _ => self.p1() as i32,
+        };
 
         // Convert time unit to Duration
         let unit_duration = match time_unit {
@@ -191,16 +196,15 @@ impl Grib1ProductDefinitionSection {
             10 => Duration::hours(3),
             11 => Duration::hours(6),
             12 => Duration::hours(12),
-            13 => Duration::seconds(1),
+            13 => Duration::minutes(15),
+            14 => Duration::minutes(30),
+            254 => Duration::seconds(1),
             _ => return Err(format!("Unsupported time unit: {}", time_unit)),
         };
 
-        // For now, simple handling: use P1 for instantaneous forecasts
-        // Time range indicator 0 = forecast product valid at reference + P1
-        match time_range {
-            0 | 1 => Ok(unit_duration * p1 as i32),
-            _ => Ok(unit_duration * p1 as i32), // Simplified for now
-        }
+        // Other indicators retain the existing P1-based handling; interval
+        // and statistical products need separate start/end time semantics.
+        Ok(unit_duration * period)
     }
 
     /// Get sub-center ID (if present in extended PDS)

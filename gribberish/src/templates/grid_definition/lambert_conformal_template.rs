@@ -316,7 +316,7 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
         self.number_of_points_on_x_axis() as usize
     }
 
-    fn projector(&self) -> LatLngProjection {
+    fn projector(&self) -> Result<LatLngProjection, GribberishError> {
         let mut start_lng = self.longitude_of_first_grid_point();
         start_lng = if start_lng > 180.0 {
             start_lng - 360.0
@@ -324,16 +324,15 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
             start_lng
         };
 
-        let projection = self.projection().expect("Invalid projection");
+        let projection = self.projection()?;
 
         let (start_x, start_y) = projection
             .project(start_lng, self.latitude_of_first_grid_point())
             .map_err(|e| {
-                format!(
+                GribberishError::GridTemplateError(format!(
                     "Failed to project start coordinates to lambert conformal conic coords: {e}"
-                )
-            })
-            .expect("Failed to project");
+                ))
+            })?;
 
         let y_iter = RegularCoordinateIterator::new(
             start_y,
@@ -347,12 +346,12 @@ impl GridDefinitionTemplate for LambertConformalTemplate {
             self.number_of_points_on_x_axis() as usize,
         );
 
-        LatLngProjection::Projected(ProjectedGrid {
+        Ok(LatLngProjection::Projected(ProjectedGrid {
             x: x_iter,
             y: y_iter,
             projection: GridProjection::LambertConformalConic(projection),
             projection_name: self.proj_name(),
             projection_params: self.proj_params(),
-        })
+        }))
     }
 }
