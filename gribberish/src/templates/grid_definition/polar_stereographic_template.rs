@@ -181,20 +181,24 @@ impl GridDefinitionTemplate for PolarStereographicTemplate {
         self.number_of_points_on_x_axis() as usize
     }
 
-    fn projector(&self) -> LatLngProjection {
-        let projection = self.projection().expect("Invalid projection");
+    fn projector(&self) -> Result<LatLngProjection, GribberishError> {
+        let projection = self.projection()?;
         let start_lng = wrap_longitude(self.longitude_of_first_grid_point());
         let (start_x, start_y) = projection
             .project(start_lng, self.latitude_of_first_grid_point())
-            .expect("Failed to project polar stereographic start coordinates");
+            .map_err(|e| {
+                GribberishError::GridTemplateError(format!(
+                    "Failed to project polar stereographic start coordinates: {e}"
+                ))
+            })?;
 
-        LatLngProjection::Projected(ProjectedGrid {
+        Ok(LatLngProjection::Projected(ProjectedGrid {
             x: RegularCoordinateIterator::new(start_x, self.x_step(), self.x_count()),
             y: RegularCoordinateIterator::new(start_y, self.y_step(), self.y_count()),
             projection: GridProjection::PolarStereographic(projection),
             projection_name: self.proj_name(),
             projection_params: self.proj_params(),
-        })
+        }))
     }
 }
 
